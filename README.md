@@ -1,12 +1,15 @@
-# Aurora
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/aurora-logo-with-name-dark.png">
+    <img src=".github/assets/aurora-logo-with-name.png" width="300" alt="Aurora — agent orchestrateur OpenCode">
+  </picture>
 
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Last Commit](https://img.shields.io/github/last-commit/himuraxp/opencode-config.svg)](https://github.com/himuraxp/opencode-config/commits/main)
-[![OpenCode Compatible](https://img.shields.io/badge/OpenCode-Compatible-brightgreen.svg)](https://opencode.ai)
+  [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) [![Last Commit](https://img.shields.io/github/last-commit/himuraxp/opencode-config.svg)](https://github.com/himuraxp/opencode-config/commits/main) [![OpenCode Compatible](https://img.shields.io/badge/OpenCode-Compatible-brightgreen.svg)](https://opencode.ai)
 
-> **La référence OpenCode pour les workflows IA en production — Angular, Node.js, NestJS, Astro.**
+  > **La référence OpenCode pour les workflows IA en production — Angular, Node.js, NestJS, Astro.**
 
-Forkable. Multi-couches. Prête à l'emploi.
+  Forkable. Multi-couches. Prête à l'emploi.
+</div>
 
 ---
 

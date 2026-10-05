@@ -1,8 +1,10 @@
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/aurora-logo-with-name-dark.png">
-    <img src=".github/assets/aurora-logo-with-name.png" width="300" alt="Aurora — agent orchestrateur OpenCode">
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/aurora-logo-without-name-dark.png">
+    <img src=".github/assets/aurora-logo-without-name.png" width="300" alt="Logo Aurora">
   </picture>
+
+  <h1>Aurora</h1>
 
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) [![Last Commit](https://img.shields.io/github/last-commit/himuraxp/aurora-ai.svg)](https://github.com/himuraxp/aurora-ai/commits/main) [![OpenCode Compatible](https://img.shields.io/badge/OpenCode-Compatible-brightgreen.svg)](https://opencode.ai)
 
@@ -15,12 +17,129 @@
 
 ---
 
+## Pourquoi Aurora ?
+
+Les agents IA (OpenCode, Cursor, Claude...) ne savent pas quel standard utiliser à moins que vous le leur disiez — et ils oublient tout entre deux sessions. **Aurora** transforme OpenCode en équipe d'ingénierie orchestrée et auto-documentée.
+
+**Ce que vous obtenez :**
+
+- **18 agents spécialisés + 4 agents plugin** — rôles ingénierie (reviewer, tester, security, cybersec, architect, designer, mobile...) et équipe Search & Growth (atlas, crawler, sage, scribe, pulse, echo, beacon)
+- **16 standards universels** — workflow, review adversariale, vérification, commits, limites d'exploration, correction d'erreurs, anti-patterns, format de retour des sous-agents...
+- **33 skills réutilisables** — de `commit` et `create-mr` à `ai-cowork` (boucle autonome Aurora ↔ ChatGPT) et la suite accessibilité de 17 sous-skills
+- **Mémoire projet persistante** — 7 documents `docs/ai/` lus automatiquement en début de session : les agents ne perdent jamais le contexte
+- **14 modèles avec fallback automatique** — contexte 250k → 1M, assignation des agents par coût
+- **Conventions Angular 20+** — standalone, signals, inject(), Jest
+- **Exemples prêts à l'emploi** — Angular, API Node.js, monorepo (dans `examples/`)
+- **Setup reproductible** — même comportement sur toutes les machines et tous les projets
+
+| Bénéfice | Concrètement |
+|----------|--------------|
+| **Cohérence** | Même comportement des agents sur toutes les machines |
+| **Gain de temps** | Initialisation d'un projet en 3 secondes |
+| **Qualité** | Standards intégrés + review adversariale + audits read-only + limites d'exploration |
+| **Traçabilité** | Chaque agent documente son plan, ses décisions et son avancement |
+| **Sécurité** | Checklist sécurité automatique à chaque review |
+| **Mémoire de session** | BUFFER, INDEX et WARNINGS pour les projets longs et complexes |
+
+→ [Quick Start](#quick-start) — opérationnel en moins de 2 minutes.
+
+## Sommaire
+
+- [Pourquoi Aurora ?](#pourquoi-aurora-)
+- [Quick Start](#quick-start)
+- [Agent State Layer](#agent-state-layer)
+- [Configuration](#configuration)
+- [Modèles et Fallback](#modèles-et-fallback)
+- [Mémoire projet](#mémoire-projet)
+- [Architecture](#architecture)
+- [Comment l'utiliser ?](#comment-lutiliser-)
+- [Comment personnaliser ?](#comment-personnaliser-)
+- [Documentation](#documentation)
+- [FAQ](#faq)
+- [Structure du repo](#structure-du-repo)
+- [Principe de priorité](#principe-de-priorité)
+
+---
+
+## Quick Start
+
+### 1. Installer (première fois)
+
+```bash
+git clone https://github.com/himuraxp/aurora-ai.git ~/.config/opencode-config
+cd ~/.config/opencode-config
+npm run setup
+```
+
+> Équivalent bash : `~/.config/opencode-config/scripts/setup.sh`
+
+`setup.sh` est interactif : vérifie les prérequis (Node.js 18+, npm), installe ou met à jour `opencode-ai` (npm global) et `rtk` (Homebrew sur macOS), propose les MCP servers, copie agents, standards, frameworks et fichiers de config, et demande interactivement les variables d'environnement (clé API, endpoints).
+
+> Les secrets vivent dans `~/.config/opencode/.env` (permissions 600, jamais versionné) et dans un **bloc managé** idempotent de votre shell rc — la clé API n'existe jamais en deux copies. Détails dans [Configuration](#configuration).
+
+Si `.env` existe déjà avec les variables requises, l'étape de configuration est ignorée. Pour reconfigurer : `npm run setup -- --force`.
+
+### 2. Mettre à jour (modifications ultérieures)
+
+```bash
+cd ~/.config/opencode-config
+git pull
+npm run update
+```
+
+> Équivalent bash : `./scripts/install.sh`
+
+`install.sh` affiche pour chaque fichier s'il est `new`, `updated` ou `unchanged` et ne réécrit que les fichiers modifiés. Options :
+
+```bash
+npm run setup             # mise à jour complète (config + dépendances + vérifications)
+npm run prune             # nettoyer les fichiers orphelins après renommages/suppressions
+npm run update -- --no-config   # mettre à jour sans toucher à opencode.json / plugins
+```
+
+### 3. Initialiser un projet
+
+```bash
+cd mon-projet
+~/.config/opencode-config/scripts/init-project.sh
+# prévisualiser sans rien modifier : ajouter --dry-run
+```
+
+Résultat :
+
+```txt
+mon-projet/
+├── AGENTS.md
+└── docs/
+    └── ai/
+        ├── PLAN.md       → plan technique courant
+        ├── STATUS.md     → état d'avancement
+        ├── DECISIONS.md  → décisions structurantes
+        ├── CHANGELOG.md  → historique des sessions
+        ├── BUFFER.md     → mémoire tampon de session
+        ├── INDEX.md      → cartographie du projet
+        └── WARNINGS.md   → alertes et dettes techniques
+```
+
+### 4. Synchroniser les templates d'un projet existant
+
+```bash
+~/.config/opencode-config/scripts/sync-project.sh
+# prévisualiser sans rien modifier : ajouter --dry-run
+```
+
+N'écrase jamais les fichiers existants : il crée des fichiers `.new` (ou horodatés) à fusionner manuellement.
+
+**Opérationnel en quelques minutes.**
+
+---
+
 ## Agent State Layer
 
 Les agents IA perdent le contexte à chaque nouvelle session. Ce repository résout ce problème avec une couche de mémoire persistante :
 
 | Document | Problème résolu |
-|----------|---------------|
+|----------|----------------|
 | **BUFFER.md** | Interruptions de session — snapshot de reprise |
 | **INDEX.md** | Lectures inutiles — cartographie du projet en un coup d'œil |
 | **WARNINGS.md** | Régressions — alertes actives avant tout changement |
@@ -38,117 +157,9 @@ Avec l'étape **REVIEW** (examen contradictoire) obligatoire avant de considére
 
 ---
 
-## Why this project?
+## Configuration
 
-Les agents IA (OpenCode, Cursor, Claude...) ne savent pas quel standard utiliser à moins que vous le leur disiez.
-
-Ce repo apporte :
-
-- **Agents spécialisés** (repo) : aurora (principal), aurora-heavy (tâches complexes), reviewer, tester, security (défensif), cybersec (offensif/pentest), architect, spark (sous-agent léger), vision (multimodal), designer (UX/UI/DA/DS), mobile (iOS/Android/RN/Flutter) — **plus les agents du plugin oh-my-opencode-slim** : explorer (recherche codebase), fixer (exécution de spec), librarian (docs externes), oracle (conseil technique)
-- **Équipe Search & Growth** : atlas (SEO strategy), crawler (technical SEO), sage (AIO/GEO), scribe (SEO content), pulse (growth marketing), echo (social distribution), beacon (analytics)
-- **Standards de développement** : workflow, communication, vérification, escalation, commits, audit, création d'artefacts, mémoire de session, limites d'exploration, correction d'erreurs, anti-patterns, format de retour JSON des sous-agents
-- **Skills réutilisables** : accessibility, ai-cowork, allow-command, clonedeps, code-review, codemap, commit, create-mr, deepwork, deployment-changelog, figma-ds-sync, gitlab-ci, gitlab-feature-planner, gitlab-issues, gitlab-summary, image-transparent-background, laravel-cruddy-by-design, loop-engineering, mr-review, mr-review-feedback, new-worktree, oh-my-opencode-slim, pre-mr-review, radio-tag-genres, readme, reflect, release-smoke-test, review-gap-analyzer, simplify, translate-doc, user-stories, verification-planning, worktrees
-- **Co-working IA** : skill `ai-cowork` — boucle de collaboration autonome Aurora ↔ ChatGPT (ChatGPT briefe et valide, Aurora travaille) pilotée via le MCP `browser-debug`
-- **Conventions Angular 20+** : standalone, signals, inject(), tests Jest
-- **Review adversarial** : examen contradictoire obligatoire avant déclaration de fin de tâche
-- **Audit read-only** : health-check multi-axes sans modification de code
-- **Limites d'exploration** : délimitation stricte des investigations, subagents pour les recherches lourdes (> 15 fichiers)
-- **Mémoire persistante pour agents IA** : 7 documents de session (PLAN, STATUS, DECISIONS, CHANGELOG, BUFFER, INDEX, WARNINGS)
-- **Anti-patterns** : détection des 5 patterns d'échec courants (session fourre-tout, correction en spirale, sur-spécification, confiance sans vérification, exploration infinie)
-- **Création homogène d'artefacts** : règles pour ajouter standards, agents, frameworks et templates sans doublons
-- **Gestion des échecs de sous-agents** : procédure obligatoire constater → diagnostiquer → agir → informer (voir `delegation-failure.md`)
-- **Format de retour structuré** : tous les sous-agents retournent un JSON parsable pour consolidation déterministe, aucune exception (voir `agent-output.md`)
-- **Exemples prêts à l'emploi** : projets Angular, Node.js API et monorepo (dans `examples/`)
-- **Structure reproductible** : même comportement sur toutes les machines et tous les projets
-
----
-
-## Quick Start
-
-### 1. Installer la configuration complète (première fois)
-
-```bash
-git clone https://github.com/himuraxp/aurora-ai.git ~/.config/opencode-config
-cd ~/.config/opencode-config
-npm run setup
-```
-
-> Équivalent bash : `~/.config/opencode-config/scripts/setup.sh`
-
-`setup.sh` est un script interactif qui :
-- Vérifie les prérequis (Node.js 18+, npm)
-- Installe ou met à jour `opencode-ai` (npm global) et `rtk` (Homebrew sur macOS)
-- Propose d'installer les MCP servers (chrome-devtools auto, iOS Simulator optionnel avec idb-companion + fb-idb)
-- Copie agents, standards, frameworks et fichiers de config
-- Installe les dépendances npm des plugins
-- Demande interactivement les variables d'environnement (clé API, endpoints)
-- Écrit `~/.config/opencode/.env` (permissions 600, jamais versionné)
-- Écrit le **bloc managé** dans le shell rc (`~/.zshrc` sous zsh) : export de la
-  clé API Infomaniak AI et des valeurs `IDB_*` du MCP iOS. Idempotent (jamais de
-  doublon) et déplace automatiquement les exports préexistants de ces variables
-  dans le bloc — la clé n'existe jamais en deux copies
-- Vérifie que tout est fonctionnel
-
-Si `.env` existe déjà et contient les variables requises, l'étape de configuration est automatiquement skipée. Utilisez `--force` pour reconfigurer :
-
-```bash
-npm run setup -- --force
-# ou: ~/.config/opencode-config/scripts/setup.sh --force
-```
-
-Si une mise à jour de `opencode-ai` ou `rtk` est disponible, `setup.sh` propose de la faire.
-
-### 2. Mettre à jour la configuration (modifications ultérieures)
-
-```bash
-cd ~/.config/opencode-config
-git pull
-npm run update
-```
-
-> Équivalent bash : `./scripts/install.sh`
-
-`install.sh` affiche pour chaque fichier s'il est `new`, `updated` ou `unchanged`. Seuls les fichiers modifiés sont réécrits.
-
-Pour une mise à jour complète (config + dépendances + vérification) :
-
-```bash
-cd ~/.config/opencode-config
-git pull
-npm run setup
-```
-
-Après un renommage ou une suppression de standard, nettoyer les anciens fichiers installés :
-
-```bash
-npm run prune
-# ou: ./scripts/install.sh --prune
-```
-
-Pour mettre à jour sans toucher aux fichiers de config (`opencode.json`, plugins) :
-
-```bash
-npm run update -- --no-config
-# ou: ./scripts/install.sh --no-config
-```
-
-Cela installe dans `~/.config/opencode/` :
-
-```txt
-~/.config/opencode/
-├── agents/                    # Personnalités IA
-├── standards/                 # Comportements universels
-├── frameworks/                # Règles par stack technique
-├── opencode.json              # Config principale (providers, models, permissions, MCP)
-├── oh-my-opencode-slim.json   # Presets sous-agents
-├── package.json               # Dépendances plugins
-├── plugins/
-│   └── rtk.ts                 # Plugin RTK (token savings)
-├── .env                       # Secrets (jamais versionné)
-└── .env.example               # Template des variables d'environnement
-```
-
-### 3. Variables d'environnement
+### Variables d'environnement
 
 OpenCode ne charge **pas** les fichiers `.env` : les références `{env:...}` de
 `opencode.json` lisent uniquement l'environnement du shell. D'où deux emplacements :
@@ -175,7 +186,7 @@ directement. Pour la clé et les valeurs `IDB_*`, utilisez `setup.sh --force`
 (Enter pour garder, nouvelle valeur pour remplacer) — ou éditez le bloc managé
 du shell rc.
 
-### 4. MCP Servers
+### MCP Servers
 
 La configuration inclut six MCP servers dans `opencode.json` :
 
@@ -226,60 +237,29 @@ MCP ios-simulator ne lit pas `.env`) :
 | `IDB_UDID` | UDID du simulateur iOS cible (auto-détecté par `setup.sh`) |
 | `IDB_PATH` | Chemin vers les binaires `idb` (défaut: `~/.local/idb-venv/bin:...`) |
 
-### 5. Initialiser un projet
-
-```bash
-cd mon-projet
-~/.config/opencode-config/scripts/init-project.sh
-# ou depuis le repo: npm run init-project
-```
-
-Pour prévisualiser sans rien modifier :
-
-```bash
-~/.config/opencode-config/scripts/init-project.sh --dry-run
-# ou depuis le repo: npm run init-project -- --dry-run
-```
-
-Résultat :
+### Ce qui est installé
 
 ```txt
-mon-projet/
-├── AGENTS.md
-└── docs/
-    └── ai/
-        ├── PLAN.md       → plan technique courant
-        ├── STATUS.md     → état d'avancement
-        ├── DECISIONS.md  → décisions structurantes
-        ├── CHANGELOG.md  → historique des sessions
-        ├── BUFFER.md     → mémoire tampon de session
-        ├── INDEX.md      → cartographie du projet
-        └── WARNINGS.md   → alertes et dettes techniques
+~/.config/opencode/
+├── agents/                    # Personnalités IA
+├── standards/                 # Comportements universels
+├── frameworks/                # Règles par stack technique
+├── opencode.json              # Config principale (providers, models, permissions, MCP)
+├── oh-my-opencode-slim.json   # Presets sous-agents
+├── package.json               # Dépendances plugins
+├── plugins/
+│   └── rtk.ts                 # Plugin RTK (token savings)
+├── .env                       # Secrets (jamais versionné)
+└── .env.example               # Template des variables d'environnement
 ```
 
-### 6. Synchroniser un projet existant
-
-```bash
-~/.config/opencode-config/scripts/sync-project.sh
-# ou depuis le repo: npm run sync
-```
-
-Pour prévisualiser sans rien modifier :
-
-```bash
-~/.config/opencode-config/scripts/sync-project.sh --dry-run
-# ou depuis le repo: npm run sync -- --dry-run
-```
-
-Par défaut, le script n'écrase pas les fichiers existants. Il crée des fichiers `.new` si une version existe déjà. Si un `.new` existe déjà, il crée un fichier horodaté pour ne pas écraser une fusion en cours.
-
-Opérationnel en moins de 2 minutes.
+---
 
 ## Modèles et Fallback
 
-### 17 modèles configurés
+### 14 modèles configurés
 
-La configuration utilise **17 modèles** répartis en 6 catégories :
+La configuration utilise **14 modèles** répartis en 6 catégories :
 
 | Catégorie | Modèles | Context max | Coût (input/output) | Usage |
 |-----------|---------|-------------|---------------------|-------|
@@ -289,7 +269,7 @@ La configuration utilise **17 modèles** répartis en 6 catégories :
 | | Kimi-K2.6 | 256k | $0.60 / $3.00 | Fallback gros contextes |
 | | Qwen3.5-397B | 204k | $0.80 / $3.60 | Multimodal natif (image+video), disponible sur demande |
 | | Qwen3.5-122B | 200k | $0.40 / $3.20 | Intermédiaire Qwen, output 100k |
-| **Léger** | Ministral-3 (14B) | 80k | $0.30 / $0.40 | Modèle léger (non utilisé par défaut) |
+| **Léger** | Ministral-3 (14B) | 80k | $0.30 / $0.40 | Modèle léger — réservé aux agents plugin `explorer`/`librarian` |
 | | Gemma-4-31B | 100k | $0.20 / $0.40 | Tâches générales |
 | | Apertus-70B | 100k | $0.70 / $2.50 | Tâches générales |
 | **Ultra-léger** | **Nemotron-3-Nano (30B)** | **1M** | **$0.05 / $0.20** | **Fallback ultime, gros contextes** |
@@ -300,7 +280,7 @@ La configuration utilise **17 modèles** répartis en 6 catégories :
 
 ### Fallback automatique
 
-Quand un prompt dépasse la limite de contexte d'un modèle, OpenCode bascule **automatiquement** vers un modèle avec plus de contexte :
+Quand un prompt dépasse la limite de contexte d'un modèle, OpenCode bascule **automatiquement** vers un modèle avec plus de contexte. Chaînes notables :
 
 ```
 Ministral-3 (80k)      → Mistral-Small-4 (256k) → Kimi-K2.6 → Nemotron-3-Nano (1M)
@@ -315,9 +295,9 @@ Qwen3.5-397B (204k)    → Kimi-K2.6 (256k)       → Nemotron-3-Nano (1M)
 
 | Agent | Modèle | Pourquoi |
 |-------|--------|----------|
-| `aurora`, `aurora-heavy`, `architect`, `security`, `cybersec`, `reviewer`, `atlas`, `sage`, `mobile`, `tester`, `build`, `plan` | euria-code (GLM-5.2) | Raisonnement expert, code, sécurité, long-context 1M natif |
-| `designer`, `vision` | Qwen3.5-397B | Multimodal natif (image+video), analyse de screenshots et mockups |
-| `echo`, `scribe`, `pulse`, `beacon`, `crawler` | Mistral-Small-4 (119B) | Bon équilibre coût/performance/créativité |
+| `aurora`, `architect`, `security`, `cybersec`, `reviewer`, `atlas`, `sage`, `mobile`, `tester`, `beacon`, `crawler`, `build`, `plan` | euria-code (GLM-5.2) | Raisonnement expert, code, sécurité, long-context 1M natif |
+| `aurora-heavy`, `designer`, `vision` | Qwen3.5-397B | Multimodal natif (image+video), analyse de screenshots et mockups |
+| `echo`, `scribe`, `pulse` | Mistral-Small-4 (119B) | Bon équilibre coût/performance/créativité |
 | `spark` | Mistral-Small-4 (119B) | Commits, skills CLI — 256k contexte évite la boucle de compaction |
 | `oracle` (plugin) | euria-code (variant high) | Conseil stratégique, review adversariale |
 | `fixer` (plugin) | Qwen3.5-122B | Exécution rapide de spec |
@@ -325,7 +305,7 @@ Qwen3.5-397B (204k)    → Kimi-K2.6 (256k)       → Nemotron-3-Nano (1M)
 
 ---
 
-## Automatic Project Memory Discovery
+## Mémoire projet
 
 Aurora détecte automatiquement le dossier `docs/ai/` à la racine du projet dès le début de chaque session.
 
@@ -349,7 +329,7 @@ Si `docs/ai/` existe, Aurora charge immédiatement :
 Lors d'une synchronisation (`sync-project.sh`), les fichiers existants ne sont pas écrasés. Le script génère des fichiers `.new` comme propositions de mise à jour, ou `.new.YYYYMMDD-HHMMSS` si une proposition existe déjà.
 **OpenCode ne lit jamais les fichiers `.new` automatiquement.** Ils doivent être fusionnés manuellement dans les fichiers officiels.
 
-### Existing Project Adoption Checklist
+### Checklist d'adoption sur un projet existant
 
 Pour adopter la mémoire projet sur un projet existant possédant déjà `docs/ai/` :
 
@@ -370,7 +350,7 @@ Global Configuration
         ↓
      Standards    (workflow, memory-session-flow, memory-auto-update, memory-checklist, verification, communication, escalation, commits, review-before-done, audit, exploration-limits, error-correction, anti-patterns, artifact-authoring, delegation-failure, agent-output)
         ↓
-         Agents       (aurora, aurora-heavy, reviewer, tester, security, cybersec, architect, spark, vision, atlas, crawler, sage, scribe, pulse, echo, beacon, designer, mobile) + plugin (explorer, fixer, librarian, oracle)
+          Agents       (aurora, aurora-heavy, reviewer, tester, security, cybersec, architect, spark, vision, atlas, crawler, sage, scribe, pulse, echo, beacon, designer, mobile) + plugin (explorer, fixer, librarian, oracle)
         ↓
     Frameworks     (angular-20, nodejs, nestjs, astro...)
         ↓
@@ -384,20 +364,6 @@ Global Configuration
 **Frameworks** : règles techniques par stack (Angular, Node.js, NestJS, Astro).
 **Project AGENTS.md** : source de vérité ultime, le local l'emporte toujours.
 **Project Docs** : mémoire persistante de session entre les conversations IA.
-
----
-
-## Que va-t-il m'apporter ?
-
-| Bénéfice | Description |
-|----------|-------------|
-| **Cohérence** | Même comportement des agents sur toutes les machines |
-| **Gain de temps** | Initialisation d'un projet en 3 secondes |
-| **Qualité** | Standards Angular 20+ intégrés + review adversarial + audit read-only + limite d'exploration |
-| **Traçabilité** | Chaque agent documente son plan, ses décisions et son avancement |
-| **Sécurité** | Checklist sécurité automatique à chaque review |
-| **Mémoire de session** | BUFFER, INDEX et WARNINGS pour les projets longs et complexes |
-| **Travailler en équipe** | Workflow universel : Explorer → Planifier → Implémenter → [PARALLEL GATE] → Committer |
 
 ---
 
@@ -484,10 +450,70 @@ Le template `AGENTS.md` est volontairement générique. Ajoutez dans le `AGENTS.
 
 ---
 
+## Documentation
+
+| Guide | Contenu |
+|-------|---------|
+| [Workflow](docs/workflow.md) | Comment fonctionne le cycle de travail, étape par étape |
+| [Customization](docs/customization.md) | Comment personnaliser et étendre (agents, standards, frameworks) |
+| [Architecture](docs/architecture.md) | Comment s'articulent les couches de configuration |
+| [Angular 20](docs/angular-20.md) | Règles Angular 20+ détaillées |
+| [Code review](docs/code-review.md) | Guide de revue de code |
+| [Testing](docs/testing.md) | Guide de tests |
+| [Examples](examples/) | Projets prêts à l'emploi : app Angular, API Node, monorepo |
+
+---
+
+## FAQ
+
+<details>
+<summary><strong>Est-ce macOS uniquement ?</strong></summary>
+
+La configuration est développée sur **macOS**. Le cœur (OpenCode, agents, standards, frameworks) est multi-plateforme (Node.js 18+). Deux parties spécifiques à macOS : `rtk` s'installe via Homebrew (installation manuelle sur Linux) et le MCP `ios-simulator` nécessite Xcode — passez `"enabled": false` pour ce MCP sous Linux.
+
+</details>
+
+<details>
+<summary><strong>Où vont mes clés API et mes secrets ?</strong></summary>
+
+Dans `~/.config/opencode/.env` (permissions 600, jamais versionné) pour les outils MCP, et dans le **bloc managé** de votre shell rc pour la clé API Infomaniak AI — jamais dans `opencode.json` et jamais commités. Voir [Configuration](#configuration).
+
+</details>
+
+<details>
+<summary><strong>Comment vérifier mon installation ?</strong></summary>
+
+```bash
+npm run health-check     # cohérence de la config (JSON, agents, modèles)
+npm run permissions      # matrice des permissions agents
+npm run validate-memory  # structure docs/ai/ d'un projet
+```
+
+</details>
+
+<details>
+<summary><strong>Est-ce que ça marche avec Cursor ou Claude Code ?</strong></summary>
+
+La mémoire projet (`docs/ai/`, `AGENTS.md`) et les conventions (standards, frameworks) sont agnostiques de l'agent et lisibles par n'importe quel outil IA. Les agents et skills eux-mêmes sont au format OpenCode.
+
+</details>
+
+<details>
+<summary><strong>Le git push échoue avec `RPC failed, HTTP 400` sur des fichiers volumineux ?</strong></summary>
+
+GitHub refuse les pushs avec un payload supérieur à 1 MiB (défaut `http.postBuffer`). Fix : `git config http.postBuffer 157286400`, puis re-push. Vérifiez toujours avec `git ls-remote origin main` — un message trompeur « Everything up-to-date » peut suivre un push échoué.
+
+</details>
+
+---
+
 ## Structure du repo
 
+<details>
+<summary><strong>Arborescence</strong></summary>
+
 ```txt
-opencode-config/
+aurora-ai/
 │
 ├── README.md
 ├── LICENSE
@@ -515,29 +541,11 @@ opencode-config/
 │   ├── memory-checklist.md        Checklist mémoire en fin de session
 │   ├── memory-auto-update.md      Standard de persistance mémoire
 │   ├── verification.md            Vérifications build/lint/test obligatoires
-│   ├── communication.md           Directivité, ownership, pushback
+│   ├── communication.md           Franchise, ownership, pushback
 │   ├── escalation.md              Gestion des blocages
 │   └── commits.md                 Format et règles de commit
 │
-├── agents/                    Personnalités spécialisées
-│   ├── aurora.md              Agent principal et coordinateur
-│   ├── aurora-heavy.md        Agent pour tâches complexes (euria-code)
-│   ├── reviewer.md            Code review stricte
-│   ├── tester.md              Tests Jest + Angular
-│   ├── security.md            Cybersécurité défensive (AppSec, threat modeling, DevSecOps)
-│   ├── cybersec.md             Cybersécurité offensive (pentest, Red Team, exploitation)
-│   ├── architect.md           Découpage technique
-│   ├── spark.md               Sous-agent léger (commit, MR)
-│   ├── vision.md              Sous-agent multimodal (images, screenshots)
-│   ├── atlas.md               SEO Strategy
-│   ├── crawler.md             Technical SEO
-│   ├── sage.md               AIO / GEO
-│   ├── scribe.md              SEO Content
-│   ├── pulse.md               Growth Marketing
-│   ├── echo.md                Social Distribution
-│   ├── beacon.md              Analytics
-│   ├── designer.md            UX/UI Designer, DA, Design System (2 modes)
-│   └── mobile.md              Mobile Engineer (iOS/Android/RN/Flutter)
+├── agents/                  18 définitions d'agents — voir Comment personnaliser
 │
 ├── frameworks/                Règles par stack technique
 │   ├── angular-20.md          Conventions Angular 20+ stand-alone
@@ -627,6 +635,8 @@ opencode-config/
     ├── testing.md             Guide de tests
     └── architecture.md        Guide architectural
 ```
+
+</details>
 
 ---
 

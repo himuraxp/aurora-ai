@@ -1,11 +1,12 @@
 {
-  "name": "opencode-config",
+  "name": "aurora-ai",
   "version": "1.1.0",
-  "description": "Aurora — Configuration OpenCode de référence pour les workflows IA en production",
+  "description": "Aurora — Reference OpenCode configuration for production AI workflows",
   "license": "MIT",
+  "private": true,
   "repository": {
     "type": "git",
-    "url": "https://github.com/himuraxp/opencode-config.git"
+    "url": "https://github.com/himuraxp/aurora-ai.git"
   },
   "scripts": {
     "setup": "bash scripts/setup.sh",

@@ -102,9 +102,9 @@ The configuration includes six MCP servers:
 
 ## Models and Fallback
 
-### 17 configured models
+### 14 configured models
 
-The configuration uses **17 models** across 6 categories:
+The configuration uses **14 models** across 6 categories:
 
 | Category | Models | Usage | Cost (input/output) |
 |----------|--------|-------|---------------------|
@@ -142,14 +142,14 @@ Ministral-3 (80k) → Mistral-Small-4 (256k) → Kimi-K2.6 → Nemotron-3-Nano (
 | `security` | euria-code | $0.60 / $3.00 | Defensive security | AppSec, threat modeling, OWASP |
 | `cybersec` | euria-code | $0.60 / $3.00 | Offensive security | Pentest, exploitation, Red Team |
 | `atlas` | euria-code | $0.60 / $3.00 | SEO strategy | Keyword research, content gaps |
-| `crawler` | Mistral-Small-4 | $0.20 / $0.75 | Technical SEO | Indexing, Core Web Vitals, SSR |
+| `crawler` | euria-code | $0.60 / $3.00 | Technical SEO | Indexing, Core Web Vitals, SSR |
 | `sage` | euria-code | $0.60 / $3.00 | AIO / GEO | AI Overviews, ChatGPT Search |
 | `scribe` | Mistral-Small-4 | $0.20 / $0.75 | SEO content | Copywriting, meta, H1-H3, FAQ |
 | `pulse` | Mistral-Small-4 | $0.20 / $0.75 | Growth marketing | Funnels, A/B testing, landing pages |
 | `echo` | Mistral-Small-4 | $0.20 / $0.75 | Social distribution | LinkedIn, Instagram, X, TikTok |
-| `beacon` | Mistral-Small-4 | $0.20 / $0.75 | Analytics | GSC, GA4, PageSpeed, conversion |
+| `beacon` | euria-code | $0.60 / $3.00 | Analytics | GSC, GA4, PageSpeed, conversion |
 | `aurora` | euria-code | $0.60 / $3.00 | Main orchestrator | Complex tasks, coordination |
-| `aurora-heavy` | euria-code | $0.60 / $3.00 | Advanced reasoning | Critical architecture, complex legacy |
+| `aurora-heavy` | Qwen3.5-397B | $0.80 / $3.60 | Advanced reasoning | Critical architecture, complex legacy |
 
 > **Rule**: Aurora delegates **automatically** via the trigger keywords (see `agents/aurora.md`). Never delegate manually unless there is a specific need.
 

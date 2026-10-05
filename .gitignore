@@ -38,6 +38,9 @@ dist-tests/
 # Templates for user projects are in templates/ and templates/project-docs/
 docs/ai/
 
+# ai-cowork loop artifacts (captures, proofs, local server) — session-only
+.cowork/
+
 # Config backups (kept local, never versioned)
 *.bak
 

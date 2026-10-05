@@ -27,7 +27,7 @@ Scripts d'installation, maintenance et automatisation pour opencode-config.
 ### Première installation (nouvelle machine)
 
 ```bash
-git clone https://github.com/himuraxp/opencode-config.git ~/.config/opencode-config
+git clone https://github.com/himuraxp/aurora-ai.git ~/.config/opencode-config
 cd ~/.config/opencode-config
 npm run setup
 # ou: ./scripts/setup.sh

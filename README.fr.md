@@ -21,7 +21,7 @@
 
 ## Pourquoi Aurora ?
 
-Les agents IA (OpenCode, Cursor, Claude...) ne savent pas quel standard utiliser à moins que vous le leur disiez — et ils oublient tout entre deux sessions. **Aurora** transforme OpenCode en équipe d'ingénierie orchestrée et auto-documentée.
+Les agents IA (OpenCode, Cursor, Claude...) ne savent pas quel standard utiliser à moins que vous le leur disiez — et ils peuvent perdre le contexte du projet entre deux sessions. **Aurora** transforme OpenCode en équipe d'ingénierie orchestrée et auto-documentée.
 
 **Ce que vous obtenez :**
 

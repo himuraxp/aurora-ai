@@ -66,7 +66,7 @@ Never modify a user project without respecting its local `AGENTS.md`. The local 
 ### First installation (new machine)
 
 ```bash
-git clone https://github.com/himuraxp/opencode-config.git ~/.config/opencode-config
+git clone https://github.com/himuraxp/aurora-ai.git ~/.config/opencode-config
 cd ~/.config/opencode-config
 npm run setup
 # or: ~/.config/opencode-config/scripts/setup.sh

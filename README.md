@@ -4,7 +4,7 @@
     <img src=".github/assets/aurora-logo-with-name.png" width="300" alt="Aurora — OpenCode orchestrator agent">
   </picture>
 
-  [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) [![Last Commit](https://img.shields.io/github/last-commit/himuraxp/opencode-config.svg)](https://github.com/himuraxp/opencode-config/commits/main) [![OpenCode Compatible](https://img.shields.io/badge/OpenCode-Compatible-brightgreen.svg)](https://opencode.ai)
+  [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) [![Last Commit](https://img.shields.io/github/last-commit/himuraxp/aurora-ai.svg)](https://github.com/himuraxp/aurora-ai/commits/main) [![OpenCode Compatible](https://img.shields.io/badge/OpenCode-Compatible-brightgreen.svg)](https://opencode.ai)
 
   > **The OpenCode reference for production AI workflows — Angular, Node.js, NestJS, Astro.**
 
@@ -68,7 +68,7 @@ This repo provides:
 ### 1. Install the full configuration (first time)
 
 ```bash
-git clone https://github.com/himuraxp/opencode-config.git ~/.config/opencode-config
+git clone https://github.com/himuraxp/aurora-ai.git ~/.config/opencode-config
 cd ~/.config/opencode-config
 npm run setup
 ```

@@ -1,6 +1,6 @@
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/aurora-logo-without-name-dark.png">
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/aurora-hero-dark.png">
     <img src=".github/assets/aurora-logo-without-name.png" width="300" alt="Aurora logo">
   </picture>
 

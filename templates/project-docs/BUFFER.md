@@ -1,18 +1,17 @@
 # BUFFER
 
-## À synchroniser en fin de session
+## To sync at session end
 
 - [ ] 
 
-## Hors-scope découvert
+## Out-of-scope discoveries
 
-## Micro-décisions temporaires
+## Temporary micro-decisions
 
-## Fichiers impactés localement
+## Locally impacted files
 
-## Snapshot reprise
+## Recovery snapshot
 
-*Si la session est interrompue, inscrire ici le dernier état connu pour reprise.*
+*If the session is interrupted, write the last known state here for recovery.*
 
-## Notes rapides
-
+## Quick notes

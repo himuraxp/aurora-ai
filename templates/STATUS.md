@@ -1,9 +1,9 @@
 # STATUS
 
-## En cours
+## In progress
 
-## Fait
+## Done
 
-## Bloqué
+## Blocked
 
-## Prochaine action
+## Next action

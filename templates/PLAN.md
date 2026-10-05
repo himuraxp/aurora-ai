@@ -4,12 +4,12 @@ status: pending
 
 # PLAN
 
-## Objectif
+## Goal
 
-## Étapes
+## Steps
 
 - [ ] 
 
-## Risques
+## Risks
 
 ## Tests

@@ -1,119 +1,119 @@
-# AGENTS.md — Projet
+# AGENTS.md — Project
 
-Ce fichier est la source de vérité pour les agents travaillant sur ce projet.
+This file is the source of truth for agents working on this project.
 
-## Rôle de ce fichier
+## Role of this file
 
-Aurora charge automatiquement les standards globaux et découvre `docs/ai/` sans configuration supplémentaire.
-Ce fichier n'a **pas** besoin de dupliquer la logique mémoire (ordre de lecture, rôles des documents...).
+Aurora automatically loads the global standards and discovers `docs/ai/` without additional configuration.
+This file does **not** need to duplicate the memory logic (reading order, document roles...).
 
-Concentrez-vous ici sur :
+Focus here on:
 
-- **Contexte métier** : produit, utilisateurs, contraintes.
-- **Règles spécifiques** : conventions non couvertes par les standards globaux.
-- **Conventions locales** : architecture, nommage, patterns préférés.
-- **Exceptions projet** : dérogations temporaires ou zones à risque propres à ce projet.
+- **Business context**: product, users, constraints.
+- **Specific rules**: conventions not covered by the global standards.
+- **Local conventions**: architecture, naming, preferred patterns.
+- **Project exceptions**: temporary deviations or risk zones specific to this project.
 
-## Objectif du projet
+## Project goal
 
-Décrire ici le produit, le contexte métier et les contraintes principales.
+Describe here the product, the business context and the main constraints.
 
-## Règles générales
+## General rules
 
-- Respecter le style existant.
-- Garder les changements ciblés.
-- Ne pas faire de refactoring massif non demandé.
-- Ne pas ajouter de dépendance sans justification claire.
-- Préserver les comportements existants.
-- Ajouter ou adapter les tests quand la logique change.
-- Toujours privilégier une solution simple, maintenable et lisible.
-- Ne jamais lire globalement des fichiers énormes si une recherche ciblée suffit.
-- Utiliser `INDEX.md` pour comprendre où chercher avant de scanner le projet.
-- Ne pas polluer `DECISIONS.md` avec des micro-décisions temporaires.
-- **Exécuter un examen contradictoire (review adversarial) avant de déclarer une tâche terminée**.
-- **Stopper et reset après 2 corrections échouées** sur le même problème.
-- **Reconnaître les anti-patterns** (session fourre-tout, over-specified config, exploration infinie, etc.) et appliquer la correction immédiatement.
+- Respect the existing style.
+- Keep changes targeted.
+- No unrequested massive refactoring.
+- No dependency added without clear justification.
+- Preserve existing behaviors.
+- Add or adapt tests when the logic changes.
+- Always favor a simple, maintainable and readable solution.
+- Never read huge files wholesale if a targeted search is enough.
+- Use `INDEX.md` to understand where to look before scanning the project.
+- Don't pollute `DECISIONS.md` with temporary micro-decisions.
+- **Run an adversarial review before declaring a task done**.
+- **Stop and reset after 2 failed corrections** on the same problem.
+- **Recognize anti-patterns** (catch-all session, over-specified config, infinite exploration, etc.) and apply the correction immediately.
 
-## Standards globaux
+## Global standards
 
-Les standards suivants sont chargés automatiquement par l'agent principal (Aurora) :
+The following standards are loaded automatically by the main agent (Aurora):
 
-- **workflow** : cycle Explorer → Planifier → Implémenter → [PARALLEL GATE] → Committer (Review + Vérifier en parallèle)
-- **verification** : vérifications build/lint/test obligatoires avant de considérer une tâche terminée
-- **communication** : directivité, ownership, pushback constructif, format de sortie markdown
-- **escalation** : gestion des blocages et arrêt propre
-- **commits** : format et règles de commit
-- **review-before-done** : examen contradictoire obligatoire avant déclaration de fin (4 axes : code, fonctionnel, pertinence, markdown)
-- **audit** : audit read-only multi-axes pour health-checks et dette technique
-- **exploration-limits** : délimiter les investigations, utiliser subagents pour exploration lourde
-- **error-correction** : reset après 2 corrections échouées, ne jamais corriger sans cause profonde
-- **anti-patterns** : reconnaitre et stopper les 5 patterns d'échec courants
-- **artifact-authoring** : création homogène de standards, agents, frameworks et templates
-- **delegation-failure** : procédure obligatoire après échec de sous-agent
-- **agent-output** : format de retour JSON structuré pour les sous-agents
+- **workflow**: Explore → Plan → Implement → [PARALLEL GATE] → Commit cycle (Review + Verify in parallel)
+- **verification**: mandatory build/lint/test checks before considering a task done
+- **communication**: directness, ownership, constructive pushback, markdown output format
+- **escalation**: blocker handling and clean stop
+- **commits**: commit format and rules
+- **review-before-done**: mandatory adversarial review before declaring done (4 axes: code, functional, relevance, markdown)
+- **audit**: multi-axis read-only audit for health-checks and technical debt
+- **exploration-limits**: scope the investigations, use subagents for heavy exploration
+- **error-correction**: reset after 2 failed corrections, never fix without a root cause
+- **anti-patterns**: recognize and stop the 5 common failure patterns
+- **artifact-authoring**: consistent authoring of standards, agents, frameworks and templates
+- **delegation-failure**: mandatory procedure after subagent failure
+- **agent-output**: structured JSON output format for subagents
 
-Ces standards sont stockés dans `~/.config/opencode/standards/` par l'installation globale.
+These standards are stored in `~/.config/opencode/standards/` by the global installation.
 
-## Modes de travail
+## Work modes
 
-### Mode EXECUTION (par défaut)
+### EXECUTION mode (default)
 
-Objectif : appliquer le plan existant.
+Goal: apply the existing plan.
 
-Règles :
-- Modifier uniquement les fichiers dans le scope.
-- Vérifier build/lint/test après chaque changement logique.
-- Documenter les écarts dans `BUFFER.md`.
-- Stopper immédiatement si contradiction avec `DECISIONS.md` ou `WARNINGS.md`.
-- Consulter `INDEX.md` avant de toucher un fichier inconnu du projet.
-- **Exécuter un examen contradictoire (review adversarial) avant de considérer terminé** via subagent ou skill `code-review`.
-- **Stopper et reset après 2 corrections échouées** sur le même problème (voir standards globaux `error-correction.md`).
+Rules:
+- Modify only the files within scope.
+- Verify build/lint/test after each logical change.
+- Document deviations in `BUFFER.md`.
+- Stop immediately if contradicted by `DECISIONS.md` or `WARNINGS.md`.
+- Consult `INDEX.md` before touching a file unknown to the project.
+- **Run an adversarial review before considering the task done** via subagent or the `code-review` skill.
+- **Stop and reset after 2 failed corrections** on the same problem (see global standard `error-correction.md`).
 
-### Mode BRAINSTORM
+### BRAINSTORM mode
 
-Objectif : concevoir, planifier, architecturer.
+Goal: design, plan, architect.
 
-Règles :
-- Aucune modification de code source.
-- Documentation, architecture et planification uniquement.
-- Autorisé à modifier : `PLAN.md`, `DECISIONS.md`, `INDEX.md`.
-- Sortie du mode quand le plan est validé et clair.
+Rules:
+- No source code modification.
+- Documentation, architecture and planning only.
+- Allowed to modify: `PLAN.md`, `DECISIONS.md`, `INDEX.md`.
+- Exit the mode when the plan is validated and clear.
 
-### Mode AUDIT
+### AUDIT mode
 
-Objectif : diagnostiquer sans modifier.
+Goal: diagnose without modifying.
 
-Règles :
-- Lire `INDEX.md` et `WARNINGS.md` avant d'explorer.
-- Choisir les axes pertinents : qualité, architecture, sécurité, dépendances, performance, tests, UI/accessibilité.
-- Produire un rapport priorisé avec preuves.
-- Ne pas corriger pendant l'audit ; proposer un plan d'action séparé.
-- **Exception** : les audits SEO/AIO/Growth sont délégués aux agents spécialistes (Atlas, Crawler, Sage, Pulse, Beacon) — voir `AGENTS.md` global section "Search & Growth Agents".
+Rules:
+- Read `INDEX.md` and `WARNINGS.md` before exploring.
+- Choose the relevant axes: quality, architecture, security, dependencies, performance, tests, UI/accessibility.
+- Produce a prioritized report with evidence.
+- Do not fix during the audit; propose a separate action plan.
+- **Exception**: SEO/AIO/Growth audits are delegated to the specialist agents (Atlas, Crawler, Sage, Pulse, Beacon) — see the global `AGENTS.md` "Search & Growth Agents" section.
 
-## Documentation IA
+## AI Documentation
 
-Aurora détecte `docs/ai/` au démarrage et applique l'ordre de lecture défini dans les standards globaux (`~/.config/opencode/standards/memory-session-flow.md`). L'ordre de mise à jour (persistance) est défini dans `memory-auto-update.md` et la vérification dans `memory-checklist.md`.
-L'AGENTS.md local n'a **pas** besoin de répéter ces règles.
+Aurora detects `docs/ai/` at startup and applies the reading order defined in the global standards (`~/.config/opencode/standards/memory-session-flow.md`). The update (persistence) order is defined in `memory-auto-update.md` and the verification in `memory-checklist.md`.
+The local AGENTS.md does **not** need to repeat these rules.
 
 ## Framework / Stack
 
-Décrire ici les conventions techniques spécifiques au projet, ou référencer un standard global dans `~/.config/opencode/frameworks/`.
+Describe here the project-specific technical conventions, or reference a global standard in `~/.config/opencode/frameworks/`.
 
-Exemples :
+Examples:
 
-- Angular : appliquer `frameworks/angular-20.md`.
-- Node.js API : appliquer `frameworks/nodejs.md`.
-- NestJS : appliquer `frameworks/nestjs.md`.
-- Astro : appliquer `frameworks/astro.md`.
+- Angular: apply `frameworks/angular-20.md`.
+- Node.js API: apply `frameworks/nodejs.md`.
+- NestJS: apply `frameworks/nestjs.md`.
+- Astro: apply `frameworks/astro.md`.
 
-## Workflow attendu
+## Expected workflow
 
-Pour une tâche complexe :
+For a complex task:
 
-1. Lire le contexte existant (docs/ai/ puis INDEX.md).
-2. Identifier les fichiers concernés.
-3. Proposer un plan court (pour >2 fichiers).
-4. Implémenter par petits changements.
-5. Exécuter un review contradictoire si du code ou des règles changent.
-6. Lancer ou indiquer les tests pertinents.
-7. Résumer clairement les modifications.
+1. Read the existing context (docs/ai/ then INDEX.md).
+2. Identify the impacted files.
+3. Propose a short plan (for >2 files).
+4. Implement with small changes.
+5. Run an adversarial review if code or rules change.
+6. Run or point to the relevant tests.
+7. Clearly summarize the modifications.

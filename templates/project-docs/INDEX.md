@@ -1,52 +1,52 @@
 # INDEX
 
-## Structure générale
+## General structure
 
 ```txt
-racine/
-├── src/               [modules principaux]
+root/
+├── src/               [main modules]
 ├── tests/             [tests]
-├── docs/              [documentation projet]
+├── docs/              [project documentation]
 └── ...
 ```
 
-## Modules principaux
+## Main modules
 
-| Module | Chemin | Responsabilité |
-|--------|--------|----------------|
-|        |        |                |
+| Module | Path | Responsibility |
+|--------|------|----------------|
+|        |      |                |
 
-## Fichiers clés
+## Key files
 
-| Fichier | Rôle |
-|---------|------|
-|         |      |
+| File | Role |
+|------|------|
+|      |      |
 
-## Points d'entrée applicatifs
-
-- 
-
-## Conventions locales importantes
+## Application entry points
 
 - 
 
-## Capacités prouvées
+## Important local conventions
 
-Documenter uniquement les capacités démontrées par un signal concret du dépôt.
+- 
 
-| Capacité | Signal observé | Fichiers |
-|----------|----------------|----------|
-|          |                |          |
+## Proven capabilities
 
-## Commandes de recherche utiles
+Document only the capabilities demonstrated by a concrete signal from the repository.
+
+| Capability | Observed signal | Files |
+|------------|-----------------|-------|
+|            |                 |       |
+
+## Useful search commands
 
 ```bash
-# Lister les composants Angular
+# List Angular components
 find src -name "*.component.ts"
 
-# Lister les services
+# List services
 find src -name "*.service.ts"
 
-# Lister les tests
+# List tests
 find src -name "*.spec.ts"
 ```

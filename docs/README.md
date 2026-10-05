@@ -1,33 +1,33 @@
 # docs/
 
-Guides utilisateur pour opencode-config. Documentation orientée compréhension et prise en main.
+User guides for opencode-config. Documentation focused on understanding and getting started.
 
 ## Guides
 
 | Guide | Description |
 |-------|-------------|
-| `workflow.md` | Le cycle de travail complet d'Aurora — Explorer → Planifier → Implémenter → Parallel Gate → Committer |
-| `customization.md` | Comment personnaliser la configuration — agents, standards, frameworks, skills |
-| `architecture.md` | Architecture multi-couches — config, agents, standards, frameworks, skills, scripts, templates |
-| `angular-20.md` | Guide Angular 20 — standalone components, signals, InputSignal, OutputEmitterRef |
-| `code-review.md` | Guide de revue de code — conventions, format, règles |
-| `testing.md` | Guide de testing — Jest, Cypress, Vitest, patterns de test |
+| `workflow.md` | Aurora's full work cycle — Explore → Plan → Implement → Parallel Gate → Commit |
+| `customization.md` | How to customize the configuration — agents, standards, frameworks, skills |
+| `architecture.md` | Multi-layer architecture — config, agents, standards, frameworks, skills, scripts, templates |
+| `angular-20.md` | Angular 20 guide — standalone components, signals, InputSignal, OutputEmitterRef |
+| `code-review.md` | Code review guide — conventions, format, rules |
+| `testing.md` | Testing guide — Jest, Cypress, Vitest, test patterns |
 
-## Sous-dossiers
+## Sub-folders
 
-| Dossier | Description |
-|---------|-------------|
-| `ai/` | Mémoire de session de ce repo (auto-entretenue, pas de README) |
+| Folder | Description |
+|--------|-------------|
+| `ai/` | This repo's session memory (self-maintained, no README) |
 
 ## Navigation
 
-- **Démarrage rapide** → `workflow.md`
-- **Comprendre l'architecture** → `architecture.md`
-- **Personnaliser** → `customization.md`
-- **Développer en Angular** → `angular-20.md`
-- **Reviewer du code** → `code-review.md`
-- **Écrire des tests** → `testing.md`
+- **Quick start** → `workflow.md`
+- **Understand the architecture** → `architecture.md`
+- **Customize** → `customization.md`
+- **Develop in Angular** → `angular-20.md`
+- **Review code** → `code-review.md`
+- **Write tests** → `testing.md`
 
-## Relation avec les standards
+## Relationship with the standards
 
-Les guides dans `docs/` sont orientés utilisateur (comment utiliser, comment comprendre). Les `standards/` sont orientés agent (règles comportementales appliquées automatiquement). Les deux se complètent mais ne se chevauchent pas.
+Guides in `docs/` are user-oriented (how to use, how to understand). The `standards/` are agent-oriented (behavioral rules applied automatically). The two complement each other without overlapping.

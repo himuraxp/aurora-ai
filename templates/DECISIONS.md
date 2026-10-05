@@ -1,9 +1,9 @@
 # DECISIONS
 
-## YYYY-MM-DD — Décision
+## YYYY-MM-DD — Decision
 
-### Contexte
+### Context
 
-### Décision
+### Decision
 
 ### Impact

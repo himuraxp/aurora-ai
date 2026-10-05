@@ -1,53 +1,53 @@
 # templates/project-docs/
 
-Templates pour la mémoire projet auto-entretenue. Ces fichiers sont copiés dans `<project>/docs/ai/` par `scripts/init-project.sh` et ensuite maintenus dynamiquement par Aurora.
+Templates for the self-maintaining project memory. These files are copied to `<project>/docs/ai/` by `scripts/init-project.sh` and then dynamically maintained by Aurora.
 
 ## Templates
 
 | Template | Destination | Description |
 |----------|-------------|-------------|
-| `BUFFER.md` | `<project>/docs/ai/BUFFER.md` | Snapshot de reprise — contexte pour reprendre une session interrompue |
-| `INDEX.md` | `<project>/docs/ai/INDEX.md` | Modules, composants et fichiers clés découverts dans le projet |
-| `WARNINGS.md` | `<project>/docs/ai/WARNINGS.md` | Zones sensibles, dettes techniques, avertissements actifs |
+| `BUFFER.md` | `<project>/docs/ai/BUFFER.md` | Recovery snapshot — context for resuming an interrupted session |
+| `INDEX.md` | `<project>/docs/ai/INDEX.md` | Modules, components and key files discovered in the project |
+| `WARNINGS.md` | `<project>/docs/ai/WARNINGS.md` | Sensitive zones, technical debt, active warnings |
 
-## Cycle de vie
+## Life cycle
 
-1. **Initialisation** — `init-project.sh` copie les templates si manquants
-2. **Session** — Aurora lit les 4 fichiers de session (STATUS, PLAN, WARNINGS, INDEX) au démarrage
-3. **Fin de session** — Aurora met à jour les 7 fichiers en parallèle (STATUS, PLAN, CHANGELOG, BUFFER, INDEX, WARNINGS, DECISIONS)
-4. **Validation** — `validate-memory.sh` vérifie la cohérence
+1. **Initialization** — `init-project.sh` copies the templates if missing
+2. **Session** — Aurora reads the 4 session files (STATUS, PLAN, WARNINGS, INDEX) at startup
+3. **Session end** — Aurora updates the 7 files in parallel (STATUS, PLAN, CHANGELOG, BUFFER, INDEX, WARNINGS, DECISIONS)
+4. **Validation** — `validate-memory.sh` checks consistency
 
-## Fichiers de session (non templates)
+## Session files (not templates)
 
-Les fichiers suivants sont créés par `templates/` directement (niveau supérieur) :
+The following files are created by `templates/` directly (parent level):
 
-- `STATUS.md` — État courant
-- `PLAN.md` — Plan d'avancement
-- `CHANGELOG.md` — Historique
-- `DECISIONS.md` — Décisions architecturales
+- `STATUS.md` — Current state
+- `PLAN.md` — Progress plan
+- `CHANGELOG.md` — History
+- `DECISIONS.md` — Architectural decisions
 
-## BUFFER.md — Snapshot de reprise
+## BUFFER.md — Recovery snapshot
 
-Contient le contexte nécessaire pour reprendre une session interrompue :
-- Tâche en cours
-- Fichiers impactés
-- Dernière action
-- Prochaine étape
+Contains the context needed to resume an interrupted session:
+- Task in progress
+- Impacted files
+- Last action
+- Next step
 
-Lu uniquement si : session précédente interrompue, `STATUS.md` indique un blocage, ou l'utilisateur demande explicitement de reprendre.
+Read only if: previous session interrupted, `STATUS.md` reports a blocker, or the user explicitly asks to resume.
 
-## INDEX.md — Cartographie du projet
+## INDEX.md — Project map
 
-Liste les modules, composants, services et fichiers clés découverts. Sert de table des matières pour le projet.
+Lists the modules, components, services and key files discovered. Serves as the project's table of contents.
 
-## WARNINGS.md — Zones sensibles
+## WARNINGS.md — Sensitive zones
 
-Documente les dettes techniques, avertissements et zones à risque. Si un warning critique actif concerne la zone de travail, Aurora bloque les modifications jusqu'à résolution.
+Documents technical debt, warnings and risk zones. If an active critical warning concerns the working zone, Aurora blocks modifications until it is resolved.
 
 ## Validation
 
 ```bash
-# Vérifier qu'un projet a une mémoire bien formée
+# Check that a project has a well-formed memory
 npm run validate-memory --prefix ~/.config/opencode-config -- /path/to/project
-# ou: ~/.config/opencode-config/scripts/validate-memory.sh /path/to/project
+# or: ~/.config/opencode-config/scripts/validate-memory.sh /path/to/project
 ```

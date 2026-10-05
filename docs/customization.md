@@ -1,74 +1,74 @@
-# Customization — Comment personnaliser et étendre
+# Customization — How to customize and extend
 
-## Personnaliser les agents
+## Customize the agents
 
-Les agents spécialisés sont dans `agents/` du repo forké. Chacun a un rôle précis :
+The specialized agents live in `agents/` of the forked repo. Each has a precise role:
 
-| Agent | Rôle |
+| Agent | Role |
 |-------|------|
-| `aurora.md` | Agent principal — chargement et coordination |
-| `aurora-heavy.md` | Agent pour tâches complexes (euria-code) |
-| `reviewer.md` | Code review stricte (checklist, verdict) |
-| `tester.md` | Tests qualité (Jest, Angular standalone) |
-| `security.md` | Cybersécurité défensive — AppSec, threat modeling, DevSecOps |
-| `cybersec.md` | Cybersécurité offensive — pentest, Red Team, exploitation, recon |
-| `architect.md` | Découpage technique |
-| `spark.md` | Sous-agent léger (commit, MR, skills CLI) |
-| `vision.md` | Sous-agent multimodal (images, screenshots) |
-| `atlas.md` | SEO Strategy — stratégie, keyword research, content gaps |
-| `crawler.md` | Technical SEO — audit et correction SEO technique |
-| `sage.md` | AIO / GEO — optimisation pour moteurs de recherche génératifs |
-| `scribe.md` | SEO Content — production et optimisation éditoriale |
+| `aurora.md` | Main agent — loading and coordination |
+| `aurora-heavy.md` | Agent for complex tasks (euria-code) |
+| `reviewer.md` | Strict code review (checklist, verdict) |
+| `tester.md` | Quality tests (Jest, Angular standalone) |
+| `security.md` | Defensive cybersecurity — AppSec, threat modeling, DevSecOps |
+| `cybersec.md` | Offensive cybersecurity — pentest, Red Team, exploitation, recon |
+| `architect.md` | Technical breakdown |
+| `spark.md` | Lightweight subagent (commit, MR, CLI skills) |
+| `vision.md` | Multimodal subagent (images, screenshots) |
+| `atlas.md` | SEO Strategy — strategy, keyword research, content gaps |
+| `crawler.md` | Technical SEO — technical SEO audit and fixes |
+| `sage.md` | AIO / GEO — optimization for generative search engines |
+| `scribe.md` | SEO Content — editorial production and optimization |
 | `pulse.md` | Growth Marketing — acquisition, conversion, funnel |
-| `echo.md` | Social Distribution — distribution multi-canal |
-| `beacon.md` | Analytics — mesure SEO et marketing |
-| `designer.md` | UX/UI Designer — conception d'interfaces, DA, design system, accessibilité |
+| `echo.md` | Social Distribution — multi-channel distribution |
+| `beacon.md` | Analytics — SEO and marketing measurement |
+| `designer.md` | UX/UI Designer — interface design, art direction, design system, accessibility |
 | `mobile.md` | Mobile Engineer — iOS, Android, React Native, Flutter |
 
-Pour personnaliser :
+To customize:
 
-1. Modifiez le fichier dans le repo forké
-2. Relancez `npm run update` (ou `./scripts/install.sh`)
-3. Les fichiers sont copiés dans `~/.config/opencode/agents/`
+1. Edit the file in the forked repo
+2. Run `npm run update` (or `./scripts/install.sh`)
+3. The files are copied to `~/.config/opencode/agents/`
 
-Après un renommage ou une suppression d'artefact, utilisez :
+After renaming or removing an artifact, use:
 
 ```bash
 npm run prune
-# ou: ./scripts/install.sh --prune
+# or: ./scripts/install.sh --prune
 ```
 
-## Ajouter un framework
+## Add a framework
 
-Dans `frameworks/`, les règles techniques par stack :
+In `frameworks/`, the per-stack technical rules:
 
 ```txt
 frameworks/
 ├── angular-20.md   # Angular 20 stand-alone, signals, inject(), etc.
-├── nodejs.md       # API Node.js / TypeScript
-├── nestjs.md       # Architecture modulaire NestJS
-└── astro.md        # Sites statiques Astro, SEO, i18n
+├── nodejs.md       # Node.js API / TypeScript
+├── nestjs.md       # Modular NestJS architecture
+└── astro.md        # Astro static sites, SEO, i18n
 ```
 
-Pour ajouter un framework :
+To add a framework:
 
-1. Créer `frameworks/<mon-framework>.md`
-2. Adapter `templates/AGENTS.md` pour référencer le framework
-3. Relancer `npm run update` (ou `./scripts/install.sh`)
+1. Create `frameworks/<my-framework>.md`
+2. Adapt `templates/AGENTS.md` to reference the framework
+3. Run `npm run update` (or `./scripts/install.sh`)
 
-Le template `AGENTS.md` doit indiquer quel framework est actif pour le projet :
+The `AGENTS.md` template must state which framework is active for the project:
 
 ```md
 ## Node.js — Conventions
 
-- [règles spécifiques]
+- [specific rules]
 ```
 
-## Créer une nouvelle règle
+## Create a new rule
 
-### Règle universelle (applicable à tout projet)
+### Universal rule (applicable to any project)
 
-Créez un fichier dans `standards/` :
+Create a file in `standards/`:
 
 ```txt
 standards/
@@ -88,111 +88,111 @@ standards/
 ├── anti-patterns.md
 ├── delegation-failure.md
 ├── agent-output.md
-└── ma-regle.md   ← ici
+└── my-rule.md   ← here
 ```
 
-Le standard sera automatiquement copié dans `~/.config/opencode/standards/` par `install.sh`.
+The standard will be automatically copied to `~/.config/opencode/standards/` by `install.sh`.
 
-Avant de créer un nouvel artefact, appliquez `standards/artifact-authoring.md` :
+Before creating a new artifact, apply `standards/artifact-authoring.md`:
 
-1. Vérifier qu'un standard, agent ou framework existant ne couvre pas déjà le besoin.
-2. Définir le déclencheur exact.
-3. Garder le contenu court, actionnable et vérifiable.
-4. Mettre à jour `README.md`, `templates/AGENTS.md` et cette page si l'artefact devient public.
+1. Check that an existing standard, agent or framework doesn't already cover the need.
+2. Define the exact trigger.
+3. Keep the content short, actionable and verifiable.
+4. Update `README.md`, `templates/AGENTS.md` and this page if the artifact becomes public.
 
-### Règle spécialisée (agent dédié)
+### Specialized rule (dedicated agent)
 
-Créez un fichier dans `agents/` avec le frontmatter :
+Create a file in `agents/` with the frontmatter:
 
 ```md
 ---
-description: Mon agent spécialisé
+description: My specialized agent
 mode: subagent
 ---
 
-# Mon Agent
+# My Agent
 
-[Contenu]
+[Content]
 ```
 
-L'agent `aurora.md` le chargera automatiquement si nécessaire.
+The `aurora.md` agent will load it automatically if needed.
 
-## Personnaliser le workflow de session
+## Customize the session workflow
 
-Modifiez `standards/workflow.md` et `standards/memory-session-flow.md` pour adapter :
+Edit `standards/workflow.md` and `standards/memory-session-flow.md` to adapt:
 
-- Le cycle de travail (actuellement : Explorer → Planifier → Implémenter → [PARALLEL GATE] → Committer)
-- La gestion de la mémoire (docs/ai/)
-- Les vérifications obligatoires (verification.md)
-- Les formats de communication (communication.md)
+- The work cycle (currently: Explore → Plan → Implement → [PARALLEL GATE] → Commit)
+- Memory handling (docs/ai/)
+- Mandatory checks (verification.md)
+- Communication formats (communication.md)
 
-## Exemple typique d'extension
+## Typical extension example
 
-**Ajout d'une règle de performance pour Angular :**
+**Adding an Angular performance rule:**
 
 ```bash
-# Dans le repo forké
+# In the forked repo
 cat > frameworks/angular-performance.md << 'EOF'
 # Angular Performance
 
-- Utiliser `OnPush` par défaut sur les composants.
-- Éviter les détections de changement inutiles.
-- Lazy-loading des routes.
+- Use `OnPush` by default on components.
+- Avoid unnecessary change detections.
+- Lazy-loading of routes.
 EOF
 
 npm run update
-# ou: ./scripts/install.sh
+# or: ./scripts/install.sh
 ```
 
-Dans le `frameworks/angular-20.md` original, ajoutez une référence :
+In the original `frameworks/angular-20.md`, add a reference:
 
 ```md
 ## Performance
 
-Voir `frameworks/angular-performance.md` pour les détails.
+See `frameworks/angular-performance.md` for details.
 ```
 
-## Nouveaux Documents de Session (BUFFER, INDEX, WARNINGS)
+## New Session Documents (BUFFER, INDEX, WARNINGS)
 
-Aurora détecte automatiquement `docs/ai/` au démarrage et charge ces documents selon l'ordre défini dans `standards/memory-session-flow.md`. Aucun paramétrage dans le `AGENTS.md` local n'est requis pour activer cette découverte.
+Aurora automatically detects `docs/ai/` at startup and loads these documents in the order defined in `standards/memory-session-flow.md`. No configuration in the local `AGENTS.md` is required to enable this discovery.
 
-### Pourquoi les utiliser ?
+### Why use them?
 
-En plus de `PLAN.md`, `STATUS.md`, `DECISIONS.md` et `CHANGELOG.md`, chaque projet peut maintenant gérer : `BUFFER.md`, `INDEX.md` et `WARNINGS.md`.
+In addition to `PLAN.md`, `STATUS.md`, `DECISIONS.md` and `CHANGELOG.md`, each project can now manage: `BUFFER.md`, `INDEX.md` and `WARNINGS.md`.
 
-- **INDEX.md** : Cartographie du projet. Évite au agent de scanner tout le code à chaque session. Mis à jour si la structure change significativement.
-- **BUFFER.md** : Mémoire tampon temporaire. Hors-scope découvert, micro-décisions temporaires, snapshot pour reprise après interruption. Vidé ou archivé en fin de session.
-- **WARNINGS.md** : Alertes actives et dettes techniques. Zones sensibles du projet, workarounds connus. Doit être consulté avant tout changement dans ces zones.
+- **INDEX.md**: Project map. Saves the agent from scanning the whole codebase at every session. Updated if the structure changes significantly.
+- **BUFFER.md**: Temporary buffer. Out-of-scope discoveries, temporary micro-decisions, recovery snapshot after an interruption. Emptied or archived at session end.
+- **WARNINGS.md**: Active alerts and technical debt. Sensitive zones of the project, known workarounds. Must be consulted before any change in these zones.
 
-### Quand les modifier
+### When to modify them
 
-- **INDEX.md** : Quand la structure change significativement ou à la création initiale.
-- **BUFFER.md** : En début de session si reprise, en fin de session pour noter les sujets hors-scope.
-- **WARNINGS.md** : Quand une nouvelle dette ou zone à risque est identifiée. À archiver quand résolu.
+- **INDEX.md**: When the structure changes significantly or at initial creation.
+- **BUFFER.md**: At session start when resuming, at session end to note out-of-scope topics.
+- **WARNINGS.md**: When new debt or a risk zone is identified. Archive when resolved.
 
-### Différences entre les documents
+### Differences between the documents
 
-| Document | Quand lire | Quand écrire | Contenu |
-|----------|-----------|--------------|---------|
-| STATUS.md | Début de session | Fin de session | État d'avancement, bloqueurs |
-| PLAN.md | Début de session | Pendant planification | Plan technique, étapes, risques, statut |
-| DECISIONS.md | Quand un choix arrive | Après décision structurante | Décision, contexte, impact |
-| CHANGELOG.md | Peu souvent | Fin de session (si significatif) | Historique des changements |
-| BUFFER.md | Si reprise/en cours | En fin de session | Temporaire, micro-décisions, snapshot |
-| INDEX.md | Début de session, si perdu | Si structure change | Cartographie du projet |
-| WARNINGS.md | Avant tout changement dans zone sensible | Quand risque identifié | Alertes actives, dettes |
+| Document | When to read | When to write | Content |
+|----------|-------------|---------------|---------|
+| STATUS.md | Session start | Session end | Progress state, blockers |
+| PLAN.md | Session start | During planning | Technical plan, steps, risks, status |
+| DECISIONS.md | When a choice arises | After a structural decision | Decision, context, impact |
+| CHANGELOG.md | Rarely | Session end (if significant) | Change history |
+| BUFFER.md | If resuming/in progress | Session end | Temporary, micro-decisions, snapshot |
+| INDEX.md | Session start, if lost | If the structure changes | Project map |
+| WARNINGS.md | Before any change in a sensitive zone | When a risk is identified | Active alerts, debt |
 
-### Capacités prouvées dans INDEX.md
+### Proven capabilities in INDEX.md
 
-`INDEX.md` peut documenter les capacités du projet uniquement quand un signal concret existe : UI, API, base de données, auth, CLI, package, monorepo, infra, data, etc.
+`INDEX.md` can document the project's capabilities only when a concrete signal exists: UI, API, database, auth, CLI, package, monorepo, infra, data, etc.
 
-Ne jamais ajouter une capacité par intuition métier. Exemple : un produit avec utilisateurs n'a pas forcément une capacité `auth` tant qu'aucun code d'authentification n'est présent.
+Never add a capability based on business intuition. Example: a product with users doesn't necessarily have an `auth` capability as long as no authentication code exists.
 
-## Recommandations
+## Recommendations
 
-- **Ne modifiez jamais directement** `~/.config/opencode/*`.
-- **Les fichiers `.new`** générés par `sync-project.sh` ne sont pas lus automatiquement par OpenCode. Fusionnez-les manuellement dans les fichiers existants avant de les supprimer.
-- Si un fichier `.new` existe déjà, `sync-project.sh` crée une proposition horodatée au lieu de l'écraser.
-- Faîtes les modifications dans le repo forké, puis `npm run update` (ou `./scripts/install.sh`).
-- Versionnez votre fork pour suivre vos personnalisations.
-- Utilisez `git pull` pour récupérer les mises à jour upstream.
+- **Never edit** `~/.config/opencode/*` **directly**.
+- **`.new` files** generated by `sync-project.sh` are not read automatically by OpenCode. Merge them manually into the existing files before deleting them.
+- If a `.new` file already exists, `sync-project.sh` creates a timestamped proposal instead of overwriting it.
+- Make changes in the forked repo, then `npm run update` (or `./scripts/install.sh`).
+- Version your fork to track your customizations.
+- Use `git pull` to fetch upstream updates.

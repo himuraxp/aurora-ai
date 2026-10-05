@@ -1,103 +1,103 @@
-# Workflow — Comment fonctionne le cycle de travail
+# Workflow — How the work cycle works
 
-## Le cycle universel
+## The universal cycle
 
-Toute session IA suit impérativement le cycle défini dans `standards/workflow.md` :
-
-```txt
-Explorer → Planifier → Implémenter → [PARALLEL GATE] → Committer
-                                      ├── Review (adversarial)
-                                      └── Vérifier (build + lint + test)
-```
-
-### Lecture en début de session
-
-Ordre obligatoire lorsque `docs/ai/` est découvert :
+Every AI session imperatively follows the cycle defined in `standards/workflow.md`:
 
 ```txt
-1. STATUS.md   → état actuel, bloqueurs, prochaine étape
-2. PLAN.md     → plan en cours
-3. WARNINGS.md → alertes actives avant de toucher quoi que ce soit
-4. INDEX.md    → comprendre la structure du projet sans scanner
-5. BUFFER.md   → seulement si reprise de session interrompue, blocage, ou demande explicite
+Explore → Plan → Implement → [PARALLEL GATE] → Commit
+                              ├── Review (adversarial)
+                              └── Verify (build + lint + test)
 ```
 
-Aurora détecte automatiquement `docs/ai/` au démarrage et applique cet ordre sans configuration dans `AGENTS.md`.
+### Session-start reading
 
-### Mise à jour en fin de session
-
-Aurora met à jour systématiquement les 7 fichiers de `docs/ai/` (selon `standards/memory-auto-update.md`) :
+Mandatory order when `docs/ai/` is discovered:
 
 ```txt
-1. STATUS.md     → résumer le travail fait, en cours, bloqué, prochaine action
-2. PLAN.md       → cocher les étapes terminées, mettre à jour le statut
-3. CHANGELOG.md  → entrée datée des changements significatifs
-4. INDEX.md      → ajouter modules/fichiers clés découverts
-5. BUFFER.md     → snapshot reprise, vider les notes temporaires
-6. WARNINGS.md   → ajouter zones sensibles et dettes identifiées
-7. DECISIONS.md  → documenter les décisions architecturales prises
+1. STATUS.md   → current state, blockers, next step
+2. PLAN.md     → current plan
+3. WARNINGS.md → active alerts before touching anything
+4. INDEX.md    → understand the project structure without scanning
+5. BUFFER.md   → only when resuming an interrupted session, blocker, or explicit request
 ```
 
-### Délégation et format de retour
+Aurora automatically detects `docs/ai/` at startup and applies this order without any configuration in `AGENTS.md`.
 
-Quand Aurora délègue à un sous-agent via `task`, le sous-agent DOIT retourner un résultat au format JSON structuré défini dans `standards/agent-output.md`. Aurora parse, consolide et affiche les résultats de manière déterministe. Un retour sans JSON est un échec partiel (voir `standards/delegation-failure.md`).
+### Session-end update
 
-### Utiliser INDEX.md pour éviter le scan global
+Aurora systematically updates the 7 files of `docs/ai/` (per `standards/memory-auto-update.md`):
 
-- Avant de chercher dans le projet, vérifier si `INDEX.md` contient déjà le module/fichier visé.
-- Ne jamais scanner tout le code si une recherche ciblée ou l'INDEX.md suffisent.
-- Mettre à jour INDEX.md seulement si la structure du projet change significativement.
+```txt
+1. STATUS.md     → summarize work done, in progress, blocked, next action
+2. PLAN.md       → check completed steps, update the status
+3. CHANGELOG.md  → dated entry of significant changes
+4. INDEX.md      → add key modules/files discovered
+5. BUFFER.md     → recovery snapshot, empty temporary notes
+6. WARNINGS.md   → add sensitive zones and debt identified
+7. DECISIONS.md  → document architectural decisions made
+```
 
-### Gérer le BUFFER.md
+### Delegation and output format
 
-- Utiliser pour les micro-décisions prises en session, les découvertes hors-scope, le snapshot si interruption.
-- Vider ou archiver en fin de session si résolu ou vide.
-- **Promouvoir tout risque persistant** de `BUFFER.md` vers `WARNINGS.md`.
-- Ne jamais mettre les micro-décisions dans `DECISIONS.md`.
+When Aurora delegates to a subagent via `task`, the subagent MUST return a result in the structured JSON format defined in `standards/agent-output.md`. Aurora parses, consolidates and displays results deterministically. A response without JSON is a partial failure (see `standards/delegation-failure.md`).
 
-### Explorer
+### Use INDEX.md to avoid global scans
 
-Lisez le code existant avant toute modification. Identifiez :
-- Les fichiers concernés
-- Les conventions en vigueur
-- Les patterns existants
-- Les zones dangereuses via `WARNINGS.md`
+- Before searching the project, check whether `INDEX.md` already contains the target module/file.
+- Never scan the whole codebase if a targeted search or INDEX.md is enough.
+- Update INDEX.md only if the project structure changes significantly.
 
-**Ne jamais implémenter directement sans comprendre le contexte.**
+### Manage BUFFER.md
 
-### Planifier
+- Use for micro-decisions made during the session, out-of-scope discoveries, the snapshot if interrupted.
+- Empty or archive at session end if resolved or empty.
+- **Promote any persistent risk** from `BUFFER.md` to `WARNINGS.md`.
+- Never put micro-decisions in `DECISIONS.md`.
 
-Si la modification touche plus de 2 fichiers, un plan est obligatoire.
+### Explore
 
-Le plan doit contenir :
-- Objectif
-- Fichiers concernés
-- Risques
-- Tests attendus
-- Statut : `pending`, `in-progress`, `implemented`, `reviewed` ou `blocked`
+Read the existing code before any change. Identify:
+- The impacted files
+- The conventions in force
+- The existing patterns
+- The dangerous zones via `WARNINGS.md`
 
-Stockez-le dans `docs/ai/PLAN.md`.
+**Never implement directly without understanding the context.**
 
-### Implémenter
+### Plan
 
-- Un changement logique à la fois
-- Travail incrémental
-- Préserver les comportements existants
-- Ne pas casser le build volontairement
+If the change touches more than 2 files, a plan is mandatory.
+
+The plan must contain:
+- Goal
+- Impacted files
+- Risks
+- Expected tests
+- Status: `pending`, `in-progress`, `implemented`, `reviewed` or `blocked`
+
+Store it in `docs/ai/PLAN.md`.
+
+### Implement
+
+- One logical change at a time
+- Incremental work
+- Preserve existing behaviors
+- Never break the build on purpose
 
 ### Review
 
-Avant de déclarer terminé, exécuter un examen contradictoire sur trois axes :
+Before declaring done, run an adversarial review on three axes:
 
-- **Code** : correction, maintenabilité, sécurité, conventions
-- **Fonctionnel** : respect du plan, critères d'acceptation, edge cases
-- **Pertinence** : réponse au besoin réel, absence de hors-scope, pas de sur-ingénierie
+- **Code**: correctness, maintainability, security, conventions
+- **Functional**: plan compliance, acceptance criteria, edge cases
+- **Relevance**: meets the real need, no out-of-scope, no over-engineering
 
-Le plan ne passe à `reviewed` qu'après review et vérifications.
+The plan only moves to `reviewed` after review and checks.
 
-### Vérifier
+### Verify
 
-Avant de déclarer une tâche terminée, lancer systématiquement :
+Before declaring a task done, systematically run:
 
 ```bash
 build
@@ -105,36 +105,36 @@ lint
 test
 ```
 
-Ne jamais affirmer qu'un changement fonctionne sans preuve exécutable.
+Never claim a change works without executable proof.
 
-### Committer
+### Commit
 
-- Un changement logique par commit
-- Format : `type(scope): résumé`
-- Jamais de commit cassant le build ou les tests
+- One logical change per commit
+- Format: `type(scope): summary`
+- Never commit with a broken build or failing tests
 
-## Modes de travail
+## Work modes
 
-### Mode EXECUTION (par défaut)
+### EXECUTION mode (default)
 
-Appliquer le plan. Modifier les fichiers dans le scope, vérifier, documenter les écarts dans `BUFFER.md`.
+Apply the plan. Modify files within scope, verify, document deviations in `BUFFER.md`.
 
-### Mode BRAINSTORM
+### BRAINSTORM mode
 
-Conception uniquement. Aucun code modifié. Autorisé à modifier `PLAN.md`, `DECISIONS.md`, `INDEX.md`. Sortir quand le plan est validé.
+Design only. No code modified. Allowed to modify `PLAN.md`, `DECISIONS.md`, `INDEX.md`. Exit when the plan is validated.
 
-### Mode AUDIT
+### AUDIT mode
 
-Diagnostic read-only. Aucun code modifié. Choisir les axes pertinents : qualité, architecture, sécurité, dépendances, performance, tests, UI/accessibilité. Produire un rapport priorisé avec preuves.
+Read-only diagnosis. No code modified. Choose the relevant axes: quality, architecture, security, dependencies, performance, tests, UI/accessibility. Produce a prioritized report with evidence.
 
-## Anti-patterns communs
+## Common anti-patterns
 
-- ❌ Implémenter sans lire le code existant
-- ❌ Modifier 10 fichiers sans plan
-- ❌ Déclarer terminé sans vérifications
-- ❌ Déclarer terminé sans review contradictoire
-- ❌ Corriger du code pendant un audit read-only
-- ❌ Committer avec tests cassés
-- ❌ Scanner le projet entier si INDEX.md suffit
-- ❌ Mettre micro-décisions dans DECISIONS.md
-- ❌ Lire un fichier `.new` automatiquement (propositions de fusion manuelle uniquement)
+- ❌ Implement without reading the existing code
+- ❌ Modify 10 files without a plan
+- ❌ Declare done without checks
+- ❌ Declare done without an adversarial review
+- ❌ Fix code during a read-only audit
+- ❌ Commit with failing tests
+- ❌ Scan the whole project if INDEX.md is enough
+- ❌ Put micro-decisions in DECISIONS.md
+- ❌ Read a `.new` file automatically (manual merge proposals only)

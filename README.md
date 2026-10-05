@@ -1,69 +1,71 @@
 <div align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset=".github/assets/aurora-logo-with-name-dark.png">
-    <img src=".github/assets/aurora-logo-with-name.png" width="300" alt="Aurora — agent orchestrateur OpenCode">
+    <img src=".github/assets/aurora-logo-with-name.png" width="300" alt="Aurora — OpenCode orchestrator agent">
   </picture>
 
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) [![Last Commit](https://img.shields.io/github/last-commit/himuraxp/opencode-config.svg)](https://github.com/himuraxp/opencode-config/commits/main) [![OpenCode Compatible](https://img.shields.io/badge/OpenCode-Compatible-brightgreen.svg)](https://opencode.ai)
 
-  > **La référence OpenCode pour les workflows IA en production — Angular, Node.js, NestJS, Astro.**
+  > **The OpenCode reference for production AI workflows — Angular, Node.js, NestJS, Astro.**
 
-  Forkable. Multi-couches. Prête à l'emploi.
+  Forkable. Multi-layered. Ready to use.
+
+  **English** · [Français](README.fr.md)
 </div>
 
 ---
 
 ## Agent State Layer
 
-Les agents IA perdent le contexte à chaque nouvelle session. Ce repository résout ce problème avec une couche de mémoire persistante :
+AI agents lose context at every new session. This repository solves that with a persistent memory layer:
 
-| Document | Problème résolu |
+| Document | Problem solved |
 |----------|---------------|
-| **BUFFER.md** | Interruptions de session — snapshot de reprise |
-| **INDEX.md** | Lectures inutiles — cartographie du projet en un coup d'œil |
-| **WARNINGS.md** | Régressions — alertes actives avant tout changement |
-| **STATUS.md** | Continuité — état d'avancement entre sessions |
-| **PLAN.md** | Direction — plan technique courant |
-| **DECISIONS.md** | Traçabilité — décisions structurantes justifiées |
+| **BUFFER.md** | Session interruptions — recovery snapshot |
+| **INDEX.md** | Wasted reads — project mapped at a glance |
+| **WARNINGS.md** | Regressions — active alerts before any change |
+| **STATUS.md** | Continuity — progress state across sessions |
+| **PLAN.md** | Direction — current technical plan |
+| **DECISIONS.md** | Traceability — justified structural decisions |
 
-Cycle de session (mis à jour avec l'étape REVIEW) :
+Session cycle (updated with the REVIEW step):
 
 ```txt
-EXPLORER → PLANIFIER → IMPLÉMENTER → [REVIEW] → VÉRIFIER → COMMITTER
+EXPLORER → PLAN → IMPLEMENT → [REVIEW] → VERIFY → COMMIT
 ```
 
-Avec l'étape **REVIEW** (examen contradictoire) obligatoire avant de considérer une tâche comme terminée.
+With the **REVIEW** step (adversarial review) mandatory before considering a task done.
 
 ---
 
 ## Why this project?
 
-Les agents IA (OpenCode, Cursor, Claude...) ne savent pas quel standard utiliser à moins que vous le leur disiez.
+AI agents (OpenCode, Cursor, Claude...) don't know which standard to follow unless you tell them.
 
-Ce repo apporte :
+This repo provides:
 
-- **Agents spécialisés** (repo) : aurora (principal), aurora-heavy (tâches complexes), reviewer, tester, security (défensif), cybersec (offensif/pentest), architect, spark (sous-agent léger), vision (multimodal), designer (UX/UI/DA/DS), mobile (iOS/Android/RN/Flutter) — **plus les agents du plugin oh-my-opencode-slim** : explorer (recherche codebase), fixer (exécution de spec), librarian (docs externes), oracle (conseil technique)
-- **Équipe Search & Growth** : atlas (SEO strategy), crawler (technical SEO), sage (AIO/GEO), scribe (SEO content), pulse (growth marketing), echo (social distribution), beacon (analytics)
-- **Standards de développement** : workflow, communication, vérification, escalation, commits, audit, création d'artefacts, mémoire de session, limites d'exploration, correction d'erreurs, anti-patterns, format de retour JSON des sous-agents
-- **Skills réutilisables** : accessibility, ai-cowork, allow-command, clonedeps, code-review, codemap, commit, create-mr, deepwork, deployment-changelog, figma-ds-sync, gitlab-ci, gitlab-feature-planner, gitlab-issues, gitlab-summary, image-transparent-background, laravel-cruddy-by-design, loop-engineering, mr-review, mr-review-feedback, new-worktree, oh-my-opencode-slim, pre-mr-review, radio-tag-genres, readme, reflect, release-smoke-test, review-gap-analyzer, simplify, translate-doc, user-stories, verification-planning, worktrees
-- **Co-working IA** : skill `ai-cowork` — boucle de collaboration autonome Aurora ↔ ChatGPT (ChatGPT briefe et valide, Aurora travaille) pilotée via le MCP `browser-debug`
-- **Conventions Angular 20+** : standalone, signals, inject(), tests Jest
-- **Review adversarial** : examen contradictoire obligatoire avant déclaration de fin de tâche
-- **Audit read-only** : health-check multi-axes sans modification de code
-- **Limites d'exploration** : délimitation stricte des investigations, subagents pour les recherches lourdes (> 15 fichiers)
-- **Mémoire persistante pour agents IA** : 7 documents de session (PLAN, STATUS, DECISIONS, CHANGELOG, BUFFER, INDEX, WARNINGS)
-- **Anti-patterns** : détection des 5 patterns d'échec courants (session fourre-tout, correction en spirale, sur-spécification, confiance sans vérification, exploration infinie)
-- **Création homogène d'artefacts** : règles pour ajouter standards, agents, frameworks et templates sans doublons
-- **Gestion des échecs de sous-agents** : procédure obligatoire constater → diagnostiquer → agir → informer (voir `delegation-failure.md`)
-- **Format de retour structuré** : tous les sous-agents retournent un JSON parsable pour consolidation déterministe, aucune exception (voir `agent-output.md`)
-- **Exemples prêts à l'emploi** : projets Angular, Node.js API et monorepo (dans `examples/`)
-- **Structure reproductible** : même comportement sur toutes les machines et tous les projets
+- **Specialized agents** (repo): aurora (main), aurora-heavy (complex tasks), reviewer, tester, security (defensive), cybersec (offensive/pentest), architect, spark (lightweight subagent), vision (multimodal), designer (UX/UI/art direction/DS), mobile (iOS/Android/RN/Flutter) — **plus the oh-my-opencode-slim plugin agents**: explorer (codebase search), fixer (spec execution), librarian (external docs), oracle (technical advisory)
+- **Search & Growth team**: atlas (SEO strategy), crawler (technical SEO), sage (AIO/GEO), scribe (SEO content), pulse (growth marketing), echo (social distribution), beacon (analytics)
+- **Development standards**: workflow, communication, verification, escalation, commits, audit, artifact authoring, session memory, exploration limits, error correction, anti-patterns, structured JSON output format for subagents
+- **Reusable skills**: accessibility, ai-cowork, allow-command, clonedeps, code-review, codemap, commit, create-mr, deepwork, deployment-changelog, figma-ds-sync, gitlab-ci, gitlab-feature-planner, gitlab-issues, gitlab-summary, image-transparent-background, laravel-cruddy-by-design, loop-engineering, mr-review, mr-review-feedback, new-worktree, oh-my-opencode-slim, pre-mr-review, radio-tag-genres, readme, reflect, release-smoke-test, review-gap-analyzer, simplify, translate-doc, user-stories, verification-planning, worktrees
+- **AI co-working**: skill `ai-cowork` — autonomous Aurora ↔ ChatGPT collaboration loop (ChatGPT briefs and validates, Aurora works) driven through the `browser-debug` MCP
+- **Angular 20+ conventions**: standalone, signals, inject(), Jest tests
+- **Adversarial review**: mandatory adversarial review before declaring a task done
+- **Read-only audit**: multi-axis health check without code changes
+- **Exploration limits**: strictly scoped investigations, subagents for heavy searches (> 15 files)
+- **Persistent memory for AI agents**: 7 session documents (PLAN, STATUS, DECISIONS, CHANGELOG, BUFFER, INDEX, WARNINGS)
+- **Anti-patterns**: detection of the 5 common failure patterns (catch-all session, correction spiral, over-specification, trust without verification, infinite exploration)
+- **Consistent artifact authoring**: rules for adding standards, agents, frameworks and templates without duplicates
+- **Subagent failure handling**: mandatory procedure notice → diagnose → act → inform (see `delegation-failure.md`)
+- **Structured output format**: all subagents return parseable JSON for deterministic consolidation, no exceptions (see `agent-output.md`)
+- **Ready-to-use examples**: Angular, Node.js API and monorepo projects (in `examples/`)
+- **Reproducible setup**: identical behavior across machines and projects
 
 ---
 
 ## Quick Start
 
-### 1. Installer la configuration complète (première fois)
+### 1. Install the full configuration (first time)
 
 ```bash
 git clone https://github.com/himuraxp/opencode-config.git ~/.config/opencode-config
@@ -71,32 +73,32 @@ cd ~/.config/opencode-config
 npm run setup
 ```
 
-> Équivalent bash : `~/.config/opencode-config/scripts/setup.sh`
+> Bash equivalent: `~/.config/opencode-config/scripts/setup.sh`
 
-`setup.sh` est un script interactif qui :
-- Vérifie les prérequis (Node.js 18+, npm)
-- Installe ou met à jour `opencode-ai` (npm global) et `rtk` (Homebrew sur macOS)
-- Propose d'installer les MCP servers (chrome-devtools auto, iOS Simulator optionnel avec idb-companion + fb-idb)
-- Copie agents, standards, frameworks et fichiers de config
-- Installe les dépendances npm des plugins
-- Demande interactivement les variables d'environnement (clé API, endpoints)
-- Écrit `~/.config/opencode/.env` (permissions 600, jamais versionné)
-- Écrit le **bloc managé** dans le shell rc (`~/.zshrc` sous zsh) : export de la
-  clé API Infomaniak AI et des valeurs `IDB_*` du MCP iOS. Idempotent (jamais de
-  doublon) et déplace automatiquement les exports préexistants de ces variables
-  dans le bloc — la clé n'existe jamais en deux copies
-- Vérifie que tout est fonctionnel
+`setup.sh` is an interactive script that:
+- Checks prerequisites (Node.js 18+, npm)
+- Installs or updates `opencode-ai` (npm global) and `rtk` (Homebrew on macOS)
+- Offers to install the MCP servers (chrome-devtools auto, optional iOS Simulator with idb-companion + fb-idb)
+- Copies agents, standards, frameworks and config files
+- Installs the npm dependencies of the plugins
+- Interactively asks for environment variables (API key, endpoints)
+- Writes `~/.config/opencode/.env` (permissions 600, never versioned)
+- Writes the **managed block** to the shell rc (`~/.zshrc` on zsh): exports the
+  Infomaniak AI API key and the iOS MCP `IDB_*` values. Idempotent (never
+  duplicated) and automatically moves pre-existing exports of these variables
+  into the block — the key never exists in two copies
+- Verifies that everything works
 
-Si `.env` existe déjà et contient les variables requises, l'étape de configuration est automatiquement skipée. Utilisez `--force` pour reconfigurer :
+If `.env` already exists and contains the required variables, the configuration step is automatically skipped. Use `--force` to reconfigure:
 
 ```bash
 npm run setup -- --force
-# ou: ~/.config/opencode-config/scripts/setup.sh --force
+# or: ~/.config/opencode-config/scripts/setup.sh --force
 ```
 
-Si une mise à jour de `opencode-ai` ou `rtk` est disponible, `setup.sh` propose de la faire.
+If an update of `opencode-ai` or `rtk` is available, `setup.sh` offers to apply it.
 
-### 2. Mettre à jour la configuration (modifications ultérieures)
+### 2. Update the configuration (subsequent changes)
 
 ```bash
 cd ~/.config/opencode-config
@@ -104,11 +106,11 @@ git pull
 npm run update
 ```
 
-> Équivalent bash : `./scripts/install.sh`
+> Bash equivalent: `./scripts/install.sh`
 
-`install.sh` affiche pour chaque fichier s'il est `new`, `updated` ou `unchanged`. Seuls les fichiers modifiés sont réécrits.
+`install.sh` reports each file as `new`, `updated` or `unchanged`. Only modified files are rewritten.
 
-Pour une mise à jour complète (config + dépendances + vérification) :
+For a full update (config + dependencies + checks):
 
 ```bash
 cd ~/.config/opencode-config
@@ -116,85 +118,85 @@ git pull
 npm run setup
 ```
 
-Après un renommage ou une suppression de standard, nettoyer les anciens fichiers installés :
+After renaming or removing a standard, clean up the old installed files:
 
 ```bash
 npm run prune
-# ou: ./scripts/install.sh --prune
+# or: ./scripts/install.sh --prune
 ```
 
-Pour mettre à jour sans toucher aux fichiers de config (`opencode.json`, plugins) :
+To update without touching the config files (`opencode.json`, plugins):
 
 ```bash
 npm run update -- --no-config
-# ou: ./scripts/install.sh --no-config
+# or: ./scripts/install.sh --no-config
 ```
 
-Cela installe dans `~/.config/opencode/` :
+This installs into `~/.config/opencode/`:
 
 ```txt
 ~/.config/opencode/
-├── agents/                    # Personnalités IA
-├── standards/                 # Comportements universels
-├── frameworks/                # Règles par stack technique
-├── opencode.json              # Config principale (providers, models, permissions, MCP)
-├── oh-my-opencode-slim.json   # Presets sous-agents
-├── package.json               # Dépendances plugins
+├── agents/                    # AI personalities
+├── standards/                 # Universal behaviors
+├── frameworks/                # Per-stack technical rules
+├── opencode.json              # Main config (providers, models, permissions, MCP)
+├── oh-my-opencode-slim.json   # Subagent presets
+├── package.json               # Plugin dependencies
 ├── plugins/
-│   └── rtk.ts                 # Plugin RTK (token savings)
-├── .env                       # Secrets (jamais versionné)
-└── .env.example               # Template des variables d'environnement
+│   └── rtk.ts                 # RTK plugin (token savings)
+├── .env                       # Secrets (never versioned)
+└── .env.example               # Environment variable template
 ```
 
-### 3. Variables d'environnement
+### 3. Environment variables
 
-OpenCode ne charge **pas** les fichiers `.env` : les références `{env:...}` de
-`opencode.json` lisent uniquement l'environnement du shell. D'où deux emplacements :
+OpenCode does **not** load `.env` files: the `{env:...}` references in
+`opencode.json` only read the shell environment. Hence two locations:
 
-- **Shell rc (bloc managé par `setup.sh`)** : la clé API Infomaniak AI (**seule
-  copie**) et les valeurs `IDB_*` du MCP iOS, qui ne lit que son environnement
-  process (pas de fallback `.env`). Le bloc est idempotent : les exports
-  préexistants de ces variables sont déplacés dans le bloc, jamais dupliqués.
-- **`~/.config/opencode/.env`** : les variables lues directement par les MCP
-  servers et les outils (fallback interne dans leur code).
+- **Shell rc (block managed by `setup.sh`)**: the Infomaniak AI API key (**single
+  copy**) and the iOS MCP `IDB_*` values, since the iOS MCP only reads its process
+  environment (no `.env` fallback). The block is idempotent: pre-existing exports
+  of these variables are moved into the block, never duplicated.
+- **`~/.config/opencode/.env`**: variables read directly by the MCP servers
+  and tools (internal fallback in their own code).
 
-| Variable | Emplacement | Usage | Requis |
-|----------|-------------|-------|--------|
-| `OPENAI_API_KEY_INFOMANIAK` | shell rc (bloc managé) | Clé API Infomaniak AI | Oui |
-| `IDB_UDID` | shell rc (bloc managé) | UDID simulateur iOS (MCP ios-simulator) | Non |
-| `IDB_PATH` | shell rc (bloc managé) | Chemin binaires idb (MCP ios-simulator) | Non |
-| `INFOMANIAK_API_TOKEN` | `.env` | Token API Infomaniak (MCP infomaniak — fallback `.env`) | Non |
-| `GITLAB_TOKEN` | shell rc ou `.env` | Token GitLab (MCP angular-elements — fallback `.env`) | Non |
-| `FIGMA_TOKEN` | `.env` | Token API Figma (skill `figma-ds-sync` — sync design system) | Non |
+| Variable | Location | Usage | Required |
+|----------|----------|-------|----------|
+| `OPENAI_API_KEY_INFOMANIAK` | shell rc (managed block) | Infomaniak AI API key | Yes |
+| `IDB_UDID` | shell rc (managed block) | iOS simulator UDID (ios-simulator MCP) | No |
+| `IDB_PATH` | shell rc (managed block) | idb binaries path (ios-simulator MCP) | No |
+| `INFOMANIAK_API_TOKEN` | `.env` | Infomaniak API token (infomaniak MCP — `.env` fallback) | No |
+| `GITLAB_TOKEN` | shell rc or `.env` | GitLab token (angular-elements MCP — `.env` fallback) | No |
+| `FIGMA_TOKEN` | `.env` | Figma API token (`figma-ds-sync` skill — design system sync) | No |
 
-`setup.sh` demande ces valeurs interactivement. Pour les variables du `.env`
-(`INFOMANIAK_API_TOKEN`, `FIGMA_TOKEN`, ...), éditez `~/.config/opencode/.env`
-directement. Pour la clé et les valeurs `IDB_*`, utilisez `setup.sh --force`
-(Enter pour garder, nouvelle valeur pour remplacer) — ou éditez le bloc managé
-du shell rc.
+`setup.sh` asks for these values interactively. For the `.env` variables
+(`INFOMANIAK_API_TOKEN`, `FIGMA_TOKEN`, ...), edit `~/.config/opencode/.env`
+directly. For the API key and the `IDB_*` values, use `setup.sh --force`
+(Enter to keep, new value to replace) — or edit the managed block in the
+shell rc.
 
 ### 4. MCP Servers
 
-La configuration inclut six MCP servers dans `opencode.json` :
+The configuration includes six MCP servers in `opencode.json`:
 
-| MCP Server | Rôle | Installation |
+| MCP Server | Role | Installation |
 |------------|------|-------------|
-| `chrome-devtools` | Navigation, screenshots, audit Lighthouse, debug Chrome (navigateur headless isolé) | Auto-installé via `npx` au premier lancement |
-| `browser-debug` | Se connecte à un navigateur en mode debug (`http://127.0.0.1:9222`) — utilisé par le skill `ai-cowork` (Aurora ↔ ChatGPT) | Auto-installé via `npx` ; nécessite un navigateur lancé en mode debug (voir ci-dessous) |
-| `ios-simulator` | Interaction avec le simulateur iOS (tap, swipe, screenshots, UI tree) | Optionnel — nécessite `idb-companion` + `fb-idb` |
-| `context7` | Documentation à jour des librairies et frameworks | Auto-installé via `npx` |
-| `infomaniak` | API Infomaniak — radio, VOD, newsletter, DNS, events, AI | Local (voir `mcp/infomaniak/README.md`) |
-| `angular-elements` | Design system Angular Elements — composants, API, stories | Local (voir `mcp/angular-elements/README.md`) |
+| `chrome-devtools` | Browsing, screenshots, Lighthouse audits, Chrome debugging (isolated headless browser) | Auto-installed via `npx` on first launch |
+| `browser-debug` | Connects to a browser in debug mode (`http://127.0.0.1:9222`) — used by the `ai-cowork` skill (Aurora ↔ ChatGPT) | Auto-installed via `npx`; requires a browser started in debug mode (see below) |
+| `ios-simulator` | iOS simulator interaction (tap, swipe, screenshots, UI tree) | Optional — requires `idb-companion` + `fb-idb` |
+| `context7` | Up-to-date library and framework documentation | Auto-installed via `npx` |
+| `infomaniak` | Infomaniak API — radio, VOD, newsletter, DNS, events, AI | Local (see `mcp/infomaniak/README.md`) |
+| `angular-elements` | Angular Elements design system — components, API, stories | Local (see `mcp/angular-elements/README.md`) |
 
 #### chrome-devtools-mcp
 
-Aucune installation manuelle nécessaire. Le package `chrome-devtools-mcp` est téléchargé automatiquement par `npx` au premier appel.
+No manual installation needed. The `chrome-devtools-mcp` package is downloaded automatically by `npx` on first call.
 
-Deux instances coexistent (tools préfixés par le nom du serveur) :
-- `chrome-devtools_*` — headless isolé (Designer, audits)
-- `browser-debug_*` — connecté à `http://127.0.0.1:9222` (skill `ai-cowork`)
+Two instances coexist (tools prefixed with the server name):
+- `chrome-devtools_*` — isolated headless (Designer, audits)
+- `browser-debug_*` — connected to `http://127.0.0.1:9222` (`ai-cowork` skill)
 
-Pour le mode debug (session navigateur persistante, login ChatGPT conservé) :
+For debug mode (persistent browser session, ChatGPT login preserved):
 
 ```bash
 "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser" \
@@ -202,103 +204,103 @@ Pour le mode debug (session navigateur persistante, login ChatGPT conservé) :
   --user-data-dir="$HOME/.config/opencode/brave-debug-profile"
 ```
 
-> Le `--user-data-dir` dédié est **obligatoire** (Chromium ≥136 ignore `--remote-debugging-port` sur le profil par défaut).
+> The dedicated `--user-data-dir` is **mandatory** (Chromium ≥136 ignores `--remote-debugging-port` on the default profile).
 
-#### ios-simulator-mcp (macOS uniquement)
+#### ios-simulator-mcp (macOS only)
 
-Ce MCP nécessite 3 dépendances externes :
+This MCP requires 3 external dependencies:
 
-| Dépendance | Installation |
+| Dependency | Installation |
 |------------|-------------|
-| Xcode | App Store (nécessaire pour `xcrun simctl`) |
+| Xcode | App Store (required for `xcrun simctl`) |
 | `idb-companion` | `brew tap facebook/fb && brew install idb-companion` |
 | `fb-idb` | `python3 -m venv ~/.local/idb-venv && ~/.local/idb-venv/bin/pip install fb-idb` |
 
-`setup.sh` propose d'installer ces dépendances automatiquement. Si vous refusez ou si vous êtes sur Linux, le MCP reste configuré dans `opencode.json` mais plantera au runtime — vous pouvez le désactiver en passant `"enabled": false`.
+`setup.sh` offers to install these dependencies automatically. If you decline or are on Linux, the MCP stays configured in `opencode.json` but will fail at runtime — you can disable it by setting `"enabled": false`.
 
-Variables d'environnement associées (shell rc, bloc managé par `setup.sh` — le
-MCP ios-simulator ne lit pas `.env`) :
+Related environment variables (shell rc, block managed by `setup.sh` — the
+ios-simulator MCP does not read `.env`):
 
 | Variable | Usage |
 |----------|-------|
-| `IDB_UDID` | UDID du simulateur iOS cible (auto-détecté par `setup.sh`) |
-| `IDB_PATH` | Chemin vers les binaires `idb` (défaut: `~/.local/idb-venv/bin:...`) |
+| `IDB_UDID` | Target iOS simulator UDID (auto-detected by `setup.sh`) |
+| `IDB_PATH` | Path to the `idb` binaries (default: `~/.local/idb-venv/bin:...`) |
 
-### 5. Initialiser un projet
+### 5. Initialize a project
 
 ```bash
-cd mon-projet
+cd my-project
 ~/.config/opencode-config/scripts/init-project.sh
-# ou depuis le repo: npm run init-project
+# or from the repo: npm run init-project
 ```
 
-Pour prévisualiser sans rien modifier :
+To preview without changing anything:
 
 ```bash
 ~/.config/opencode-config/scripts/init-project.sh --dry-run
-# ou depuis le repo: npm run init-project -- --dry-run
+# or from the repo: npm run init-project -- --dry-run
 ```
 
-Résultat :
+Result:
 
 ```txt
-mon-projet/
+my-project/
 ├── AGENTS.md
 └── docs/
     └── ai/
-        ├── PLAN.md       → plan technique courant
-        ├── STATUS.md     → état d'avancement
-        ├── DECISIONS.md  → décisions structurantes
-        ├── CHANGELOG.md  → historique des sessions
-        ├── BUFFER.md     → mémoire tampon de session
-        ├── INDEX.md      → cartographie du projet
-        └── WARNINGS.md   → alertes et dettes techniques
+        ├── PLAN.md       → current technical plan
+        ├── STATUS.md     → progress state
+        ├── DECISIONS.md  → structural decisions
+        ├── CHANGELOG.md  → session history
+        ├── BUFFER.md     → session buffer
+        ├── INDEX.md      → project map
+        └── WARNINGS.md   → alerts and technical debt
 ```
 
-### 6. Synchroniser un projet existant
+### 6. Sync an existing project
 
 ```bash
 ~/.config/opencode-config/scripts/sync-project.sh
-# ou depuis le repo: npm run sync
+# or from the repo: npm run sync
 ```
 
-Pour prévisualiser sans rien modifier :
+To preview without changing anything:
 
 ```bash
 ~/.config/opencode-config/scripts/sync-project.sh --dry-run
-# ou depuis le repo: npm run sync -- --dry-run
+# or from the repo: npm run sync -- --dry-run
 ```
 
-Par défaut, le script n'écrase pas les fichiers existants. Il crée des fichiers `.new` si une version existe déjà. Si un `.new` existe déjà, il crée un fichier horodaté pour ne pas écraser une fusion en cours.
+By default, the script does not overwrite existing files. It creates `.new` files if a version already exists. If a `.new` file already exists, it creates a timestamped file to avoid overwriting an in-progress merge.
 
-Opérationnel en moins de 2 minutes.
+Operational in under 2 minutes.
 
-## Modèles et Fallback
+## Models and Fallback
 
-### 17 modèles configurés
+### 17 configured models
 
-La configuration utilise **17 modèles** répartis en 6 catégories :
+The configuration uses **17 models** across 6 categories:
 
-| Catégorie | Modèles | Context max | Coût (input/output) | Usage |
-|-----------|---------|-------------|---------------------|-------|
-| **Expert** | euria-code (GLM-5.2) | 250k | $0.60 / $3.00 | Raisonnement complexe, architecture, sécurité, review, code |
-| | euria-code-tiny | 200k | $0.30 / $0.40 | Version légère d'euria-code, multimodal (image) |
-| **Intermédiaire** | Mistral-Small-4 (119B) | 256k | $0.20 / $0.75 | Commits, skills CLI, SEO technique, content |
-| | Kimi-K2.6 | 256k | $0.60 / $3.00 | Fallback gros contextes |
-| | Qwen3.5-397B | 204k | $0.80 / $3.60 | Multimodal natif (image+video), disponible sur demande |
-| | Qwen3.5-122B | 200k | $0.40 / $3.20 | Intermédiaire Qwen, output 100k |
-| **Léger** | Ministral-3 (14B) | 80k | $0.30 / $0.40 | Modèle léger (non utilisé par défaut) |
-| | Gemma-4-31B | 100k | $0.20 / $0.40 | Tâches générales |
-| | Apertus-70B | 100k | $0.70 / $2.50 | Tâches générales |
-| **Ultra-léger** | **Nemotron-3-Nano (30B)** | **1M** | **$0.05 / $0.20** | **Fallback ultime, gros contextes** |
-| **Embedding** | Qwen3-Embedding-8B | 32k | $0.01 / $0 | Vectorisation (recommandé) |
-| | bge_multilingual_gemma2 | 8k | $0.01 / $0 | Multilingue FR/EN |
-| | mini_lm_l12_v2 | 512 | $0.005 / $0 | Petits textes |
-| **Transcription** | whisper | 448k | $0.006 / $0 | Audio → texte |
+| Category | Models | Max context | Cost (input/output) | Usage |
+|----------|--------|-------------|---------------------|-------|
+| **Expert** | euria-code (GLM-5.2) | 250k | $0.60 / $3.00 | Complex reasoning, architecture, security, review, code |
+| | euria-code-tiny | 200k | $0.30 / $0.40 | Lightweight version of euria-code, multimodal (image) |
+| **Intermediate** | Mistral-Small-4 (119B) | 256k | $0.20 / $0.75 | Commits, CLI skills, technical SEO, content |
+| | Kimi-K2.6 | 256k | $0.60 / $3.00 | Large-context fallback |
+| | Qwen3.5-397B | 204k | $0.80 / $3.60 | Native multimodal (image+video), available on request |
+| | Qwen3.5-122B | 200k | $0.40 / $3.20 | Intermediate Qwen, 100k output |
+| **Light** | Ministral-3 (14B) | 80k | $0.30 / $0.40 | Light model (not used by default) |
+| | Gemma-4-31B | 100k | $0.20 / $0.40 | General tasks |
+| | Apertus-70B | 100k | $0.70 / $2.50 | General tasks |
+| **Ultra-light** | **Nemotron-3-Nano (30B)** | **1M** | **$0.05 / $0.20** | **Ultimate fallback, large contexts** |
+| **Embedding** | Qwen3-Embedding-8B | 32k | $0.01 / $0 | Vectorization (recommended) |
+| | bge_multilingual_gemma2 | 8k | $0.01 / $0 | Multilingual FR/EN |
+| | mini_lm_l12_v2 | 512 | $0.005 / $0 | Short texts |
+| **Transcription** | whisper | 448k | $0.006 / $0 | Audio → text |
 
-### Fallback automatique
+### Automatic fallback
 
-Quand un prompt dépasse la limite de contexte d'un modèle, OpenCode bascule **automatiquement** vers un modèle avec plus de contexte :
+When a prompt exceeds a model's context limit, OpenCode switches **automatically** to a model with more context:
 
 ```
 Ministral-3 (80k)      → Mistral-Small-4 (256k) → Kimi-K2.6 → Nemotron-3-Nano (1M)
@@ -307,57 +309,57 @@ Gemma-4 (100k)         → Mistral-Small-4 (256k) → Kimi-K2.6 → Nemotron-3-N
 Qwen3.5-397B (204k)    → Kimi-K2.6 (256k)       → Nemotron-3-Nano (1M)
 ```
 
-> **Avantage** : Le fallback ultime (Nemotron-3-Nano) est le modèle **le moins cher** ($0.05/1M tokens). Les très gros contextes coûtent en fait *moins* cher.
+> **Benefit**: the ultimate fallback (Nemotron-3-Nano) is the **cheapest** model ($0.05/1M tokens). Very large contexts actually cost *less*.
 
-### Assignation des agents
+### Agent assignment
 
-| Agent | Modèle | Pourquoi |
-|-------|--------|----------|
-| `aurora`, `aurora-heavy`, `architect`, `security`, `cybersec`, `reviewer`, `atlas`, `sage`, `mobile`, `tester`, `build`, `plan` | euria-code (GLM-5.2) | Raisonnement expert, code, sécurité, long-context 1M natif |
-| `designer`, `vision` | Qwen3.5-397B | Multimodal natif (image+video), analyse de screenshots et mockups |
-| `echo`, `scribe`, `pulse`, `beacon`, `crawler` | Mistral-Small-4 (119B) | Bon équilibre coût/performance/créativité |
-| `spark` | Mistral-Small-4 (119B) | Commits, skills CLI — 256k contexte évite la boucle de compaction |
-| `oracle` (plugin) | euria-code (variant high) | Conseil stratégique, review adversariale |
-| `fixer` (plugin) | Qwen3.5-122B | Exécution rapide de spec |
-| `explorer`, `librarian` (plugin) | Ministral-3 (14B) | Recherche rapide codebase / docs externes |
+| Agent | Model | Why |
+|-------|-------|-----|
+| `aurora`, `aurora-heavy`, `architect`, `security`, `cybersec`, `reviewer`, `atlas`, `sage`, `mobile`, `tester`, `build`, `plan` | euria-code (GLM-5.2) | Expert reasoning, code, security, native 1M long-context |
+| `designer`, `vision` | Qwen3.5-397B | Native multimodal (image+video), screenshot and mockup analysis |
+| `echo`, `scribe`, `pulse`, `beacon`, `crawler` | Mistral-Small-4 (119B) | Good cost/performance/creativity balance |
+| `spark` | Mistral-Small-4 (119B) | Commits, CLI skills — 256k context avoids the compaction loop |
+| `oracle` (plugin) | euria-code (high variant) | Strategic advisory, adversarial review |
+| `fixer` (plugin) | Qwen3.5-122B | Fast spec execution |
+| `explorer`, `librarian` (plugin) | Ministral-3 (14B) | Fast codebase / external docs search |
 
 ---
 
 ## Automatic Project Memory Discovery
 
-Aurora détecte automatiquement le dossier `docs/ai/` à la racine du projet dès le début de chaque session.
+Aurora automatically detects the `docs/ai/` folder at the project root at the start of every session.
 
-### Lecture automatique au bootstrap
+### Automatic read at bootstrap
 
-Si `docs/ai/` existe, Aurora charge immédiatement :
+If `docs/ai/` exists, Aurora immediately loads:
 
-1. `STATUS.md` — état actuel, bloqueurs, prochaine étape
-2. `PLAN.md` — plan technique en cours
-3. `WARNINGS.md` — alertes actives et zones à risque
-4. `INDEX.md` — cartographie du projet
+1. `STATUS.md` — current state, blockers, next step
+2. `PLAN.md` — current technical plan
+3. `WARNINGS.md` — active alerts and risk zones
+4. `INDEX.md` — project map
 
-### Lecture conditionnelle
+### Conditional reads
 
-- **BUFFER.md** : chargé uniquement en cas de reprise de session interrompue, de blocage signalé dans `STATUS.md`, ou si l'utilisateur demande explicitement de reprendre une tâche.
-- **DECISIONS.md** : consulté en JIT (Just-In-Time) si une décision structurante, une contradiction ou une refonte d'architecture est détectée.
-- **CHANGELOG.md** : consulté en JIT si une régression est suspectée ou si l'utilisateur demande l'historique.
+- **BUFFER.md**: loaded only when resuming an interrupted session, when `STATUS.md` reports a blocker, or when the user explicitly asks to resume a task.
+- **DECISIONS.md**: consulted JIT (Just-In-Time) when a structural decision, a contradiction or an architecture overhaul is detected.
+- **CHANGELOG.md**: consulted JIT when a regression is suspected or the user asks for history.
 
-### Pourquoi les fichiers `.new` ne sont pas lus
+### Why `.new` files are never read
 
-Lors d'une synchronisation (`sync-project.sh`), les fichiers existants ne sont pas écrasés. Le script génère des fichiers `.new` comme propositions de mise à jour, ou `.new.YYYYMMDD-HHMMSS` si une proposition existe déjà.
-**OpenCode ne lit jamais les fichiers `.new` automatiquement.** Ils doivent être fusionnés manuellement dans les fichiers officiels.
+During a sync (`sync-project.sh`), existing files are not overwritten. The script generates `.new` files as update proposals, or `.new.YYYYMMDD-HHMMSS` if a proposal already exists.
+**OpenCode never reads `.new` files automatically.** They must be merged manually into the official files.
 
 ### Existing Project Adoption Checklist
 
-Pour adopter la mémoire projet sur un projet existant possédant déjà `docs/ai/` :
+To adopt project memory on an existing project that already has `docs/ai/`:
 
-1. Lancer `init-project.sh` dans le projet existant.
-2. Vérifier les fichiers créés dans `docs/ai/`.
-3. Comparer les éventuels fichiers `.new` générés.
-4. Fusionner manuellement les sections utiles.
-5. Supprimer les `.new` une fois traités.
-6. Lancer OpenCode avec Aurora.
-7. Vérifier qu'Aurora annonce la mémoire projet détectée.
+1. Run `init-project.sh` in the existing project.
+2. Check the files created in `docs/ai/`.
+3. Compare any generated `.new` files.
+4. Manually merge the useful sections.
+5. Delete the `.new` files once processed.
+6. Start OpenCode with Aurora.
+7. Verify that Aurora announces the detected project memory.
 
 ---
 
@@ -368,112 +370,112 @@ Global Configuration
         ↓
      Standards    (workflow, memory-session-flow, memory-auto-update, memory-checklist, verification, communication, escalation, commits, review-before-done, audit, exploration-limits, error-correction, anti-patterns, artifact-authoring, delegation-failure, agent-output)
         ↓
-         Agents       (aurora, aurora-heavy, reviewer, tester, security, cybersec, architect, spark, vision, atlas, crawler, sage, scribe, pulse, echo, beacon, designer, mobile) + plugin (explorer, fixer, librarian, oracle)
+          Agents       (aurora, aurora-heavy, reviewer, tester, security, cybersec, architect, spark, vision, atlas, crawler, sage, scribe, pulse, echo, beacon, designer, mobile) + plugin (explorer, fixer, librarian, oracle)
         ↓
     Frameworks     (angular-20, nodejs, nestjs, astro...)
         ↓
- Project AGENTS.md (source de vérité locale)
+ Project AGENTS.md (local source of truth)
         ↓
    Project Docs    (PLAN, STATUS, DECISIONS, CHANGELOG, BUFFER, INDEX, WARNINGS)
 ```
 
-**Standards** : comportements universels applicables à tout projet.
-**Agents** : personnalités spécialisées pour des tâches spécifiques.
-**Frameworks** : règles techniques par stack (Angular, Node.js, NestJS, Astro).
-**Project AGENTS.md** : source de vérité ultime, le local l'emporte toujours.
-**Project Docs** : mémoire persistante de session entre les conversations IA.
+**Standards**: universal behaviors applicable to any project.
+**Agents**: specialized personalities for specific tasks.
+**Frameworks**: technical rules per stack (Angular, Node.js, NestJS, Astro).
+**Project AGENTS.md**: ultimate source of truth, local always takes precedence.
+**Project Docs**: persistent session memory across AI conversations.
 
 ---
 
-## Que va-t-il m'apporter ?
+## What's in it for you?
 
-| Bénéfice | Description |
-|----------|-------------|
-| **Cohérence** | Même comportement des agents sur toutes les machines |
-| **Gain de temps** | Initialisation d'un projet en 3 secondes |
-| **Qualité** | Standards Angular 20+ intégrés + review adversarial + audit read-only + limite d'exploration |
-| **Traçabilité** | Chaque agent documente son plan, ses décisions et son avancement |
-| **Sécurité** | Checklist sécurité automatique à chaque review |
-| **Mémoire de session** | BUFFER, INDEX et WARNINGS pour les projets longs et complexes |
-| **Travailler en équipe** | Workflow universel : Explorer → Planifier → Implémenter → [PARALLEL GATE] → Committer |
+| Benefit | Description |
+|---------|-------------|
+| **Consistency** | Identical agent behavior on every machine |
+| **Time savings** | Project initialization in 3 seconds |
+| **Quality** | Built-in Angular 20+ standards + adversarial review + read-only audit + exploration limits |
+| **Traceability** | Every agent documents its plan, decisions and progress |
+| **Security** | Automatic security checklist at every review |
+| **Session memory** | BUFFER, INDEX and WARNINGS for long and complex projects |
+| **Teamwork** | Universal workflow: Explore → Plan → Implement → [PARALLEL GATE] → Commit |
 
 ---
 
-## Comment l'utiliser ?
+## How to use it
 
-Après installation, l'agent Aurora (principal) charge automatiquement :
+After installation, the Aurora agent (main) automatically loads:
 
 ```txt
-1. Standards globaux (workflow, communication, verification...)
-2. Agents globaux (aurora, aurora-heavy, reviewer, tester, security, cybersec, architect, spark, vision, atlas, crawler, sage, scribe, pulse, echo, beacon, designer, mobile) + agents du plugin (explorer, fixer, librarian, oracle)
-3. Framework ciblé (Angular 20+, Node.js, etc.)
-4. Standards entreprise (si configurés)
-5. AGENTS.md local + docs/ai/
+1. Global standards (workflow, communication, verification...)
+2. Global agents (aurora, aurora-heavy, reviewer, tester, security, cybersec, architect, spark, vision, atlas, crawler, sage, scribe, pulse, echo, beacon, designer, mobile) + plugin agents (explorer, fixer, librarian, oracle)
+3. Targeted framework (Angular 20+, Node.js, etc.)
+4. Company standards (if configured)
+5. Local AGENTS.md + docs/ai/
 ```
 
-La règle d'or : **le local l'emporte toujours**. `AGENTS.md` à la racine du projet est la source de vérité ultime.
+The golden rule: **local always takes precedence**. The `AGENTS.md` at the project root is the ultimate source of truth.
 
 ---
 
-## Comment personnaliser ?
+## How to customize
 
-### Personnaliser les agents
+### Customize the agents
 
-Modifiez les fichiers dans le repo cloné, puis relancez `npm run update` (ou `./scripts/install.sh`).
+Edit the files in the cloned repo, then run `npm run update` (or `./scripts/install.sh`).
 
-Les agents disponibles sont dans `agents/` :
+The available agents live in `agents/`:
 
-| Agent | Rôle |
+| Agent | Role |
 |-------|------|
-| `aurora.md` | Agent principal — chargement et coordination |
-| `aurora-heavy.md` | Agent pour tâches complexes (euria-code) |
-| `reviewer.md` | Code review stricte |
-| `tester.md` | Tests qualité |
-| `security.md` | Cybersécurité défensive — AppSec, threat modeling, secure code review, DevSecOps, hardening |
-| `cybersec.md` | Cybersécurité offensive — pentest, Red Team, exploitation, recon, bypass, privesc |
-| `architect.md` | Découpage technique |
-| `spark.md` | Sous-agent léger (commit, MR) |
-| `vision.md` | Sous-agent multimodal (images, screenshots) |
-| `atlas.md` | SEO Strategy — stratégie, keyword research, content gaps |
-| `crawler.md` | Technical SEO — audit et correction SEO technique |
-| `sage.md` | AIO / GEO — optimisation pour moteurs de recherche génératifs |
-| `scribe.md` | SEO Content — production et optimisation éditoriale |
+| `aurora.md` | Main agent — loading and coordination |
+| `aurora-heavy.md` | Agent for complex tasks (euria-code) |
+| `reviewer.md` | Strict code review |
+| `tester.md` | Quality tests |
+| `security.md` | Defensive cybersecurity — AppSec, threat modeling, secure code review, DevSecOps, hardening |
+| `cybersec.md` | Offensive cybersecurity — pentest, Red Team, exploitation, recon, bypass, privesc |
+| `architect.md` | Technical breakdown |
+| `spark.md` | Lightweight subagent (commit, MR) |
+| `vision.md` | Multimodal subagent (images, screenshots) |
+| `atlas.md` | SEO Strategy — strategy, keyword research, content gaps |
+| `crawler.md` | Technical SEO — technical SEO audit and fixes |
+| `sage.md` | AIO / GEO — optimization for generative search engines |
+| `scribe.md` | SEO Content — editorial production and optimization |
 | `pulse.md` | Growth Marketing — acquisition, conversion, funnel |
-| `echo.md` | Social Distribution — distribution multi-canal |
-| `beacon.md` | Analytics — mesure SEO et marketing |
-| `designer.md` | UX/UI Designer — conception d'interfaces, DA, design system, accessibilité (2 modes : autonome / DS Infomaniak) |
+| `echo.md` | Social Distribution — multi-channel distribution |
+| `beacon.md` | Analytics — SEO and marketing measurement |
+| `designer.md` | UX/UI Designer — interface design, art direction, design system, accessibility (2 modes: standalone / Infomaniak DS) |
 | `mobile.md` | Mobile Engineer — iOS, Android, React Native, Flutter |
 
-> Agents **fournis par le plugin** `oh-my-opencode-slim` (config `config/oh-my-opencode-slim.json`) : `explorer` (recherche codebase), `fixer` (exécution rapide de spec), `librarian` (recherche docs externes), `oracle` (conseil technique stratégique, review adversariale).
+> Agents **provided by the plugin** `oh-my-opencode-slim` (config `config/oh-my-opencode-slim.json`): `explorer` (codebase search), `fixer` (fast spec execution), `librarian` (external docs search), `oracle` (strategic technical advisory, adversarial review).
 
-### Ajouter un framework
+### Add a framework
 
-Créez un fichier `frameworks/<mon-framework>.md` dans le repo :
+Create a `frameworks/<my-framework>.md` file in the repo:
 
 ```txt
 frameworks/
 ├── angular-20.md   # Angular 20+ stand-alone
-├── nodejs.md       # API Node.js / Express
-├── nestjs.md       # Architecture modulaire NestJS
-└── astro.md        # Sites statiques Astro, SEO, i18n
+├── nodejs.md       # Node.js API / Express
+├── nestjs.md       # Modular NestJS architecture
+└── astro.md        # Astro static sites, SEO, i18n
 ```
 
-Le nom du fichier sera le nom du framework. Relancez `npm run update` (ou `./scripts/install.sh`) pour le déployer.
+The file name becomes the framework name. Run `npm run update` (or `./scripts/install.sh`) to deploy it.
 
-### Créer une nouvelle règle
+### Create a new rule
 
-1. Dans le repo `~/.config/opencode-config`
-2. Créez un fichier dans `standards/` (universel) ou `agents/` (rôle spécialisé)
-3. Relancez `npm run update` (ou `./scripts/install.sh`)
-4. Référencez-le dans le `AGENTS.md` du projet concerné
+1. In the `~/.config/opencode-config` repo
+2. Create a file in `standards/` (universal) or `agents/` (specialized role)
+3. Run `npm run update` (or `./scripts/install.sh`)
+4. Reference it in the `AGENTS.md` of the relevant project
 
-### Personnaliser le workflow de session
+### Customize the session workflow
 
-Modifiez `standards/workflow.md` et `standards/memory-session-flow.md` pour adapter le cycle de travail et la gestion de la mémoire de session.
+Edit `standards/workflow.md` and `standards/memory-session-flow.md` to adapt the work cycle and session memory handling.
 
-### Adapter la stack d'un projet
+### Adapt a project's stack
 
-Le template `AGENTS.md` est volontairement générique. Ajoutez dans le `AGENTS.md` local les conventions de stack utiles, ou référencez un framework global :
+The `AGENTS.md` template is intentionally generic. Add the useful stack conventions to the local `AGENTS.md`, or reference a global framework:
 
 - `frameworks/angular-20.md`
 - `frameworks/nodejs.md`
@@ -482,7 +484,7 @@ Le template `AGENTS.md` est volontairement générique. Ajoutez dans le `AGENTS.
 
 ---
 
-## Structure du repo
+## Repository structure
 
 ```txt
 opencode-config/
@@ -491,156 +493,156 @@ opencode-config/
 ├── LICENSE
 ├── CHANGELOG.md
 │
-├── config/                     Config OpenCode (versionnée, sans secrets)
+├── config/                     OpenCode config (versioned, no secrets)
 │   ├── opencode.json             Providers, models, permissions, MCP servers
-│   ├── oh-my-opencode-slim.json  Presets sous-agents (euria-code)
-│   ├── package.json              Dépendance @opencode-ai/plugin
-│   ├── .env.example              Template des variables d'environnement
+│   ├── oh-my-opencode-slim.json  Subagent presets (euria-code)
+│   ├── package.json              @opencode-ai/plugin dependency
+│   ├── .env.example              Environment variable template
 │   └── plugins/
-│       └── rtk.ts                Plugin RTK (token savings via rtk rewrite)
+│       └── rtk.ts                RTK plugin (token savings via rtk rewrite)
 │
-├── standards/               Comportements universels
-│   ├── workflow.md            Cycle Explorer→Planifier→Implémenter→[PARALLEL GATE]→Committer
-│   ├── error-correction.md    Arrêt après 2 échecs pour éviter la spirale
-│   ├── anti-patterns.md       Stopper les 5 patterns de session types
-│   ├── artifact-authoring.md  Créer standards/agents/frameworks sans doublons
-│   ├── delegation-failure.md  Procédure obligatoire après échec de sous-agent
-│   ├── agent-output.md        Format de retour JSON structuré pour les sous-agents
-│   ├── audit.md               Audit read-only multi-axes
-│   ├── review-before-done.md  Examen contradictoire avant déclaration de fin
-│   ├── exploration-limits.md  Exploration ciblée et subagents
-│   ├── memory-session-flow.md     Ordre de lecture automatique des docs/ai/ en début de session
-│   ├── memory-checklist.md        Checklist mémoire en fin de session
-│   ├── memory-auto-update.md      Standard de persistance mémoire
-│   ├── verification.md            Vérifications build/lint/test obligatoires
-│   ├── communication.md           Directivité, ownership, pushback
-│   ├── escalation.md              Gestion des blocages
-│   └── commits.md                 Format et règles de commit
+├── standards/               Universal behaviors
+│   ├── workflow.md            Explore→Plan→Implement→[PARALLEL GATE]→Commit cycle
+│   ├── error-correction.md    Stop after 2 failures to avoid the spiral
+│   ├── anti-patterns.md       Stop the 5 typical session patterns
+│   ├── artifact-authoring.md  Create standards/agents/frameworks without duplicates
+│   ├── delegation-failure.md  Mandatory procedure after subagent failure
+│   ├── agent-output.md        Structured JSON output format for subagents
+│   ├── audit.md               Multi-axis read-only audit
+│   ├── review-before-done.md  Adversarial review before declaring done
+│   ├── exploration-limits.md  Targeted exploration and subagents
+│   ├── memory-session-flow.md     Automatic docs/ai/ reading order at session start
+│   ├── memory-checklist.md        Memory checklist at session end
+│   ├── memory-auto-update.md      Memory persistence standard
+│   ├── verification.md            Mandatory build/lint/test checks
+│   ├── communication.md           Directness, ownership, pushback
+│   ├── escalation.md              Blocker handling
+│   └── commits.md                 Commit format and rules
 │
-├── agents/                    Personnalités spécialisées
-│   ├── aurora.md              Agent principal et coordinateur
-│   ├── aurora-heavy.md        Agent pour tâches complexes (euria-code)
-│   ├── reviewer.md            Code review stricte
-│   ├── tester.md              Tests Jest + Angular
-│   ├── security.md            Cybersécurité défensive (AppSec, threat modeling, DevSecOps)
-│   ├── cybersec.md             Cybersécurité offensive (pentest, Red Team, exploitation)
-│   ├── architect.md           Découpage technique
-│   ├── spark.md               Sous-agent léger (commit, MR)
-│   ├── vision.md              Sous-agent multimodal (images, screenshots)
+├── agents/                    Specialized personalities
+│   ├── aurora.md              Main agent and coordinator
+│   ├── aurora-heavy.md        Agent for complex tasks (euria-code)
+│   ├── reviewer.md            Strict code review
+│   ├── tester.md              Jest + Angular tests
+│   ├── security.md            Defensive cybersecurity (AppSec, threat modeling, DevSecOps)
+│   ├── cybersec.md             Offensive cybersecurity (pentest, Red Team, exploitation)
+│   ├── architect.md           Technical breakdown
+│   ├── spark.md               Lightweight subagent (commit, MR)
+│   ├── vision.md              Multimodal subagent (images, screenshots)
 │   ├── atlas.md               SEO Strategy
 │   ├── crawler.md             Technical SEO
 │   ├── sage.md               AIO / GEO
 │   ├── scribe.md              SEO Content
-│   ├── pulse.md               Growth Marketing
+│   ├── pulse.md              Growth Marketing
 │   ├── echo.md                Social Distribution
 │   ├── beacon.md              Analytics
-│   ├── designer.md            UX/UI Designer, DA, Design System (2 modes)
+│   ├── designer.md            UX/UI Designer, art direction, Design System (2 modes)
 │   └── mobile.md              Mobile Engineer (iOS/Android/RN/Flutter)
 │
-├── frameworks/                Règles par stack technique
-│   ├── angular-20.md          Conventions Angular 20+ stand-alone
-│   ├── nodejs.md              Conventions Node.js API
-│   ├── nestjs.md              Conventions NestJS
-│   └── astro.md               Conventions Astro
+├── frameworks/                Per-stack technical rules
+│   ├── angular-20.md          Angular 20+ stand-alone conventions
+│   ├── nodejs.md              Node.js API conventions
+│   ├── nestjs.md              NestJS conventions
+│   └── astro.md               Astro conventions
 │
-├── templates/                 Ce que chaque projet reçoit
-│   ├── AGENTS.md              Template racine pour chaque projet
-│   ├── PLAN.md                Plan technique courant
-│   ├── STATUS.md              État d'avancement
-│   ├── DECISIONS.md           Décisions structurantes
-│   ├── CHANGELOG.md           Journal des agents
+├── templates/                 What every project receives
+│   ├── AGENTS.md              Root template for every project
+│   ├── PLAN.md                Current technical plan
+│   ├── STATUS.md              Progress state
+│   ├── DECISIONS.md           Structural decisions
+│   ├── CHANGELOG.md           Agent journal
 │   └── project-docs/
-│       ├── BUFFER.md          Mémoire tampon de session
-│       ├── INDEX.md           Cartographie du projet
-│       └── WARNINGS.md        Alertes et dettes techniques
+│       ├── BUFFER.md          Session buffer
+│       ├── INDEX.md           Project map
+│       └── WARNINGS.md        Alerts and technical debt
 │
-├── examples/                  Exemples prêts à l'emploi
-│   ├── angular-app/           Projet Angular 20+ complet (AGENTS.md + docs/ai/)
-│   ├── node-api/              Projet API Node.js (AGENTS.md + README)
-│   └── monorepo/              Monorepo multi-packages (AGENTS.md + README)
+├── examples/                  Ready-to-use examples
+│   ├── angular-app/           Complete Angular 20+ project (AGENTS.md + docs/ai/)
+│   ├── node-api/              Node.js API project (AGENTS.md + README)
+│   └── monorepo/              Multi-package monorepo (AGENTS.md + README)
 │
-├── mcp/                       MCP servers locaux
-│   ├── infomaniak/            API Infomaniak (radio, VOD, newsletter, DNS, events, AI)
-│   └── angular-elements/      Design system Angular Elements (composants, API, stories)
+├── mcp/                       Local MCP servers
+│   ├── infomaniak/            Infomaniak API (radio, VOD, newsletter, DNS, events, AI)
+│   └── angular-elements/      Angular Elements design system (components, API, stories)
 │
-├── tools/                     CLIs d'infrastructure (repo, pas installés comme agents)
-│   └── figma-ds/              CLI de sync du design system Figma Infomaniak
-│       ├── src/               TypeScript strict (check / sync / diff / mapping)
-│       ├── tests/             Suite node:test (53 tests)
-│       └── *-reference.json   Références manuelles (familles Figma, composants ik-*)
+├── tools/                     Infrastructure CLIs (repo-only, not installed as agents)
+│   └── figma-ds/              Infomaniak Figma design system sync CLI
+│       ├── src/               Strict TypeScript (check / sync / diff / mapping)
+│       ├── tests/             node:test suite (53 tests)
+│       └── *-reference.json   Manual references (Figma families, ik-* components)
 │
-├── skills/                    Skills réutilisables
-│   ├── accessibility/         Suite accessibilité (17 sous-skills orchestrés : aria, contraste, focus, clavier, formulaires…)
-│   ├── ai-cowork/             Co-working Aurora ↔ ChatGPT (boucle de review autonome via browser-debug)
-│   ├── allow-command/         Pré-approuver des commandes shell dans opencode.json
-│   ├── clonedeps/             Cloner les sources des dépendances pour inspecter les internals des librairies
-│   ├── code-review/           Review adversariale de code
-│   ├── codemap/               Cartes de code hiérarchiques pour repos inconnus
-│   ├── commit/                Messages de commit (conventions Infomaniak)
-│   ├── create-mr/             Création de merge requests (scripts + tests)
-│   ├── deepwork/              Workflow orchestré multi-phases avec gates de review (chantiers lourds)
-│   ├── deployment-changelog/  Changelog de déploiement
-│   ├── figma-ds-sync/         Sync du design system Figma Infomaniak (check/sync/diff/mapping)
-│   ├── gitlab-ci/             Interaction GitLab CI/CD (glab)
-│   ├── gitlab-feature-planner/  Issues GitLab depuis un tableau d'estimation + suggestions de regroupement MR
-│   ├── gitlab-issues/         Gestion des issues GitLab (glab)
-│   ├── gitlab-summary/        Résumé d'activité GitLab
-│   ├── image-transparent-background/  Suppression de fond blanc (ImageMagick)
-│   ├── laravel-cruddy-by-design/  Contrôleurs/routes Laravel RESTful stricts (max 7 méthodes)
-│   ├── loop-engineering/      Runtime Grill + Monitor pour boucles d'ingénierie
-│   ├── mr-review/             Review de MR avec commentaires inline
-│   ├── mr-review-feedback/    Application des retours de review MR
-│   ├── new-worktree/          Branche + worktree en une intention (jamais destructif)
-│   ├── oh-my-opencode-slim/   Configuration et tuning du plugin oh-my-opencode-slim
-│   ├── pre-mr-review/         Revue qualité pré-MR
-│   ├── radio-tag-genres/      Tagging de genres musicaux pour playlists radio
-│   ├── readme/                 Génération de README
-│   ├── reflect/               Analyse des sessions passées → skills/config réutilisables
-│   ├── release-smoke-test/    Validation de release oh-my-opencode-slim
-│   ├── review-gap-analyzer/   Retours de revue → amélioration des règles AGENTS.md/pre-mr-review
-│   ├── simplify/              Simplification de code sans changement de comportement
-│   ├── translate-doc/         Traduction de documentation
-│   ├── user-stories/          Rédaction de user stories
-│   ├── verification-planning/ Plan de vérification avant changement de code non trivial
-│   └── worktrees/             Worktrees Git comme lanes isolées (protocole OMO)
+├── skills/                    Reusable skills
+│   ├── accessibility/         Accessibility suite (17 orchestrated sub-skills: aria, contrast, focus, keyboard, forms…)
+│   ├── ai-cowork/             Aurora ↔ ChatGPT co-working (autonomous review loop via browser-debug)
+│   ├── allow-command/         Pre-approve shell commands in opencode.json
+│   ├── clonedeps/             Clone dependency sources to inspect library internals
+│   ├── code-review/           Adversarial code review
+│   ├── codemap/               Hierarchical code maps for unknown repos
+│   ├── commit/                Commit messages (Infomaniak conventions)
+│   ├── create-mr/             Merge request creation (scripts + tests)
+│   ├── deepwork/              Orchestrated multi-phase workflow with review gates (heavy efforts)
+│   ├── deployment-changelog/  Deployment changelog
+│   ├── figma-ds-sync/         Infomaniak Figma design system sync (check/sync/diff/mapping)
+│   ├── gitlab-ci/             GitLab CI/CD interaction (glab)
+│   ├── gitlab-feature-planner/  GitLab issues from an estimation table + MR grouping suggestions
+│   ├── gitlab-issues/         GitLab issue management (glab)
+│   ├── gitlab-summary/        GitLab activity summary
+│   ├── image-transparent-background/  White background removal (ImageMagick)
+│   ├── laravel-cruddy-by-design/  Strict RESTful Laravel controllers/routes (max 7 methods)
+│   ├── loop-engineering/      Grill + Monitor runtime for engineering loops
+│   ├── mr-review/             MR review with inline comments
+│   ├── mr-review-feedback/    Apply MR review feedback
+│   ├── new-worktree/          Branch + worktree from a single intent (never destructive)
+│   ├── oh-my-opencode-slim/   Configuration and tuning of the oh-my-opencode-slim plugin
+│   ├── pre-mr-review/         Pre-MR quality review
+│   ├── radio-tag-genres/      Music genre tagging for radio playlists
+│   ├── readme/                 README generation
+│   ├── reflect/               Past session analysis → reusable skills/config
+│   ├── release-smoke-test/    oh-my-opencode-slim release validation
+│   ├── review-gap-analyzer/   Review feedback → AGENTS.md/pre-mr-review rule improvements
+│   ├── simplify/              Code simplification without behavior change
+│   ├── translate-doc/         Documentation translation
+│   ├── user-stories/          User story writing
+│   ├── verification-planning/ Verification plan before non-trivial code changes
+│   └── worktrees/             Git worktrees as isolated lanes (OMO protocol)
 │
-├── scripts/                   Automatisation
-│   ├── setup.sh                Installation complète (première fois, interactive)
-│   ├── install.sh              Installer/mettre à jour la config globale
-│   ├── init-project.sh         Initialiser un nouveau projet (auto-détection stack)
-│   ├── sync-project.sh         Synchroniser les templates
-│   ├── health-check.sh         Vérifier la cohérence de la config (JSON, agents, modèles)
-│   ├── permissions-matrix.sh   Générer un tableau des permissions agents
-│   ├── validate-memory.sh     Valider la structure docs/ai/ d'un projet
-│   ├── create-mr/              Scripts de création de MR (build_body, check_workspace, detect_target_branch, detect_template, push_branch, tests, upload_media, validate_title)
+├── scripts/                   Automation
+│   ├── setup.sh                Full installation (first time, interactive)
+│   ├── install.sh              Install/update the global config
+│   ├── init-project.sh         Initialize a new project (stack auto-detection)
+│   ├── sync-project.sh         Sync the templates
+│   ├── health-check.sh         Check config consistency (JSON, agents, models)
+│   ├── permissions-matrix.sh   Generate an agent permissions table
+│   ├── validate-memory.sh     Validate a project's docs/ai/ structure
+│   ├── create-mr/              MR creation scripts (build_body, check_workspace, detect_target_branch, detect_template, push_branch, tests, upload_media, validate_title)
 │   └── hooks/
-│       └── pre-commit-secrets.sh  Hook git anti-fuite de secrets
+│       └── pre-commit-secrets.sh  Git hook against secret leaks
 │
-└── docs/                      Guides utilisateur
-    ├── ai/                   Mémoire projet du repo (PLAN, STATUS, DECISIONS, CHANGELOG, BUFFER, INDEX, WARNINGS)
-    ├── workflow.md            Comment fonctionne le cycle de travail
-    ├── customization.md        Comment personnaliser et étendre
-    ├── angular-20.md          Règles Angular 20+ détaillées
-    ├── code-review.md         Guide de revue de code
-    ├── testing.md             Guide de tests
-    └── architecture.md        Guide architectural
+└── docs/                      User guides
+    ├── ai/                   Repo project memory (PLAN, STATUS, DECISIONS, CHANGELOG, BUFFER, INDEX, WARNINGS)
+    ├── workflow.md            How the work cycle works
+    ├── customization.md        How to customize and extend
+    ├── angular-20.md          Detailed Angular 20+ rules
+    ├── code-review.md         Code review guide
+    ├── testing.md             Testing guide
+    └── architecture.md        Architecture guide
 ```
 
 ---
 
-## Principe de priorité
+## Priority order
 
-L'agent reçoit et applique dans cet ordre (du plus général au plus spécifique, le plus spécifique l'emporte) :
+The agent receives and applies in this order (from most general to most specific; the most specific wins):
 
-1. **Standards** globaux `~/.config/opencode/standards/` (workflow, memory-session-flow, memory-auto-update, memory-checklist, verification, communication, escalation, commits, review-before-done, audit, exploration-limits, error-correction, anti-patterns, artifact-authoring, delegation-failure, agent-output).
-2. **Agents** globaux `~/.config/opencode/agents/` (aurora, aurora-heavy, reviewer, tester, security, cybersec, architect, spark, vision, atlas, crawler, sage, scribe, pulse, echo, beacon, designer, mobile) + agents du plugin oh-my-opencode-slim (explorer, fixer, librarian, oracle).
-3. **Frameworks** globaux `~/.config/opencode/frameworks/` (angular-20, nodejs, nestjs, astro).
-4. Standards entreprise (si configurés).
-5. **`AGENTS.md`** local du projet.
-6. Instructions explicites de la tâche en cours.
+1. Global **Standards** `~/.config/opencode/standards/` (workflow, memory-session-flow, memory-auto-update, memory-checklist, verification, communication, escalation, commits, review-before-done, audit, exploration-limits, error-correction, anti-patterns, artifact-authoring, delegation-failure, agent-output).
+2. Global **Agents** `~/.config/opencode/agents/` (aurora, aurora-heavy, reviewer, tester, security, cybersec, architect, spark, vision, atlas, crawler, sage, scribe, pulse, echo, beacon, designer, mobile) + oh-my-opencode-slim plugin agents (explorer, fixer, librarian, oracle).
+3. Global **Frameworks** `~/.config/opencode/frameworks/` (angular-20, nodejs, nestjs, astro).
+4. Company standards (if configured).
+5. Project-local **`AGENTS.md`**.
+6. Explicit instructions of the current task.
 
 ---
 
-## Licence
+## License
 
 MIT

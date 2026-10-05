@@ -1,63 +1,63 @@
 # Code Review
 
-Guide pour la revue de code assistée par agents.
+Guide for agent-assisted code review.
 
-## Checklist obligatoire
+## Mandatory checklist
 
 ### Code
 
-- Le changement répond-il exactement au besoin ?
-- Y a-t-il un breaking change ?
-- Les conventions projet sont-elles respectées ?
-- Les tests couvrent-ils la logique modifiée ?
-- Le code est-il plus simple ou plus complexe qu'avant ?
-- Y a-t-il un risque sécurité ?
-- Y a-t-il une dette technique introduite ?
+- Does the change exactly meet the need?
+- Is there a breaking change?
+- Are the project conventions respected?
+- Do the tests cover the modified logic?
+- Is the code simpler or more complex than before?
+- Is there a security risk?
+- Is technical debt introduced?
 
-### Fonctionnel
+### Functional
 
-- Tous les critères du plan sont-ils implémentés ?
-- Les edge cases importants sont-ils traités ou explicitement hors scope ?
-- Les vérifications proposées prouvent-elles le comportement ?
-- Y a-t-il une régression UI/accessibilité ?
+- Are all plan criteria implemented?
+- Are important edge cases handled or explicitly out of scope?
+- Do the proposed checks prove the behavior?
+- Is there a UI/accessibility regression?
 
-### Pertinence
+### Relevance
 
-- La solution répond-elle au besoin réel ?
-- Des fichiers hors scope ont-ils été modifiés ?
-- La solution introduit-elle de la sur-ingénierie ?
-- Une clarification humaine est-elle nécessaire ?
+- Does the solution meet the real need?
+- Were out-of-scope files modified?
+- Does the solution introduce over-engineering?
+- Is human clarification needed?
 
-## Verdict attendu
+## Expected verdict
 
-Mergeable / À corriger / À clarifier / Bloqué
+Mergeable / Needs fixes / Needs clarification / Blocked
 
-## Format de sortie
+## Output format
 
 ```md
 ## Verdict
 
-## Points bloquants
+## Blockers
 
 - ...
 
 ## Axes
 
-- Code : ...
-- Fonctionnel : ...
-- Pertinence : ...
+- Code: ...
+- Functional: ...
+- Relevance: ...
 
 ## Suggestions
 
 - ...
 
-## Tests recommandés
+## Recommended tests
 
 - ...
 ```
 
-## Règles de conduite
+## Conduct rules
 
-- Être strict mais pragmatique.
-- Ne jamais demander de refactoring hors scope.
-- Prioriser les vrais risques (sécurité, régression, maintenance).
+- Be strict but pragmatic.
+- Never ask for out-of-scope refactoring.
+- Prioritize real risks (security, regression, maintenance).

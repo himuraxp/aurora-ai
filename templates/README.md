@@ -1,60 +1,60 @@
 # templates/
 
-Templates injectés dans les projets via `scripts/init-project.sh` et `scripts/sync-project.sh`. Ces fichiers sont copiés à la racine du projet cible pour initialiser ou mettre à jour la configuration OpenCode.
+Templates injected into projects via `scripts/init-project.sh` and `scripts/sync-project.sh`. These files are copied to the target project root to initialize or update the OpenCode configuration.
 
-## Fichiers
+## Files
 
 | Template | Destination | Description |
 |----------|-------------|-------------|
-| `AGENTS.md` | `<project>/AGENTS.md` | Configuration principale du projet — règles, architecture, mémoire |
-| `STATUS.md` | `<project>/docs/ai/STATUS.md` | État courant — tâches en cours / fait / bloqué / prochaine action |
-| `PLAN.md` | `<project>/docs/ai/PLAN.md` | Avancement des étapes |
-| `CHANGELOG.md` | `<project>/docs/ai/CHANGELOG.md` | Entrées datées des modifications |
-| `DECISIONS.md` | `<project>/docs/ai/DECISIONS.md` | Décisions architecturales prises |
+| `AGENTS.md` | `<project>/AGENTS.md` | Main project configuration — rules, architecture, memory |
+| `STATUS.md` | `<project>/docs/ai/STATUS.md` | Current state — in-progress / done / blocked / next action |
+| `PLAN.md` | `<project>/docs/ai/PLAN.md` | Step progress |
+| `CHANGELOG.md` | `<project>/docs/ai/CHANGELOG.md` | Dated change entries |
+| `DECISIONS.md` | `<project>/docs/ai/DECISIONS.md` | Architectural decisions made |
 
-## Sous-dossiers
+## Sub-folders
 
-| Dossier | Description |
-|---------|-------------|
-| `project-docs/` | Templates pour la mémoire projet (voir `project-docs/README.md`) |
+| Folder | Description |
+|--------|-------------|
+| `project-docs/` | Templates for project memory (see `project-docs/README.md`) |
 
 ## Workflow
 
-### Initialisation (nouveau projet)
+### Initialization (new project)
 
 ```bash
 cd /path/to/project
 npm run init-project --prefix ~/.config/opencode-config
-# ou: ~/.config/opencode-config/scripts/init-project.sh
+# or: ~/.config/opencode-config/scripts/init-project.sh
 ```
 
-Copie les templates manquants, détecte la stack, ajoute le framework. Ne remplace jamais les fichiers existants.
+Copies the missing templates, detects the stack, adds the framework. Never replaces existing files.
 
-### Synchronisation (mise à jour)
+### Sync (update)
 
 ```bash
 cd /path/to/project
 npm run sync --prefix ~/.config/opencode-config
-# ou: ~/.config/opencode-config/scripts/sync-project.sh
+# or: ~/.config/opencode-config/scripts/sync-project.sh
 ```
 
-Compare les templates avec les fichiers existants. En cas de différence, crée un fichier `.new` à côté de l'original pour review manuelle.
+Compares the templates with the existing files. On difference, creates a `.new` file next to the original for manual review.
 
-## Structure générée
+## Generated structure
 
 ```
 project/
-├── AGENTS.md              # Règles du projet
+├── AGENTS.md              # Project rules
 └── docs/ai/
-    ├── STATUS.md          # État courant
-    ├── PLAN.md            # Plan d'avancement
-    ├── CHANGELOG.md       # Historique des modifications
-    ├── DECISIONS.md       # Décisions architecturales
-    ├── BUFFER.md          # Snapshot de reprise (project-docs/)
-    ├── INDEX.md           # Modules et fichiers clés (project-docs/)
-    └── WARNINGS.md        # Zones sensibles (project-docs/)
+    ├── STATUS.md          # Current state
+    ├── PLAN.md            # Progress plan
+    ├── CHANGELOG.md       # Change history
+    ├── DECISIONS.md       # Architectural decisions
+    ├── BUFFER.md          # Recovery snapshot (project-docs/)
+    ├── INDEX.md           # Key modules and files (project-docs/)
+    └── WARNINGS.md        # Sensitive zones (project-docs/)
 ```
 
-## Délégation des templates
+## Template delegation
 
-La mémoire projet (`docs/ai/`) est auto-entretenue par Aurora selon `standards/memory-session-flow.md` et `standards/memory-auto-update.md`. Les templates servent de point de départ — le contenu est ensuite maintenu dynamiquement.
+Project memory (`docs/ai/`) is self-maintained by Aurora per `standards/memory-session-flow.md` and `standards/memory-auto-update.md`. The templates are a starting point — the content is then maintained dynamically.

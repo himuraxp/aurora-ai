@@ -1,36 +1,36 @@
 # Testing
 
-> Ce guide couvre les tests Angular et Node.js/NestJS. Pour Astro, voir `frameworks/astro.md`.
+> This guide covers Angular and Node.js/NestJS tests. For Astro, see `frameworks/astro.md`.
 
-Guide pour écrire des tests utiles, lisibles et maintenables.
+Guide for writing useful, readable and maintainable tests.
 
-## Principes généraux
+## General principles
 
-- Tester le comportement public, pas l'implémentation privée.
-- Garder les mocks simples et explicites.
-- Réutiliser les patterns de tests existants du projet.
-- Un test = un comportement attendu.
-- Nommer explicitement : `should emit updated event when button clicked`.
-- Isoler les dépendances externes via des stubs simples.
-- Privilégier les tests d'intégration légère aux tests unitaires trop mocks.
+- Test the public behavior, not the private implementation.
+- Keep mocks simple and explicit.
+- Reuse the project's existing test patterns.
+- One test = one expected behavior.
+- Name explicitly: `should emit updated event when button clicked`.
+- Isolate external dependencies with simple stubs.
+- Favor light integration tests over overly mocked unit tests.
 
 ## Jest + Angular standalone
 
-- Utiliser `fixture.componentRef.setInput()` pour les inputs standalone.
-- Tester les outputs et les états conditionnels visibles.
-- Tester les interactions utilisateur.
-- Ne pas sur-mocker Angular.
+- Use `fixture.componentRef.setInput()` for standalone inputs.
+- Test the outputs and visible conditional states.
+- Test user interactions.
+- Do not over-mock Angular.
 
 ## Node.js / NestJS
 
-- Tests Jest unitaires et d'intégration.
-- Mocker les dépendances externes (DB, API) via des stubs.
-- Tester les routes/controlleurs en intégration légère.
-- Voir `frameworks/nodejs.md` et `frameworks/nestjs.md` pour les détails.
+- Jest unit and integration tests.
+- Mock external dependencies (DB, API) with stubs.
+- Test routes/controllers in light integration.
+- See `frameworks/nodejs.md` and `frameworks/nestjs.md` for details.
 
 ## Anti-patterns
 
-- Tests fragiles basés sur le DOM interne.
-- Mocks inutilement complexes.
-- Tests qui ne cassent pas quand le comportement change.
-- Couverture de code sans valeur métier.
+- Fragile tests based on the internal DOM.
+- Unnecessarily complex mocks.
+- Tests that don't fail when the behavior changes.
+- Code coverage without business value.

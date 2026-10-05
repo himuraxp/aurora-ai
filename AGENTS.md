@@ -1,123 +1,123 @@
 # AGENTS.md — opencode-config
 
-Ce dépôt contient la configuration globale OpenCode de référence.
+This repository contains the reference global OpenCode configuration.
 
-## Architecture multi-couches
+## Multi-layer architecture
 
-Ce repo sépare les responsabilités en 5 couches :
-
-```txt
-config/      Configuration OpenCode (opencode.json, plugins, .env.example — sans secrets)
-agents/      Personnalités spécialisées (aurora, aurora-heavy, reviewer, tester, security, cybersec, architect, spark, vision, atlas, crawler, sage, scribe, pulse, echo, beacon, designer, mobile)
-standards/   Comportements universels (workflow, communication, verification, memory, review, audit, anti-patterns, agent-output...)
-frameworks/  Règles par stack technique (angular-20, nodejs, nestjs, astro)
-skills/      Skills réutilisables (accessibility, ai-cowork, allow-command, clonedeps, code-review, codemap, commit, create-mr, deepwork, deployment-changelog, figma-ds-sync, gitlab-ci, gitlab-feature-planner, gitlab-issues, gitlab-summary, image-transparent-background, laravel-cruddy-by-design, loop-engineering, mr-review, mr-review-feedback, new-worktree, oh-my-opencode-slim, pre-mr-review, radio-tag-genres, readme, reflect, release-smoke-test, review-gap-analyzer, simplify, translate-doc, user-stories, verification-planning, worktrees)
-```
-
-Les agents `explorer`, `fixer`, `librarian` et `oracle` sont fournis par le plugin **oh-my-opencode-slim** (définis dans `config/oh-my-opencode-slim.json`), pas comme fichiers `agents/*.md`.
-
-Plus 6 dossiers de support :
+This repo separates responsibilities into 5 layers:
 
 ```txt
-scripts/     Installation et maintenance (setup.sh, install.sh, init-project.sh, sync-project.sh, health-check.sh, permissions-matrix.sh, validate-memory.sh, create-mr/, hooks/)
-templates/   Fichiers injectés dans les projets (AGENTS.md, docs/ai/*)
-docs/        Guides utilisateur (workflow, customization, angular-20, code-review, testing, architecture)
-examples/    Exemples prêts à l'emploi (angular-app, node-api, monorepo)
-mcp/         MCP servers locaux (infomaniak, angular-elements)
-tools/       CLIs d'infrastructure du repo (figma-ds — sync du design system Figma Infomaniak, procédure dans skills/figma-ds-sync/)
+config/      OpenCode configuration (opencode.json, plugins, .env.example — no secrets)
+agents/      Specialized personalities (aurora, aurora-heavy, reviewer, tester, security, cybersec, architect, spark, vision, atlas, crawler, sage, scribe, pulse, echo, beacon, designer, mobile)
+standards/   Universal behaviors (workflow, communication, verification, memory, review, audit, anti-patterns, agent-output...)
+frameworks/  Per-stack technical rules (angular-20, nodejs, nestjs, astro)
+skills/      Reusable skills (accessibility, ai-cowork, allow-command, clonedeps, code-review, codemap, commit, create-mr, deepwork, deployment-changelog, figma-ds-sync, gitlab-ci, gitlab-feature-planner, gitlab-issues, gitlab-summary, image-transparent-background, laravel-cruddy-by-design, loop-engineering, mr-review, mr-review-feedback, new-worktree, oh-my-opencode-slim, pre-mr-review, radio-tag-genres, readme, reflect, release-smoke-test, review-gap-analyzer, simplify, translate-doc, user-stories, verification-planning, worktrees)
 ```
 
-## Mémoire projet auto-entretenue
+The `explorer`, `fixer`, `librarian` and `oracle` agents are provided by the **oh-my-opencode-slim** plugin (defined in `config/oh-my-opencode-slim.json`), not as `agents/*.md` files.
 
-Aurora DOIT maintenir automatiquement la mémoire du projet. Avant de rendre la main à l'utilisateur, l'agent DOIT vérifier la persistance de la mémoire via le `memory-checklist.md`.
+Plus 6 support folders:
 
-### Processus obligatoire
+```txt
+scripts/     Installation and maintenance (setup.sh, install.sh, init-project.sh, sync-project.sh, health-check.sh, permissions-matrix.sh, validate-memory.sh, create-mr/, hooks/)
+templates/   Files injected into projects (AGENTS.md, docs/ai/*)
+docs/        User guides (workflow, customization, angular-20, code-review, testing, architecture)
+examples/    Ready-to-use examples (angular-app, node-api, monorepo)
+mcp/         Local MCP servers (infomaniak, angular-elements)
+tools/       Repo infrastructure CLIs (figma-ds — Infomaniak Figma design system sync, procedure in skills/figma-ds-sync/)
+```
 
-1. **Lire** `docs/ai/` au démarrage de chaque session — les 4 fichiers de session **en parallèle** (STATUS, PLAN, WARNINGS, INDEX) dans un seul message de tool calls. BUFFER est lu uniquement si reprise interrompue ou blocage. DECISIONS et CHANGELOG sont consultés en JIT (voir `memory-session-flow.md`).
-2. **Mettre à jour** `docs/ai/` à la fin de chaque session — les 7 fichiers **en parallèle** dans un seul message de tool calls :
-   - `STATUS.md` — tâches en cours / fait / bloqué / prochaine action
-   - `PLAN.md` — avancement des étapes
-   - `CHANGELOG.md` — entrée datée des modifications
-   - `BUFFER.md` — snapshot reprise + fichiers impactés
-   - `INDEX.md` — modules et fichiers clés découverts
-   - `WARNINGS.md` — zones sensibles et dettes techniques
-   - `DECISIONS.md` — décisions architecturales prises
+## Self-maintaining project memory
 
-3. **Zero intervention** : l'utilisateur ne doit JAMAIS avoir à demander la mise à jour de la mémoire.
+Aurora MUST maintain project memory automatically. Before handing back to the user, the agent MUST verify memory persistence via the `memory-checklist.md`.
 
-### Si `docs/ai/` est vide (templates vides)
+### Mandatory process
 
-Aurora DOIT :
-- Extraire la structure du projet du contexte de travail
-- Remplir `INDEX.md` avec les modules, composants, services identifiés
-- Documenter dans `BUFFER.md` les premières observations
-- Créer un `PLAN.md` si une tâche est en cours
+1. **Read** `docs/ai/` at the start of every session — the 4 session files **in parallel** (STATUS, PLAN, WARNINGS, INDEX) in a single tool-call message. BUFFER is read only when resuming an interrupted session or on a blocker. DECISIONS and CHANGELOG are consulted JIT (see `memory-session-flow.md`).
+2. **Update** `docs/ai/` at the end of every session — the 7 files **in parallel** in a single tool-call message:
+   - `STATUS.md` — in-progress / done / blocked tasks / next action
+   - `PLAN.md` — step progress
+   - `CHANGELOG.md` — dated entry of changes
+   - `BUFFER.md` — recovery snapshot + impacted files
+   - `INDEX.md` — key modules and files discovered
+   - `WARNINGS.md` — sensitive zones and technical debt
+   - `DECISIONS.md` — architectural decisions made
 
-### Hiérarchie de responsabilité mémoire
+3. **Zero intervention**: the user must NEVER have to ask for the memory to be updated.
 
-`/AGENTS.md` doit contenir une section mémoire ou référencer `docs/ai/`. Si absent, Aurora applique ce standard global automatiquement.
+### If `docs/ai/` is empty (empty templates)
 
-## Règle principale
+Aurora MUST:
+- Extract the project structure from the working context
+- Fill `INDEX.md` with the identified modules, components, services
+- Document the first observations in `BUFFER.md`
+- Create a `PLAN.md` if a task is in progress
 
-Ne jamais modifier un projet utilisateur sans respecter son `AGENTS.md` local. Le fichier local est la source de vérité du projet.
+### Memory responsibility hierarchy
+
+`/AGENTS.md` must contain a memory section or reference `docs/ai/`. If absent, Aurora applies this global standard automatically.
+
+## Main rule
+
+Never modify a user project without respecting its local `AGENTS.md`. The local file is the project's source of truth.
 
 ## Installation
 
-### Première installation (nouvelle machine)
+### First installation (new machine)
 
 ```bash
 git clone https://github.com/himuraxp/opencode-config.git ~/.config/opencode-config
 cd ~/.config/opencode-config
 npm run setup
-# ou: ~/.config/opencode-config/scripts/setup.sh
+# or: ~/.config/opencode-config/scripts/setup.sh
 ```
 
-`setup.sh` est interactif : il installe `opencode-ai`, `rtk`, propose les MCP servers, copie la config, demande les secrets et vérifie l'installation.
+`setup.sh` is interactive: it installs `opencode-ai`, `rtk`, offers the MCP servers, copies the config, asks for secrets and verifies the installation.
 
-### Mise à jour
+### Update
 
 ```bash
 cd ~/.config/opencode-config && git pull && npm run update
-# ou: ./scripts/install.sh
+# or: ./scripts/install.sh
 ```
 
-`install.sh` track les changements (new/updated/unchanged) et ne copie que les fichiers modifiés. Options : `--prune` (nettoyer orphelins), `--no-config` (ignorer config/), `--dry-run`. Équivalents npm : `npm run prune`, `npm run dry-run`.
+`install.sh` tracks changes (new/updated/unchanged) and only copies modified files. Options: `--prune` (clean orphans), `--no-config` (skip config/), `--dry-run`. npm equivalents: `npm run prune`, `npm run dry-run`.
 
 ### Secrets
 
-Les secrets sont stockés dans `~/.config/opencode/.env` (jamais versionné) ; la clé API Infomaniak AI a une **seule copie** : exportée dans le shell rc de l'utilisateur (`~/.zshrc`, bloc managé par `setup.sh`) et lue via `{env:OPENAI_API_KEY_INFOMANIAK}` dans `config/opencode.json` — OpenCode ne charge pas les `.env` dans son process, ne jamais dupliquer la clé ailleurs. `npm run setup -- --force` reconfigure les variables.
+Secrets are stored in `~/.config/opencode/.env` (never versioned); the Infomaniak AI API key has a **single copy**: exported in the user's shell rc (`~/.zshrc`, block managed by `setup.sh`) and read via `{env:OPENAI_API_KEY_INFOMANIAK}` in `config/opencode.json` — OpenCode does not load `.env` files into its process, never duplicate the key elsewhere. `npm run setup -- --force` reconfigures the variables.
 
-Le même bloc managé exporte aussi `IDB_UDID` et `IDB_PATH` (MCP ios-simulator, qui ne lit que son environnement process — pas de fallback `.env`). Le bloc est idempotent et **déplace** les exports préexistants de ces 3 variables dans le bloc — jamais de duplication. Les autres variables (`INFOMANIAK_API_TOKEN`, `FIGMA_TOKEN`, ...) restent dans `.env` : les MCP concernés lisent ce fichier en fallback dans leur propre code.
+The same managed block also exports `IDB_UDID` and `IDB_PATH` (ios-simulator MCP, which only reads its process environment — no `.env` fallback). The block is idempotent and **moves** pre-existing exports of these 3 variables into the block — never duplicated. Other variables (`INFOMANIAK_API_TOKEN`, `FIGMA_TOKEN`, ...) stay in `.env`: the relevant MCPs read that file as a fallback in their own code.
 
 ## MCP Servers
 
-La configuration inclut six MCP servers :
+The configuration includes six MCP servers:
 
-- **chrome-devtools** : auto-installé via `npx` (aucune action manuelle) — navigateur headless isolé (Designer, audits)
-- **browser-debug** : auto-installé via `npx` — se connecte à un navigateur en mode debug (`http://127.0.0.1:9222`) ; utilisé par le skill `ai-cowork` (co-working Aurora ↔ ChatGPT) ; nécessite un navigateur lancé avec `--remote-debugging-port=9222 --user-data-dir=~/.config/opencode/brave-debug-profile`
-- **ios-simulator** (macOS) : optionnel — nécessite `idb-companion` (Homebrew) + `fb-idb` (Python venv). `setup.sh` propose l'installation.
-- **infomaniak** : MCP server pour l'API Infomaniak (radio, VOD, newsletter, DNS, events, AI, etc.)
-- **angular-elements** : MCP server pour le design system Angular Elements (composants, API, stories, install info)
-- **context7** : Documentation à jour des librairies et frameworks
+- **chrome-devtools**: auto-installed via `npx` (no manual action) — isolated headless browser (Designer, audits)
+- **browser-debug**: auto-installed via `npx` — connects to a browser in debug mode (`http://127.0.0.1:9222`); used by the `ai-cowork` skill (Aurora ↔ ChatGPT co-working); requires a browser started with `--remote-debugging-port=9222 --user-data-dir=~/.config/opencode/brave-debug-profile`
+- **ios-simulator** (macOS): optional — requires `idb-companion` (Homebrew) + `fb-idb` (Python venv). `setup.sh` offers installation.
+- **infomaniak**: MCP server for the Infomaniak API (radio, VOD, newsletter, DNS, events, AI, etc.)
+- **angular-elements**: MCP server for the Angular Elements design system (components, API, stories, install info)
+- **context7**: Up-to-date library and framework documentation
 
-## Modèles et Fallback
+## Models and Fallback
 
-### 17 modèles configurés
+### 17 configured models
 
-La configuration utilise **17 modèles** répartis en 6 catégories :
+The configuration uses **17 models** across 6 categories:
 
-| Catégorie | Modèles | Usage | Coût (input/output) |
-|-----------|---------|-------|---------------------|
-| **Expert** | euria-code (GLM-5.2), euria-code-tiny | Raisonnement complexe, architecture, sécurité, review, code | $0.30-0.60 / $0.40-3.00 |
-| **Intermédiaire** | Mistral-Small-4 (119B), Kimi-K2.6, Qwen3.5-397B, Qwen3.5-122B | SEO, analytics, multimodal, commits | $0.20-0.80 / $0.75-3.60 |
-| **Léger** | Ministral-3 (14B), Gemma-4-31B, Apertus-70B | Tâches simples, skills CLI | $0.20-0.70 / $0.40-2.50 |
-| **Ultra-léger** | Nemotron-3-Nano (30B) | Fallback ultime, gros contextes | **$0.05 / $0.20** |
-| **Embedding** | Qwen3-Embedding-8B, bge_multilingual_gemma2, mini_lm_l12_v2 | Vectorisation, RAG | $0.005-0.01 / $0 |
-| **Transcription** | whisper | Audio → texte | $0.006 / $0 |
+| Category | Models | Usage | Cost (input/output) |
+|----------|--------|-------|---------------------|
+| **Expert** | euria-code (GLM-5.2), euria-code-tiny | Complex reasoning, architecture, security, review, code | $0.30-0.60 / $0.40-3.00 |
+| **Intermediate** | Mistral-Small-4 (119B), Kimi-K2.6, Qwen3.5-397B, Qwen3.5-122B | SEO, analytics, multimodal, commits | $0.20-0.80 / $0.75-3.60 |
+| **Light** | Ministral-3 (14B), Gemma-4-31B, Apertus-70B | Simple tasks, CLI skills | $0.20-0.70 / $0.40-2.50 |
+| **Ultra-light** | Nemotron-3-Nano (30B) | Ultimate fallback, large contexts | **$0.05 / $0.20** |
+| **Embedding** | Qwen3-Embedding-8B, bge_multilingual_gemma2, mini_lm_l12_v2 | Vectorization, RAG | $0.005-0.01 / $0 |
+| **Transcription** | whisper | Audio → text | $0.006 / $0 |
 
-### Fallback automatique
+### Automatic fallback
 
-Chaque modèle est configuré avec une chaîne de fallback pour gérer les dépassements de contexte :
+Each model is configured with a fallback chain to handle context overflows:
 
 ```
 euria-code (250k) → Kimi-K2.6 (256k) → Nemotron-3-Nano (1M)
@@ -126,75 +126,75 @@ Mistral-Small-4 (256k) → Kimi-K2.6 (256k) → Nemotron-3-Nano (1M)
 Ministral-3 (80k) → Mistral-Small-4 (256k) → Kimi-K2.6 → Nemotron-3-Nano (1M)
 ```
 
-**Avantage** : Le fallback ultime (Nemotron-3-Nano) est le modèle **le moins cher** ($0.05/1M tokens). Les gros contextes coûtent en fait *moins* cher.
+**Benefit**: the ultimate fallback (Nemotron-3-Nano) is the **cheapest** model ($0.05/1M tokens). Large contexts actually cost *less*.
 
-### Matrice des agents
+### Agent matrix
 
-| Agent | Modèle | Coût (in/out) | Rôle | Quand déléguer |
-|-------|--------|---------------|------|----------------|
-| `spark` | Mistral-Small-4 (119B) | $0.20 / $0.75 | Commits, skills CLI | ✅ Par défaut pour `commit`, `create-mr` |
-| `mobile` | euria-code | $0.60 / $3.00 | iOS, Android, RN, Flutter | Audit mobile, code natif |
-| `designer` | Qwen3.5-397B | $0.80 / $3.60 | UX/UI, design system, a11y | Screenshots UI, mockups, wireframes |
-| `vision` | Qwen3.5-397B | $0.80 / $3.60 | Images non-UI | Diagrammes, photos, charts |
-| `reviewer` | euria-code | $0.60 / $3.00 | Revue de code adversarial | Pre-MR, code review stricte |
-| `tester` | euria-code | $0.60 / $3.00 | Tests unitaires, intégration | Jest, Cypress, Vitest, coverage |
-| `architect` | euria-code | $0.60 / $3.00 | Architecture, découpage | Dette technique, migration, structure |
-| `security` | euria-code | $0.60 / $3.00 | Sécurité défensive | AppSec, threat modeling, OWASP |
-| `cybersec` | euria-code | $0.60 / $3.00 | Sécurité offensive | Pentest, exploitation, Red Team |
-| `atlas` | euria-code | $0.60 / $3.00 | Stratégie SEO | Keyword research, content gaps |
-| `crawler` | Mistral-Small-4 | $0.20 / $0.75 | SEO technique | Indexation, Core Web Vitals, SSR |
+| Agent | Model | Cost (in/out) | Role | When to delegate |
+|-------|-------|---------------|------|------------------|
+| `spark` | Mistral-Small-4 (119B) | $0.20 / $0.75 | Commits, CLI skills | ✅ Default for `commit`, `create-mr` |
+| `mobile` | euria-code | $0.60 / $3.00 | iOS, Android, RN, Flutter | Mobile audit, native code |
+| `designer` | Qwen3.5-397B | $0.80 / $3.60 | UX/UI, design system, a11y | UI screenshots, mockups, wireframes |
+| `vision` | Qwen3.5-397B | $0.80 / $3.60 | Non-UI images | Diagrams, photos, charts |
+| `reviewer` | euria-code | $0.60 / $3.00 | Adversarial code review | Pre-MR, strict code review |
+| `tester` | euria-code | $0.60 / $3.00 | Unit, integration tests | Jest, Cypress, Vitest, coverage |
+| `architect` | euria-code | $0.60 / $3.00 | Architecture, breakdown | Technical debt, migration, structure |
+| `security` | euria-code | $0.60 / $3.00 | Defensive security | AppSec, threat modeling, OWASP |
+| `cybersec` | euria-code | $0.60 / $3.00 | Offensive security | Pentest, exploitation, Red Team |
+| `atlas` | euria-code | $0.60 / $3.00 | SEO strategy | Keyword research, content gaps |
+| `crawler` | Mistral-Small-4 | $0.20 / $0.75 | Technical SEO | Indexing, Core Web Vitals, SSR |
 | `sage` | euria-code | $0.60 / $3.00 | AIO / GEO | AI Overviews, ChatGPT Search |
-| `scribe` | Mistral-Small-4 | $0.20 / $0.75 | Contenu SEO | Copywriting, meta, H1-H3, FAQ |
+| `scribe` | Mistral-Small-4 | $0.20 / $0.75 | SEO content | Copywriting, meta, H1-H3, FAQ |
 | `pulse` | Mistral-Small-4 | $0.20 / $0.75 | Growth marketing | Funnels, A/B testing, landing pages |
 | `echo` | Mistral-Small-4 | $0.20 / $0.75 | Social distribution | LinkedIn, Instagram, X, TikTok |
 | `beacon` | Mistral-Small-4 | $0.20 / $0.75 | Analytics | GSC, GA4, PageSpeed, conversion |
-| `aurora` | euria-code | $0.60 / $3.00 | Orchestrator principal | Tâches complexes, coordination |
-| `aurora-heavy` | euria-code | $0.60 / $3.00 | Raisonnement avancé | Architecture critique, legacy complexe |
+| `aurora` | euria-code | $0.60 / $3.00 | Main orchestrator | Complex tasks, coordination |
+| `aurora-heavy` | euria-code | $0.60 / $3.00 | Advanced reasoning | Critical architecture, complex legacy |
 
-> **Règle** : Aurora délègue **automatiquement** via les mots-clés déclencheurs (voir `agents/aurora.md`). Ne jamais déléguer manuellement sauf besoin spécifique.
+> **Rule**: Aurora delegates **automatically** via the trigger keywords (see `agents/aurora.md`). Never delegate manually unless there is a specific need.
 
-## Comportement attendu
+## Expected behavior
 
-- Réponses directes, structurées, orientées livraison.
-- Toujours privilégier la solution la plus simple maintenable.
-- Ne pas sur-architecturer.
-- Ne pas introduire de dépendance sans justification.
-- Préserver le style existant du projet.
-- Ajouter ou adapter les tests quand le changement impacte la logique.
-- Signaler les risques de régression.
-- **Déléguer aux sous-agents** : Spark (commit, skills CLI), Vision (images non-UI), Designer (UX/UI/DA/DS + images UI), Mobile (iOS/Android/RN/Flutter), Reviewer, Tester, Security (défensif), Cybersec (offensif), Architect selon la tâche. La délégation est **automatique** : Aurora détecte le domaine via les mots-clés déclencheurs et délègue systématiquement aux spécialistes (voir `agents/aurora.md` pour les tables complètes).
-- **Toute image attachée au prompt utilisateur DOIT être déléguée immédiatement**, avant toute autre action ou réponse textuelle. Aurora est **text-only**. Le routage dépend du type d'image : **screenshot UI / mockup / wireframe** → **Designer** (multimodal, spécialisé UX/UI) ; **diagramme / photo / chart / capture non-UI** → **Vision** (multimodal, généraliste). En cas de doute sur un audit UX/UI ou mobile, c'est Designer. Ne jamais tenter de décrire, analyser ou répondre à une image soi-même.
-- **En cas d'échec de sous-agent** : appliquer `standards/delegation-failure.md` — constater, diagnostiquer, agir (retry ou takeover), informer. Ne jamais dire "je reprends la main" sans exécuter l'action.
-- **Exécuter un examen contradictoire (review adversarial) avant de déclarer une tâche terminée** via subagent ou skill `code-review`. Pour les reviews de MR GitLab avec commentaires inline, utiliser le skill `mr-review` (délègue l'analyse à Oracle en interne). Pour appliquer les retours de review (suggestions, fixes), utiliser le skill `mr-review-feedback`.
-- **Pour les audits/health-checks, diagnostiquer en read-only sur axes explicites** (qualité, architecture, dépendances, performance). **Exceptions** : les audits SEO/AIO/Growth sont délégués aux agents spécialistes (Atlas, Crawler, Sage, etc.), les audits UX/UI/a11y sont délégués à Designer, les audits mobile à Mobile, les audits sécurité défensifs à Security, les opérations de pentest/exploitation à Cybersec. Aurora ne réalise **jamais** lui-même un audit spécialisé — il délègue systématiquement.
-- **Respecter les limites d'exploration** : investigation lourde = subagent, pas de scan global sans objectif précis (voir `exploration-limits.md`).
-- **Stopper et reset après 2 corrections échouées** sur le même problème (voir `error-correction.md`).
-- **Reconnaître les anti-patterns** (session fourre-tout, over-specified config, exploration infinie, etc.) et appliquer la correction immédiatement (voir `anti-patterns.md`).
-- **Créer les nouveaux standards/agents/frameworks via une structure homogène** et seulement s'ils ne dupliquent pas un artefact existant (voir `artifact-authoring.md`).
-- **Format de retour des sous-agents** : tout sous-agent sollicité via `task` doit retourner un résultat au format JSON structuré (voir `standards/agent-output.md`). Aurora parse, consolide et affiche les résultats de manière déterministe. Aucune exception.
+- Direct, structured, delivery-oriented responses.
+- Always favor the simplest maintainable solution.
+- Do not over-architect.
+- Do not introduce a dependency without justification.
+- Preserve the project's existing style.
+- Add or adapt tests when the change impacts logic.
+- Flag regression risks.
+- **Delegate to subagents**: Spark (commits, CLI skills), Vision (non-UI images), Designer (UX/UI/art direction/DS + UI images), Mobile (iOS/Android/RN/Flutter), Reviewer, Tester, Security (defensive), Cybersec (offensive), Architect depending on the task. Delegation is **automatic**: Aurora detects the domain via the trigger keywords and systematically delegates to specialists (see `agents/aurora.md` for the full tables).
+- **Any image attached to the user prompt MUST be delegated immediately**, before any other action or textual response. Aurora is **text-only**. Routing depends on the image type: **UI screenshot / mockup / wireframe** → **Designer** (multimodal, UX/UI specialized); **diagram / photo / chart / non-UI capture** → **Vision** (multimodal, generalist). When in doubt about a UX/UI or mobile audit, it's Designer. Never attempt to describe, analyze or answer an image yourself.
+- **On subagent failure**: apply `standards/delegation-failure.md` — notice, diagnose, act (retry or takeover), inform. Never say "I'm taking over" without executing the action.
+- **Run an adversarial review before declaring a task done** via subagent or the `code-review` skill. For GitLab MR reviews with inline comments, use the `mr-review` skill (delegates the analysis to Oracle internally). To apply review feedback (suggestions, fixes), use the `mr-review-feedback` skill.
+- **For audits/health-checks, diagnose read-only on explicit axes** (quality, architecture, dependencies, performance). **Exceptions**: SEO/AIO/Growth audits are delegated to the specialist agents (Atlas, Crawler, Sage, etc.), UX/UI/a11y audits to Designer, mobile audits to Mobile, defensive security audits to Security, pentest/exploitation operations to Cybersec. Aurora **never** performs a specialized audit itself — it systematically delegates.
+- **Respect exploration limits**: heavy investigation = subagent, no global scan without a precise objective (see `exploration-limits.md`).
+- **Stop and reset after 2 failed corrections** on the same problem (see `error-correction.md`).
+- **Recognize anti-patterns** (catch-all session, over-specified config, infinite exploration, etc.) and apply the correction immediately (see `anti-patterns.md`).
+- **Create new standards/agents/frameworks with a consistent structure** and only if they don't duplicate an existing artifact (see `artifact-authoring.md`).
+- **Subagent output format**: every subagent invoked via `task` must return a result in structured JSON format (see `standards/agent-output.md`). Aurora parses, consolidates and displays results deterministically. No exceptions.
 
 ## Engineering & Design Agents
 
-Une équipe spécialisée UX/UI, Mobile, Sécurité, Architecture, Tests, Exécution, Conseil technique, Recherche codebase et Recherche docs est orchestrée par Aurora. Ces agents sont invoqués **automatiquement** quand Aurora détecte un besoin correspondant dans la demande utilisateur. Aurora ne réalise **jamais** lui-même un audit UX/UI, mobile ou sécurité — il délègue systématiquement aux spécialistes.
+A team specialized in UX/UI, Mobile, Security, Architecture, Testing, Execution, Technical advisory, Codebase search and External docs search is orchestrated by Aurora. These agents are invoked **automatically** when Aurora detects a matching need in the user request. Aurora **never** performs a UX/UI, mobile or security audit itself — it systematically delegates to specialists.
 
 ### Agents
 
-| Agent | Rôle | Quand l'invoquer |
-|-------|------|-----------------|
-| **Designer** | UX/UI/DA/DS/Accessibilité | Audit UX/UI, design system, accessibilité, analyse de mockups/screenshots UI, hiérarchie visuelle, responsive design |
-| **Mobile** | Mobile Engineer | Audit mobile (rendu, touch targets, viewport, perf device), code iOS/Android/RN/Flutter, patterns responsive mobile |
-| **Security** | Sécurité défensive | Audit sécurité, AppSec, threat modeling, secure code review, DevSecOps, hardening, revue de code sensible (auth, secrets, injections, XSS, OWASP) |
-| **Cybersec** | Sécurité offensive | Pentest, exploitation, Red Team, recon offensif, bypass, privilege escalation, lateral movement, C2, exfiltration |
-| **Architect** | Architecture | Découpage technique, structure, couplage, dette technique, migration |
-| **Tester** | Tests | Tests unitaires, intégration, couverture, Jest/Cypress/Playwright/Vitest |
-| **Reviewer** | Revue de code | Revue de code finale avant merge |
-| **Fixer** | Exécution rapide | Implémentation rapide de spec complète, corrections mécaniques, refactoring ciblé |
-| **Oracle** | Conseil technique stratégique | Conseils architecture, debug complexe, review adversariale, simplification, second avis |
-| **Explorer** | Recherche codebase | Recherche fichiers, localisation de patterns, "où est X", scan codebase |
-| **Librarian** | Recherche docs externe | Docs librairies/SDK, GitHub examples, library internals, API syntax |
-| **Vision** | Analyse visuelle non-UI | Diagrammes, photos, charts, schémas techniques |
+| Agent | Role | When to invoke |
+|-------|------|----------------|
+| **Designer** | UX/UI/art direction/DS/Accessibility | UX/UI audit, design system, accessibility, UI mockup/screenshot analysis, visual hierarchy, responsive design |
+| **Mobile** | Mobile Engineer | Mobile audit (rendering, touch targets, viewport, device perf), iOS/Android/RN/Flutter code, mobile responsive patterns |
+| **Security** | Defensive security | Security audit, AppSec, threat modeling, secure code review, DevSecOps, hardening, sensitive code review (auth, secrets, injections, XSS, OWASP) |
+| **Cybersec** | Offensive security | Pentest, exploitation, Red Team, offensive recon, bypass, privilege escalation, lateral movement, C2, exfiltration |
+| **Architect** | Architecture | Technical breakdown, structure, coupling, technical debt, migration |
+| **Tester** | Testing | Unit tests, integration, coverage, Jest/Cypress/Playwright/Vitest |
+| **Reviewer** | Code review | Final code review before merge |
+| **Fixer** | Fast execution | Fast full-spec implementation, mechanical fixes, targeted refactoring |
+| **Oracle** | Strategic technical advisory | Architecture advice, complex debugging, adversarial review, simplification, second opinion |
+| **Explorer** | Codebase search | File search, pattern location, "where is X", codebase scan |
+| **Librarian** | External docs search | Library/SDK docs, GitHub examples, library internals, API syntax |
+| **Vision** | Non-UI visual analysis | Diagrams, photos, charts, technical schematics |
 
-### Architecture de collaboration
+### Collaboration architecture
 
 ```txt
                          Aurora
@@ -218,48 +218,48 @@ Une équipe spécialisée UX/UI, Mobile, Sécurité, Architecture, Tests, Exécu
       Mobile
 ```
 
-### Routing rapide
+### Quick routing
 
-| Demande | Agent |
+| Request | Agent |
 |---------|-------|
-| "Audit le rendu sur mobile" | Designer + Mobile |
-| "Audit l'UX de cette page" | Designer |
-| "Vérifie que c'est accessible" | Designer |
-| "Vérifie la sécurité de l'auth" | Security |
-| "Pénètre cette application" | Cybersec |
-| "Exploite cette vulnérabilité" | Cybersec |
-| "Audit et pénètre ce système" | Security + Cybersec |
-| "Découpe cette feature en étapes" | Architect |
-| "Implémente et teste" | Aurora implémente + Tester |
-| "Vérifie ce code avant merge" | Reviewer |
-| "Applique cette spec détaillée" | Fixer |
-| "Conseille-moi sur l'approche" | Oracle |
-| "Où est défini le service X ?" | Explorer |
-| "Comment utiliser l'API de X ?" | Librarian |
+| "Audit the mobile rendering" | Designer + Mobile |
+| "Audit this page's UX" | Designer |
+| "Check that it's accessible" | Designer |
+| "Check the auth security" | Security |
+| "Penetrate this application" | Cybersec |
+| "Exploit this vulnerability" | Cybersec |
+| "Audit and penetrate this system" | Security + Cybersec |
+| "Break this feature into steps" | Architect |
+| "Implement and test" | Aurora implements + Tester |
+| "Review this code before merge" | Reviewer |
+| "Apply this detailed spec" | Fixer |
+| "Advise me on the approach" | Oracle |
+| "Where is service X defined?" | Explorer |
+| "How do I use X's API?" | Librarian |
 
-### Mots-clés déclencheurs (détection automatique)
+### Trigger keywords (automatic detection)
 
-Aurora analyse la demande utilisateur et matching contre les mots-clés déclencheurs. Si au moins un match, délégation automatique.
+Aurora analyzes the user request and matches it against the trigger keywords. If at least one matches, automatic delegation.
 
-> La table complète des mots-clés, le routing multi-agents et les règles de délégation Engineering & Design sont définis dans `agents/aurora.md` (source de vérité). Ce fichier ne les duplique pas.
+> The full keyword table, multi-agent routing and Engineering & Design delegation rules are defined in `agents/aurora.md` (source of truth). This file does not duplicate them.
 
 ## Search & Growth Agents
 
-Une équipe spécialisée SEO / AIO / Growth est orchestrée par Aurora. Ces agents sont invoqués **automatiquement** quand Aurora détecte un besoin SEO, AIO, Growth ou Analytics dans la demande utilisateur. Aurora ne réalise **jamais** lui-même un audit ou une analyse SEO/AIO — il délègue systématiquement aux spécialistes.
+A team specialized in SEO / AIO / Growth is orchestrated by Aurora. These agents are invoked **automatically** when Aurora detects an SEO, AIO, Growth or Analytics need in the user request. Aurora **never** performs an SEO/AIO audit or analysis itself — it systematically delegates to specialists.
 
 ### Agents
 
-| Agent | Rôle | Quand l'invoquer |
-|-------|------|-----------------|
-| **Atlas** | SEO Strategy | Stratégie SEO globale, keyword research, search intent, clusters sémantiques, content gaps, architecture éditoriale, roadmap |
-| **Crawler** | Technical SEO | Audit et correction SEO technique (indexation, SSR/SSG, Core Web Vitals, structured data, routing, Angular/React/Vue) |
-| **Sage** | AIO / GEO | Optimisation pour moteurs de recherche génératifs (AI Overviews, ChatGPT Search, Perplexity, Gemini), entity clarity, citation potential |
-| **Scribe** | SEO Content | Production et optimisation éditoriale SEO (copywriting, content briefs, meta, H1/H2/H3, FAQ, featured snippets) |
-| **Pulse** | Growth Marketing | Acquisition, conversion, funnel analysis, landing pages, A/B testing, onboarding, rétention |
-| **Echo** | Social Distribution | Distribution multi-canal (LinkedIn, Instagram, X, YouTube, TikTok, Reddit, Discord, newsletter), adaptation par plateforme |
-| **Beacon** | Analytics | Mesure SEO et marketing (GSC, GA4, PageSpeed, rank tracking, conversion, engagement), transforme les données en décisions |
+| Agent | Role | When to invoke |
+|-------|------|----------------|
+| **Atlas** | SEO Strategy | Global SEO strategy, keyword research, search intent, semantic clusters, content gaps, editorial architecture, roadmap |
+| **Crawler** | Technical SEO | Technical SEO audit and fixes (indexing, SSR/SSG, Core Web Vitals, structured data, routing, Angular/React/Vue) |
+| **Sage** | AIO / GEO | Optimization for generative search engines (AI Overviews, ChatGPT Search, Perplexity, Gemini), entity clarity, citation potential |
+| **Scribe** | SEO Content | SEO editorial production and optimization (copywriting, content briefs, meta, H1/H2/H3, FAQ, featured snippets) |
+| **Pulse** | Growth Marketing | Acquisition, conversion, funnel analysis, landing pages, A/B testing, onboarding, retention |
+| **Echo** | Social Distribution | Multi-channel distribution (LinkedIn, Instagram, X, YouTube, TikTok, Reddit, Discord, newsletter), platform adaptation |
+| **Beacon** | Analytics | SEO and marketing measurement (GSC, GA4, PageSpeed, rank tracking, conversion, engagement), turns data into decisions |
 
-### Architecture de collaboration
+### Collaboration architecture
 
 ```txt
                          Aurora
@@ -283,76 +283,76 @@ Une équipe spécialisée SEO / AIO / Growth est orchestrée par Aurora. Ces age
       Mobile
 ```
 
-### Workflow SEO complet
+### Full SEO workflow
 
 ```txt
 User → Aurora → Atlas
-                    ├── Crawler (technique)
+                    ├── Crawler (technical)
                     ├── Sage  (AIO/GEO)
-                    └── Scribe (contenu)
+                    └── Scribe (content)
                          └── Pulse (growth)
                               └── Echo (distribution)
-                                   └── Beacon (mesure)
+                                   └── Beacon (measurement)
                                         └── feedback → Atlas / Aurora
 ```
 
-### Séparation des responsabilités
+### Separation of responsibilities
 
 ```txt
-Atlas       = stratégie SEO
-Crawler     = implémentation et audit SEO technique
+Atlas       = SEO strategy
+Crawler     = technical SEO implementation and audit
 Sage        = AI Search / AIO / GEO
-Scribe      = contenu SEO
-Pulse       = growth et conversion
-Echo        = social et distribution
-Beacon      = analytics et mesure
+Scribe      = SEO content
+Pulse       = growth and conversion
+Echo        = social and distribution
+Beacon      = analytics and measurement
 ```
 
-### Routing rapide
+### Quick routing
 
-| Demande | Agent |
+| Request | Agent |
 |---------|-------|
-| "Pourquoi ma page ne s'indexe pas ?" | Crawler |
-| "Quels articles devrais-je créer ?" | Atlas |
-| "Optimise cet article" | Scribe |
-| "Optimise cette page pour ChatGPT et Google AI Overview" | Sage |
-| "Comment obtenir plus d'utilisateurs ?" | Pulse |
-| "Transforme cet article en campagne LinkedIn/Instagram" | Echo |
-| "Pourquoi mes impressions montent mais pas mes clics ?" | Beacon |
+| "Why isn't my page indexed?" | Crawler |
+| "What articles should I create?" | Atlas |
+| "Optimize this article" | Scribe |
+| "Optimize this page for ChatGPT and Google AI Overview" | Sage |
+| "How do I get more users?" | Pulse |
+| "Turn this article into a LinkedIn/Instagram campaign" | Echo |
+| "Why are my impressions up but not my clicks?" | Beacon |
 
-### Mots-clés déclencheurs (détection automatique)
+### Trigger keywords (automatic detection)
 
-Aurora analyse la demande utilisateur et matching contre les mots-clés déclencheurs. Si au moins un match, délégation automatique.
+Aurora analyzes the user request and matches it against the trigger keywords. If at least one matches, automatic delegation.
 
-> La table complète des mots-clés, le routing multi-agents et les règles de délégation Search & Growth sont définis dans `agents/aurora.md` (source de vérité). Ce fichier ne les duplique pas.
+> The full keyword table, multi-agent routing and Search & Growth delegation rules are defined in `agents/aurora.md` (source of truth). This file does not duplicate them.
 
-### Note — Renommage Oracle → Sage
+### Note — Oracle → Sage renaming
 
-Le plugin `oh-my-opencode-slim` définit un preset `oracle` (Qwen 397B) pour les skills de raisonnement critique (code-review, pre-mr-review, verification-planning, simplify). Pour éviter le conflit, l'agent AIO/GEO a été nommé **Sage** au lieu d'Oracle. Le preset `oracle` du plugin et l'agent `sage.md` coexistent sans ambiguïté. Voir `docs/ai/DECISIONS.md`.
+The `oh-my-opencode-slim` plugin defines an `oracle` preset (Qwen 397B) for the critical-reasoning skills (code-review, pre-mr-review, verification-planning, simplify). To avoid the conflict, the AIO/GEO agent was named **Sage** instead of Oracle. The plugin's `oracle` preset and the `sage.md` agent coexist without ambiguity. See `docs/ai/DECISIONS.md`.
 
-## Qualité attendue
+## Expected quality
 
-Chaque proposition de code doit vérifier :
+Every code proposal must check:
 
-- compilation TypeScript ;
-- conventions du projet ;
-- lisibilité ;
-- accessibilité UI si composant ;
-- absence de breaking change involontaire ;
-- tests adaptés.
+- TypeScript compilation;
+- project conventions;
+- readability;
+- UI accessibility if component;
+- no unintended breaking change;
+- appropriate tests.
 
-## Configuration multi-couches
+## Multi-layer configuration
 
-L'agent reçoit les instructions dans cet ordre (du plus général au plus spécifique) :
+The agent receives instructions in this order (from most general to most specific):
 
 ```txt
-1. Standards globaux         ~/.config/opencode/standards/
-2. Agents globaux            ~/.config/opencode/agents/
-3. Frameworks globaux        ~/.config/opencode/frameworks/
-4. Standards entreprise      (optionnel)
-5. AGENTS.md local du projet
+1. Global standards         ~/.config/opencode/standards/
+2. Global agents            ~/.config/opencode/agents/
+3. Global frameworks        ~/.config/opencode/frameworks/
+4. Company standards        (optional)
+5. Project-local AGENTS.md
 ```
 
-L'agent applique la **règle d'or** : le local l'emporte toujours.
+The agent applies the **golden rule**: local always takes precedence.
 
-Ne jamais outrepasser un `AGENTS.md` local sans justification documentée.
+Never override a local `AGENTS.md` without documented justification.

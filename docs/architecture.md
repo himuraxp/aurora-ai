@@ -1,50 +1,50 @@
 # Architecture
 
-Guide pour découper les fonctionnalités et prendre des décisions architecturales en contexte Angular / TypeScript.
+Guide for breaking down features and making architectural decisions in an Angular / TypeScript context.
 
-## Principes
+## Principles
 
-- **KISS** avant tout (Keep It Simple, Stupid).
-- Éviter les abstractions prématurées.
-- Respecter l'architecture existante.
-- Isoler les risques.
-- Préférer des incréments mergeables.
+- **KISS** above all (Keep It Simple, Stupid).
+- Avoid premature abstractions.
+- Respect the existing architecture.
+- Isolate risks.
+- Prefer mergeable increments.
 
-## Livrable attendu
+## Expected deliverable
 
-Pour toute fonctionnalité non triviale, produire :
+For any non-trivial feature, produce:
 
 ```md
-## Objectif
+## Goal
 
-## Fichiers probablement concernés
+## Probably impacted files
 
-## Plan d'implémentation
+## Implementation plan
 
-## Risques
+## Risks
 
 ## Tests
 ```
 
-## Utiliser INDEX.md pour naviguer
+## Use INDEX.md to navigate
 
-Avant de proposer un plan, consulter `docs/ai/INDEX.md` pour identifier les modules et fichiers clés du projet sans scanner le code entier.
-Aurora charge automatiquement `INDEX.md` et `WARNINGS.md` au démarrage si `docs/ai/` existe.
+Before proposing a plan, consult `docs/ai/INDEX.md` to identify the project's key modules and files without scanning the whole codebase.
+Aurora automatically loads `INDEX.md` and `WARNINGS.md` at startup if `docs/ai/` exists.
 
-Mettre à jour `INDEX.md` si la structure du projet ou les conventions changent significativement.
+Update `INDEX.md` if the project structure or conventions change significantly.
 
-## Questions à se poser
+## Questions to ask yourself
 
-- Est-ce que ça complexifie plus qu'il n'en faut ?
-- Ce changement peut-il être découpé en étapes indépendantes ?
-- Y a-t-il un risque de régression identifié dans `WARNINGS.md` ?
-- Les conventions du projet seraient-elles violées ?
-- Ai-je consulté `INDEX.md` avant de proposer ?
+- Does it add more complexity than needed?
+- Can this change be split into independent steps?
+- Is there a regression risk identified in `WARNINGS.md`?
+- Would the project conventions be violated?
+- Did I consult `INDEX.md` before proposing?
 
 ## Anti-patterns
 
-- Patterns over-engineerés sans justification métier.
-- Modification massive sans plan intermédiaire.
-- Lister des fichiers sans consulter `INDEX.md` d'abord.
+- Over-engineered patterns without business justification.
+- Massive change without an intermediate plan.
+- Listing files without consulting `INDEX.md` first.
 
-- Ignorer les standards de testing et de typage.
+- Ignoring testing and typing standards.

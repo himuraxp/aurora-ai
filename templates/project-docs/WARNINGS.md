@@ -1,25 +1,25 @@
 # WARNINGS
 
-## Warnings actifs
+## Active warnings
 
 - [ ] 
 
-## Dettes techniques connues
+## Known technical debt
 
 - 
 
-## Zones sensibles du projet
+## Sensitive zones of the project
 
 - 
 
-## Workarounds existants
+## Existing workarounds
 
 - 
 
-## Historique des warnings clôturés
+## Closed warnings history
 
-### YYYY-MM-DD — [Titre]
+### YYYY-MM-DD — [Title]
 
-- Warning : 
-- Résolution : 
-- Date clôture : 
+- Warning: 
+- Resolution: 
+- Closed on: 

@@ -1,74 +1,74 @@
 # Angular 20 — Conventions
 
-> Version détaillée (agent) : `frameworks/angular-20.md`
+> Detailed (agent) version: `frameworks/angular-20.md`
 
-Guide pratique pour produire du code Angular 20 moderne et maintenable.
+Practical guide for producing modern, maintainable Angular 20 code.
 
-## Templates HTML
+## HTML templates
 
-- Utiliser `@if` / `@else` et `@for (...; track ...)`.
-- Ne plus utiliser `*ngIf`, `*ngFor`, `ngSwitch`.
-- Ne pas utiliser `let` dans la clause `@for`.
-- S'assurer que les blocs `@if` et `@for` entourent des balises HTML complètes.
-- Ne jamais utiliser `@if` ou `@for` comme attribut.
-- Définir un `track` stable dans `@for`.
-- Éviter les expressions complexes dans le template ; préférer `computed()` en TypeScript.
+- Use `@if` / `@else` and `@for (...; track ...)`.
+- Stop using `*ngIf`, `*ngFor`, `ngSwitch`.
+- Do not use `let` in the `@for` clause.
+- Make sure `@if` and `@for` blocks wrap complete HTML tags.
+- Never use `@if` or `@for` as an attribute.
+- Define a stable `track` in `@for`.
+- Avoid complex expressions in the template; prefer `computed()` in TypeScript.
 
-## TypeScript / Composants
+## TypeScript / Components
 
 ### Standalone
 
-- Tous les composants sont standalone.
-- Pas de NgModule manuel.
-- Les imports se déclarent dans `imports: []` du composant.
+- All components are standalone.
+- No manual NgModule.
+- Imports are declared in the component's `imports: []`.
 
 ### Injection
 
-- Utiliser `inject()` uniquement.
-- Champs privés avec `#service`.
-- Éviter `private`.
+- Use `inject()` only.
+- Private fields with `#service`.
+- Avoid `private`.
 
 ### Inputs / Outputs
 
-- `input()` / `input.required<T>()` pour les données.
-- `output()` pour les événements.
-- Ne pas utiliser `@Input()` / `@Output()`.
-- Éviter `null`, préférer `undefined`.
+- `input()` / `input.required<T>()` for data.
+- `output()` for events.
+- Do not use `@Input()` / `@Output()`.
+- Avoid `null`, prefer `undefined`.
 
-### Réactivité
+### Reactivity
 
-- Utiliser `signal()`, `computed()`, `effect()`.
-- Ne pas utiliser RxJS dans les composants sauf contrainte existante.
-- RxJS autorisé dans les services métier.
+- Use `signal()`, `computed()`, `effect()`.
+- Do not use RxJS in components unless there is an existing constraint.
+- RxJS is allowed in business services.
 
-### Typage
+### Typing
 
-- Interdire `any`.
-- Utiliser `unknown` si le type est réellement inconnu.
-- Définir des interfaces explicites.
-- Préférer `undefined` à `null`.
+- Ban `any`.
+- Use `unknown` if the type is truly unknown.
+- Define explicit interfaces.
+- Prefer `undefined` over `null`.
 
 ## Tests
 
-- Utiliser Jest.
-- `fixture.componentRef.setInput()` pour les inputs standalone.
-- Tester les comportements visibles et les outputs.
-- Mocks simples et lisibles.
-- Ne pas tester les détails d'implémentation privés.
+- Use Jest.
+- `fixture.componentRef.setInput()` for standalone inputs.
+- Test visible behaviors and outputs.
+- Simple, readable mocks.
+- Do not test private implementation details.
 
 ## Services
 
-- Logique métier isolée dans les services.
-- Les composants restent orientés présentation/orchestration.
+- Business logic isolated in services.
+- Components stay presentation/orchestration oriented.
 
 ## SCSS
 
-- Préserver les conventions existantes.
-- Éviter la duplication et les styles globaux.
-- Préserver le responsive.
+- Preserve existing conventions.
+- Avoid duplication and global styles.
+- Preserve responsiveness.
 
-## Accessibilité
+## Accessibility
 
-- Libellé ou `aria-label` sur tous les boutons.
-- Actions critiques explicites.
-- Préserver les états loading, empty, error.
+- Label or `aria-label` on every button.
+- Explicit critical actions.
+- Preserve loading, empty, error states.

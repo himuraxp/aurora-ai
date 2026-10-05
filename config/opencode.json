@@ -2,49 +2,6 @@
   "$schema": "https://opencode.ai/config.json",
   "share": "disabled",
   "provider": {
-    "infomaniak-b300": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "infomaniak",
-      "options": {
-        "baseURL": "https://kimi-k26-nvfp4.ia2-kub.infomaniak.ch/v1",
-        "headers": {
-          "X-LLM-Application-Tag": "codegpt"
-        }
-      },
-      "models": {
-        "euria-code": {
-          "modalities": {
-            "input": [
-              "text",
-              "image"
-            ],
-            "output": [
-              "text"
-            ]
-          },
-          "limit": {
-            "context": 262144,
-            "output": 131072
-          },
-          "cost": {
-            "input": 0.6,
-            "output": 3
-          },
-          "parameters": {
-            "repetitionPenalty": 1.15,
-            "stopSequences": [
-              "!!!",
-              "!!!!",
-              "!\\n!"
-            ],
-            "thinking": {
-              "enabled": true,
-              "budgetTokens": 16384
-            }
-          }
-        }
-      }
-    },
     "infomaniak": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "infomaniak",
@@ -512,70 +469,6 @@
         "write": false,
         "edit": false,
         "bash": false
-      }
-    },
-    "build-b300": {
-      "model": "infomaniak-b300/euria-code",
-      "permission": {
-        "edit": "allow",
-        "bash": {
-          "*": "ask",
-          "echo *": "allow",
-          "jq *": "allow",
-          "cat *": "allow",
-          "date*": "allow",
-          "date *": "allow",
-          "tr *": "allow",
-          "curl *": "allow",
-          "git add *": "allow",
-          "git branch --show-current": "allow",
-          "git checkout *": "allow",
-          "git commit *": "allow",
-          "git log *": "allow",
-          "git status *": "allow",
-          "git push *": "ask",
-          "git diff*": "allow",
-          "glab *": "allow",
-          "yarn test *": "allow",
-          "yarn build *": "allow",
-          "yarn lint *": "allow",
-          "yarn lint:fix *": "allow",
-          "npm run build *": "allow",
-          "rtk *": "allow",
-          "grep *": "allow",
-          "ls *": "allow",
-          "pwd": "allow",
-          "find *": "allow",
-          "cd *": "allow",
-          "cp *": "allow",
-          "mkdir *": "allow",
-          "rm *": "allow",
-          "zip *": "allow",
-          "head *": "allow",
-          "tail *": "allow",
-          "awk *": "allow",
-          "kill *": "allow",
-          "lsof *": "allow",
-          "awk *inplace*": "ask",
-          "awk *system*": "ask",
-          "sort *": "allow",
-          "uniq *": "allow",
-          "wc *": "allow",
-          "sed *": "allow",
-          "osascript *": "ask",
-          "xargs *": "ask",
-          "*-exec*": "allow",
-          "watch *": "ask",
-          "env *": "ask",
-          "sudo *": "deny",
-          "su *": "deny",
-          "doas *": "deny"
-        },
-        "webfetch": "ask",
-        "external_directory": {
-          "/tmp/*": "allow",
-          "/private/tmp/*": "allow"
-        }
       }
     },
     "explore": {

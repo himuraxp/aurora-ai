@@ -8,12 +8,14 @@
 
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) [![Last Commit](https://img.shields.io/github/last-commit/himuraxp/aurora-ai.svg)](https://github.com/himuraxp/aurora-ai/commits/main) [![OpenCode Compatible](https://img.shields.io/badge/OpenCode-Compatible-brightgreen.svg)](https://opencode.ai)
 
-  > **The OpenCode reference for production AI workflows — Angular, Node.js, NestJS, Astro.**
+  > **A production-ready OpenCode setup for multi-agent AI workflows — Angular, Node.js, NestJS, Astro.**
 
-  Forkable. Multi-layered. Ready to use.
+  Forkable. Extensible. Ready to use.
 
-  **English** · [Français](README.fr.md)
+  **English** · [Français](README.md)
 </div>
+
+> If Aurora is useful to you, consider starring the repository ⭐ — it helps other builders find it.
 
 ---
 
@@ -23,43 +25,13 @@ AI agents (OpenCode, Cursor, Claude...) don't know which standard to follow unle
 
 **What you get:**
 
-- **18 specialized agents + 4 plugin agents** — engineering roles (reviewer, tester, security, cybersec, architect, designer, mobile...) plus a Search & Growth team (atlas, crawler, sage, scribe, pulse, echo, beacon)
-- **16 universal standards** — workflow, adversarial review, verification, commits, exploration limits, error correction, anti-patterns, structured subagent output...
-- **33 reusable skills** — from `commit` and `create-mr` to `ai-cowork` (autonomous Aurora ↔ ChatGPT loop) and the 17-skill accessibility suite
-- **Persistent project memory** — 7 `docs/ai/` documents auto-read at session start: agents never lose context
+- **18 specialized agents + 4 plugin agents** — engineering roles (reviewer, tester, security, architect, designer...) plus a Search & Growth team
+- **16 universal standards + 33 skills** — adversarial review, verification, commits, plus the 17-skill accessibility suite
+- **Persistent project memory** — 7 `docs/ai/` documents auto-read at session start: agents keep context across sessions
 - **14 models with automatic fallback** — 250k → 1M context, cost-based agent assignment
-- **Angular 20+ conventions** — standalone, signals, inject(), Jest
-- **Ready-to-use examples** — Angular, Node.js API, monorepo (in `examples/`)
-- **Reproducible setup** — identical behavior across machines and projects
+- **Consistent across machines** — same setup and behavior everywhere, with ready-to-use examples (Angular, Node.js API, monorepo)
 
-| Benefit | What it means |
-|---------|---------------|
-| **Consistency** | Identical agent behavior on every machine |
-| **Time savings** | Project initialization in 3 seconds |
-| **Quality** | Built-in standards + adversarial review + read-only audits + exploration limits |
-| **Traceability** | Every agent documents its plan, decisions and progress |
-| **Security** | Automatic security checklist at every review |
-| **Session memory** | BUFFER, INDEX and WARNINGS for long and complex projects |
-
-→ [Quick Start](#quick-start) — operational in under 2 minutes.
-
-## Table of contents
-
-- [Why Aurora?](#why-aurora)
-- [Quick Start](#quick-start)
-- [Agent State Layer](#agent-state-layer)
-- [Configuration](#configuration)
-- [Models and Fallback](#models-and-fallback)
-- [Project Memory](#project-memory)
-- [Architecture](#architecture)
-- [How to use it](#how-to-use-it)
-- [How to customize](#how-to-customize)
-- [Documentation](#documentation)
-- [FAQ](#faq)
-- [Repository structure](#repository-structure)
-- [Priority order](#priority-order)
-
----
+→ [Quick Start](#quick-start) — operational in a few minutes.
 
 ## Quick Start
 
@@ -131,6 +103,22 @@ my-project/
 Never overwrites existing files: it creates `.new` files (or timestamped files) that you merge manually.
 
 **Operational in minutes.**
+
+## Table of contents
+
+- [Why Aurora?](#why-aurora)
+- [Quick Start](#quick-start)
+- [Agent State Layer](#agent-state-layer)
+- [Configuration](#configuration)
+- [Models and Fallback](#models-and-fallback)
+- [Project Memory](#project-memory)
+- [Architecture](#architecture)
+- [How to use it](#how-to-use-it)
+- [How to customize](#how-to-customize)
+- [Documentation](#documentation)
+- [FAQ](#faq)
+- [Repository structure](#repository-structure)
+- [Priority order](#priority-order)
 
 ---
 

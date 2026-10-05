@@ -8,12 +8,14 @@
 
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) [![Last Commit](https://img.shields.io/github/last-commit/himuraxp/aurora-ai.svg)](https://github.com/himuraxp/aurora-ai/commits/main) [![OpenCode Compatible](https://img.shields.io/badge/OpenCode-Compatible-brightgreen.svg)](https://opencode.ai)
 
-  > **La référence OpenCode pour les workflows IA en production — Angular, Node.js, NestJS, Astro.**
+  > **Un setup OpenCode prêt pour la production, multi-agents — Angular, Node.js, NestJS, Astro.**
 
-  Forkable. Multi-couches. Prête à l'emploi.
+  Forkable. Extensible. Prête à l'emploi.
 
   [English](README.md) · **Français**
 </div>
+
+> Si Aurora vous est utile, pensez à laisser une star au dépôt ⭐ — cela aide d'autres développeurs à le trouver.
 
 ---
 
@@ -23,43 +25,13 @@ Les agents IA (OpenCode, Cursor, Claude...) ne savent pas quel standard utiliser
 
 **Ce que vous obtenez :**
 
-- **18 agents spécialisés + 4 agents plugin** — rôles ingénierie (reviewer, tester, security, cybersec, architect, designer, mobile...) et équipe Search & Growth (atlas, crawler, sage, scribe, pulse, echo, beacon)
-- **16 standards universels** — workflow, review adversariale, vérification, commits, limites d'exploration, correction d'erreurs, anti-patterns, format de retour des sous-agents...
-- **33 skills réutilisables** — de `commit` et `create-mr` à `ai-cowork` (boucle autonome Aurora ↔ ChatGPT) et la suite accessibilité de 17 sous-skills
-- **Mémoire projet persistante** — 7 documents `docs/ai/` lus automatiquement en début de session : les agents ne perdent jamais le contexte
+- **18 agents spécialisés + 4 agents plugin** — rôles ingénierie (reviewer, tester, security, architect, designer...) et équipe Search & Growth
+- **16 standards universels + 33 skills** — review adversariale, vérification, commits, et la suite accessibilité de 17 sous-skills
+- **Mémoire projet persistante** — 7 documents `docs/ai/` lus automatiquement en début de session : les agents gardent le contexte entre les sessions
 - **14 modèles avec fallback automatique** — contexte 250k → 1M, assignation des agents par coût
-- **Conventions Angular 20+** — standalone, signals, inject(), Jest
-- **Exemples prêts à l'emploi** — Angular, API Node.js, monorepo (dans `examples/`)
-- **Setup reproductible** — même comportement sur toutes les machines et tous les projets
+- **Cohérent entre machines** — même setup et même comportement partout, avec des exemples prêts à l'emploi (Angular, API Node.js, monorepo)
 
-| Bénéfice | Concrètement |
-|----------|--------------|
-| **Cohérence** | Même comportement des agents sur toutes les machines |
-| **Gain de temps** | Initialisation d'un projet en 3 secondes |
-| **Qualité** | Standards intégrés + review adversariale + audits read-only + limites d'exploration |
-| **Traçabilité** | Chaque agent documente son plan, ses décisions et son avancement |
-| **Sécurité** | Checklist sécurité automatique à chaque review |
-| **Mémoire de session** | BUFFER, INDEX et WARNINGS pour les projets longs et complexes |
-
-→ [Quick Start](#quick-start) — opérationnel en moins de 2 minutes.
-
-## Sommaire
-
-- [Pourquoi Aurora ?](#pourquoi-aurora-)
-- [Quick Start](#quick-start)
-- [Agent State Layer](#agent-state-layer)
-- [Configuration](#configuration)
-- [Modèles et Fallback](#modèles-et-fallback)
-- [Mémoire projet](#mémoire-projet)
-- [Architecture](#architecture)
-- [Comment l'utiliser ?](#comment-lutiliser-)
-- [Comment personnaliser ?](#comment-personnaliser-)
-- [Documentation](#documentation)
-- [FAQ](#faq)
-- [Structure du repo](#structure-du-repo)
-- [Principe de priorité](#principe-de-priorité)
-
----
+→ [Quick Start](#quick-start) — opérationnel en quelques minutes.
 
 ## Quick Start
 
@@ -131,6 +103,22 @@ mon-projet/
 N'écrase jamais les fichiers existants : il crée des fichiers `.new` (ou horodatés) à fusionner manuellement.
 
 **Opérationnel en quelques minutes.**
+
+## Sommaire
+
+- [Pourquoi Aurora ?](#pourquoi-aurora-)
+- [Quick Start](#quick-start)
+- [Agent State Layer](#agent-state-layer)
+- [Configuration](#configuration)
+- [Modèles et Fallback](#modèles-et-fallback)
+- [Mémoire projet](#mémoire-projet)
+- [Architecture](#architecture)
+- [Comment l'utiliser ?](#comment-lutiliser-)
+- [Comment personnaliser ?](#comment-personnaliser-)
+- [Documentation](#documentation)
+- [FAQ](#faq)
+- [Structure du repo](#structure-du-repo)
+- [Principe de priorité](#principe-de-priorité)
 
 ---
 

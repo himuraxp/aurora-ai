@@ -1,48 +1,50 @@
 # scripts/hooks/
 
-Hooks Git pour la sécurité et la qualité. Ces scripts s'installent dans `.git/hooks/` ou via `core.hooksPath`.
+> **Language note:** the hook scripts referenced here contain French comments — the maintainer's working language. Public-facing docs: the [root README](../../README.md) and [`docs/`](../../docs/).
+
+Git hooks for security and quality. These scripts install into `.git/hooks/` or via `core.hooksPath`.
 
 ## Hooks
 
 ### pre-commit-secrets.sh
 
-Git pre-commit hook qui détecte les secrets accidentellement commités.
+Git pre-commit hook that detects secrets accidentally committed.
 
-**Patterns détectés :**
+**Detected patterns:**
 - API keys (OpenAI, Google, Stripe, AWS, GitHub, GitLab)
 - Bearer tokens, JWT
 - Private keys (`BEGIN PRIVATE KEY`, `BEGIN RSA PRIVATE KEY`)
-- Mots de passe dans config (`password=`, `passwd=`, `pwd=`)
-- Connection strings avec credentials (`mongodb://`, `postgresql://`, `mysql://`, `redis://`)
+- Passwords in config (`password=`, `passwd=`, `pwd=`)
+- Connection strings with credentials (`mongodb://`, `postgresql://`, `mysql://`, `redis://`)
 - Slack tokens (`xox[baprs]-`)
 
-**Installation :**
+**Installation:**
 
 ```bash
-# Méthode 1 : copie directe
+# Method 1: direct copy
 cp scripts/hooks/pre-commit-secrets.sh .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
 
-# Méthode 2 : core.hooksPath (recommandé)
+# Method 2: core.hooksPath (recommended)
 git config core.hooksPath scripts/hooks
 ```
 
-**Fichiers ignorés :**
+**Ignored files:**
 - `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`
 - `.env.example`
-- Fichiers binaires, images
+- Binary files, images
 
-**False positives :**
+**False positives:**
 
-Si une détection est un false positive, committer avec `--no-verify` :
+If a detection is a false positive, commit with `--no-verify`:
 
 ```bash
 git commit --no-verify
 ```
 
-## Ajouter un hook
+## Adding a hook
 
-1. Créer un fichier `<hook-name>.sh` dans ce dossier
-2. Le rendre exécutable (`chmod +x`)
-3. Documenter les patterns et l'installation
-4. Lancer `npm run update` (ou `./scripts/install.sh`) pour déployer
+1. Create a `<hook-name>.sh` file in this folder
+2. Make it executable (`chmod +x`)
+3. Document the patterns and installation
+4. Run `npm run update` (or `./scripts/install.sh`) to deploy

@@ -1,81 +1,83 @@
 # scripts/
 
-Scripts d'installation, maintenance et automatisation pour opencode-config.
+> **Language note:** the shell scripts referenced here contain French comments and UI strings — the maintainer's working language. The agent runtime consumes them language-agnostically, so behavior is unaffected. Public-facing docs: the [root README](../README.md) and [`docs/`](../docs/).
+
+Installation, maintenance and automation scripts for opencode-config.
 
 ## Scripts
 
 | Script | Usage | Description |
 |--------|-------|-------------|
-| `setup.sh` | `./scripts/setup.sh [--force] [--no-animation]` | Première installation sur une machine. Interactif : installe opencode-ai, rtk, MCP servers, copie la config, collecte les secrets |
-| `install.sh` | `./scripts/install.sh [--prune] [--no-config] [--dry-run]` | Mise à jour. Copie uniquement les fichiers modifiés vers `~/.config/opencode/` |
-| `init-project.sh` | `./scripts/init-project.sh [--dry-run]` | Initialise un projet : copie `AGENTS.md`, détecte la stack, ajoute le framework |
-| `sync-project.sh` | `./scripts/sync-project.sh [--dry-run]` | Synchronise les templates d'un projet (crée `.new` si conflit) |
-| `health-check.sh` | `./scripts/health-check.sh [--installed] [--quiet]` | Vérifie la cohérence : JSON valides, agents, modèles, orphelins |
-| `permissions-matrix.sh` | `./scripts/permissions-matrix.sh [--output FILE]` | Génère un tableau markdown des permissions de tous les agents |
-| `validate-memory.sh` | `./scripts/validate-memory.sh [PROJECT_DIR]` | Vérifie que `docs/ai/` est bien formé (fichiers requis, sections) |
-| `ui.sh` | `source scripts/ui.sh` | Bibliothèque UI partagée (couleurs, animations, barres de progression) |
+| `setup.sh` | `./scripts/setup.sh [--force] [--no-animation]` | First install on a machine. Interactive: installs opencode-ai, rtk, MCP servers, copies the config, collects secrets |
+| `install.sh` | `./scripts/install.sh [--prune] [--no-config] [--dry-run]` | Update. Copies only modified files to `~/.config/opencode/` |
+| `init-project.sh` | `./scripts/init-project.sh [--dry-run]` | Initializes a project: copies `AGENTS.md`, detects the stack, adds the framework |
+| `sync-project.sh` | `./scripts/sync-project.sh [--dry-run]` | Syncs a project's templates (creates `.new` on conflict) |
+| `health-check.sh` | `./scripts/health-check.sh [--installed] [--quiet]` | Consistency checks: valid JSON, agents, models, orphans |
+| `permissions-matrix.sh` | `./scripts/permissions-matrix.sh [--output FILE]` | Generates a markdown table of all agents' permissions |
+| `validate-memory.sh` | `./scripts/validate-memory.sh [PROJECT_DIR]` | Verifies `docs/ai/` is well-formed (required files, sections) |
+| `ui.sh` | `source scripts/ui.sh` | Shared UI library (colors, animations, progress bars) |
 
-## Sous-dossiers
+## Sub-folders
 
-| Dossier | Description |
-|---------|-------------|
-| `create-mr/` | Scripts de création de merge requests (voir `create-mr/README.md`) |
-| `hooks/` | Hooks Git (voir `hooks/README.md`) |
+| Folder | Description |
+|--------|-------------|
+| `create-mr/` | Merge request creation scripts (see `create-mr/README.md`) |
+| `hooks/` | Git hooks (see `hooks/README.md`) |
 
 ## Installation
 
-### Première installation (nouvelle machine)
+### First install (new machine)
 
 ```bash
 git clone https://github.com/himuraxp/aurora-ai.git ~/.config/opencode-config
 cd ~/.config/opencode-config
 npm run setup
-# ou: ./scripts/setup.sh
+# or: ./scripts/setup.sh
 ```
 
-### Mise à jour
+### Update
 
 ```bash
 cd ~/.config/opencode-config && git pull && npm run update
-# ou: ./scripts/install.sh
+# or: ./scripts/install.sh
 ```
 
-### Initialiser un projet
+### Initialize a project
 
 ```bash
 cd /path/to/project
 ~/.config/opencode-config/scripts/init-project.sh
-# ou depuis le repo: npm run init-project
+# or from the repo: npm run init-project
 ```
 
-### Commandes npm disponibles
+### Available npm commands
 
-| Commande | Script bash équivalent | Description |
+| Command | Equivalent bash script | Description |
 |---------|------------------------|-------------|
-| `npm run setup` | `scripts/setup.sh` | Installation complète interactive |
-| `npm run update` | `scripts/install.sh` | Mise à jour des fichiers de config |
-| `npm run prune` | `scripts/install.sh --prune` | Mise à jour + suppression des orphelins |
-| `npm run dry-run` | `scripts/install.sh --dry-run` | Prévisualiser les changements |
-| `npm run init-project` | `scripts/init-project.sh` | Initialiser un projet |
-| `npm run sync` | `scripts/sync-project.sh` | Synchroniser les templates |
-| `npm run health-check` | `scripts/health-check.sh` | Vérifier la cohérence |
-| `npm run permissions` | `scripts/permissions-matrix.sh` | Générer la matrice de permissions |
-| `npm run validate-memory` | `scripts/validate-memory.sh` | Valider docs/ai/ d'un projet |
+| `npm run setup` | `scripts/setup.sh` | Full interactive install |
+| `npm run update` | `scripts/install.sh` | Update config files |
+| `npm run prune` | `scripts/install.sh --prune` | Update + remove orphans |
+| `npm run dry-run` | `scripts/install.sh --dry-run` | Preview changes |
+| `npm run init-project` | `scripts/init-project.sh` | Initialize a project |
+| `npm run sync` | `scripts/sync-project.sh` | Sync templates |
+| `npm run health-check` | `scripts/health-check.sh` | Consistency check |
+| `npm run permissions` | `scripts/permissions-matrix.sh` | Generate permission matrix |
+| `npm run validate-memory` | `scripts/validate-memory.sh` | Validate a project's docs/ai/ |
 
-> Les flags supplémentaires peuvent être passés via `--` : `npm run setup -- --force`
+> Extra flags can be passed via `--`: `npm run setup -- --force`
 
-## Dépendances
+## Dependencies
 
-- **Node.js** >= 18 (pour opencode-ai et MCP servers)
-- **npm** (pour opencode-ai et plugins)
-- **rtk** (optional, installé par setup.sh — économise des tokens via rewrite)
-- **glab** (optional, pour les skills GitLab)
-- **ImageMagick** (optional, pour le skill image-transparent-background)
-- **idb-companion** + **fb-idb** (optional, macOS, pour iOS Simulator MCP)
+- **Node.js** >= 18 (for opencode-ai and MCP servers)
+- **npm** (for opencode-ai and plugins)
+- **rtk** (optional, installed by setup.sh — saves tokens via rewriting)
+- **glab** (optional, for GitLab skills)
+- **ImageMagick** (optional, for the image-transparent-background skill)
+- **idb-companion** + **fb-idb** (optional, macOS, for the iOS Simulator MCP)
 
-## ui.sh — Bibliothèque UI partagée
+## ui.sh — shared UI library
 
-Utilisée par `setup.sh` et `install.sh` pour les animations et couleurs. 100% bash, zéro dépendance externe. Compatible macOS (bash 3.2+) et Linux (bash 4+).
+Used by `setup.sh` and `install.sh` for animations and colors. 100% bash, zero external dependencies. Compatible macOS (bash 3.2+) and Linux (bash 4+).
 
 ```bash
 source "$(dirname "${BASH_SOURCE[0]}")/ui.sh"

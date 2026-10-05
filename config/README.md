@@ -1,82 +1,84 @@
 # config/
 
-Configuration globale OpenCode. Ce dossier contient la config principale, les variables d'environnement, les plugins et la config du plugin oh-my-opencode-slim.
+> **Language note:** the config files here are language-neutral (JSON); scripts and inline comments they reference are partially in French — the maintainer's working language. The agent runtime consumes them language-agnostically, so behavior is unaffected. Public-facing docs: the [root README](../README.md) and [`docs/`](../docs/).
 
-## Fichiers
+Global OpenCode configuration. This folder holds the main config, environment variables, plugins and the oh-my-opencode-slim plugin config.
 
-| Fichier | Description |
-|---------|-------------|
-| `opencode.json` | Configuration principale — providers, modèles, agents, permissions, MCP servers |
-| `.env.example` | Template des variables d'environnement (sans secrets). Copier vers `~/.config/opencode/.env` |
-| `oh-my-opencode-slim.json` | Configuration du plugin oh-my-opencode-slim (presets, modèles, skills) |
-| `package.json` | Dépendances npm pour les plugins |
+## Files
 
-## Sous-dossiers
+| File | Description |
+|------|-------------|
+| `opencode.json` | Main configuration — providers, models, agents, permissions, MCP servers |
+| `.env.example` | Environment variable template (no secrets). Copy to `~/.config/opencode/.env` |
+| `oh-my-opencode-slim.json` | oh-my-opencode-slim plugin configuration (presets, models, skills) |
+| `package.json` | npm dependencies for plugins |
 
-| Dossier | Description |
-|---------|-------------|
-| `plugins/` | Plugins OpenCode (voir `plugins/README.md`) |
+## Sub-folders
 
-## Variables d'environnement
+| Folder | Description |
+|--------|-------------|
+| `plugins/` | OpenCode plugins (see `plugins/README.md`) |
 
-OpenCode ne charge **pas** les fichiers `.env` : les références `{env:VAR}` dans `opencode.json`
-lisent uniquement l'environnement du shell. D'où le modèle :
+## Environment variables
 
-- **Clé API Infomaniak AI** : une seule copie, exportée dans le shell rc de l'utilisateur
-  (`~/.zshrc`, bloc managé écrit par `setup.sh`, idempotent). Lue via
-  `{env:OPENAI_API_KEY_INFOMANIAK}`. Pas de duplication (ni `.env`, ni fichier séparé).
-- **Autres variables** : dans `~/.config/opencode/.env` (template `.env.example`),
-  lues par les MCP servers (fallback manuel dans leur code) et les outils (figma-ds).
+OpenCode does **not** load `.env` files: `{env:VAR}` references in `opencode.json`
+read only the shell environment. Hence the model:
 
-> **Important** : ne **jamais** dupliquer la clé ailleurs (pas de copie dans `.env`
-> ni dans un fichier `secrets/`). Pour changer la clé : `setup.sh --force` (Enter
-> pour garder, ou nouvelle valeur).
+- **Infomaniak AI API key**: a single copy, exported in the user's shell rc
+  (`~/.zshrc`, managed block written by `setup.sh`, idempotent). Read via
+  `{env:OPENAI_API_KEY_INFOMANIAK}`. No duplication (neither `.env` nor a separate file).
+- **Other variables**: in `~/.config/opencode/.env` (template `.env.example`),
+  read by the MCP servers (manual fallback in their code) and tools (figma-ds).
+
+> **Important**: never duplicate the key elsewhere (no copy in `.env`
+> or a `secrets/` file). To change the key: `setup.sh --force` (Enter
+> to keep, or a new value).
 >
-> **Export préexistant** : si la clé est déjà exportée librement dans le rc (sans le
-> bloc managé), `setup.sh` la **déplace** dans le bloc — elle n'est jamais dupliquée.
-> Une référence `$VAR` (ex. `"$OPENAI_API_KEY"`) est préservée telle quelle ; la
-> variable source elle-même reste intouchée.
+> **Pre-existing export**: if the key is already freely exported in the rc (outside the
+> managed block), `setup.sh` **moves** it into the block — it is never duplicated.
+> A `$VAR` reference (e.g. `"$OPENAI_API_KEY"`) is preserved as-is; the source
+> variable itself is left untouched.
 
-### Requises (shell rc, bloc managé par setup.sh)
-
-| Variable | Description |
-|----------|-------------|
-| `OPENAI_API_KEY_INFOMANIAK` | Clé API Infomaniak AI (console Infomaniak) — exportée dans le shell rc |
-| `IDB_UDID` | UDID du simulateur iOS (MCP ios-simulator — lit uniquement l'environnement, pas de fallback `.env`) |
-| `IDB_PATH` | PATH vers les binaires idb (MCP ios-simulator) |
-
-### Optionnelles (dans `~/.config/opencode/.env`)
+### Required (shell rc, managed block by setup.sh)
 
 | Variable | Description |
 |----------|-------------|
-| `INFOMANIAK_API_TOKEN` | Token API Infomaniak (MCP infomaniak — fallback `.env` dans son code) |
-| `GITLAB_TOKEN` | Token GitLab (MCP angular-elements — fallback `.env` dans son code) |
-| `FIGMA_TOKEN` | Token Figma (figma-ds) |
+| `OPENAI_API_KEY_INFOMANIAK` | Infomaniak AI API key (Infomaniak console) — exported in the shell rc |
+| `IDB_UDID` | iOS simulator UDID (ios-simulator MCP — reads only the environment, no `.env` fallback) |
+| `IDB_PATH` | PATH to idb binaries (ios-simulator MCP) |
 
-Les endpoints API Infomaniak (standard + B300) sont définis directement dans `opencode.json`
-(valeurs non secrètes, stables).
+### Optional (in `~/.config/opencode/.env`)
 
-**Trade-off connu** : un OpenCode lancé depuis une GUI qui n'hérite pas du shell
-(launcher, Spotlight) n'aura pas la clé → 401 sur le provider Infomaniak. Les
-terminaux (TUI, VS Code) sont des login shells et fonctionnent.
+| Variable | Description |
+|----------|-------------|
+| `INFOMANIAK_API_TOKEN` | Infomaniak API token (infomaniak MCP — `.env` fallback in its code) |
+| `GITLAB_TOKEN` | GitLab token (angular-elements MCP — `.env` fallback in its code) |
+| `FIGMA_TOKEN` | Figma token (figma-ds) |
 
-## Sécurité
+The Infomaniak API endpoints (standard + B300) are defined directly in `opencode.json`
+(non-secret, stable values).
 
-- La clé API Infomaniak AI vit dans le shell rc de l'utilisateur (bloc managé par `setup.sh`, une seule copie) et est lue via `{env:...}` dans `opencode.json`
-- Le fichier `.env` réel est stocké dans `~/.config/opencode/.env` (jamais dans le repo)
-- `setup.sh --force` reconfigure les variables interactivement
-- Le hook `pre-commit-secrets.sh` détecte les fuites accidentelles
+**Known trade-off**: OpenCode launched from a GUI that does not inherit the shell
+(launcher, Spotlight) will not have the key → 401 on the Infomaniak provider.
+Terminals (TUI, VS Code) are login shells and work.
+
+## Security
+
+- The Infomaniak AI API key lives in the user's shell rc (managed block by `setup.sh`, single copy) and is read via `{env:...}` in `opencode.json`
+- The real `.env` file is stored in `~/.config/opencode/.env` (never in the repo)
+- `setup.sh --force` reconfigures the variables interactively
+- The `pre-commit-secrets.sh` hook detects accidental leaks
 
 ## Installation
 
 ```bash
-# setup copie la config interactivement
+# setup copies the config interactively
 npm run setup
-# ou: ~/.config/opencode-config/scripts/setup.sh
+# or: ~/.config/opencode-config/scripts/setup.sh
 
-# install met à jour sans interaction
+# install updates without interaction
 npm run update
-# ou: ~/.config/opencode-config/scripts/install.sh
+# or: ~/.config/opencode-config/scripts/install.sh
 ```
 
-La config est copiée vers `~/.config/opencode/opencode.json`.
+The config is copied to `~/.config/opencode/opencode.json`.

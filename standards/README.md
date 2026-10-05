@@ -1,61 +1,63 @@
 # standards/
 
-Comportements universels appliqués systématiquement par Aurora et tous les sous-agents. Ces standards définissent le cycle de travail, les règles de communication, la vérification, la mémoire et la gestion des erreurs.
+> **Language note:** the standard rule files referenced here are written in French — the maintainer's working language. The agent runtime consumes them language-agnostically, so behavior is unaffected. Public-facing docs: the [root README](../README.md) and [`docs/`](../docs/).
+
+Universal behaviors applied systematically by Aurora and all sub-agents. These standards define the work cycle, communication rules, verification, memory and error handling.
 
 ## Standards
 
-### Cycle de travail
+### Work cycle
 
 | Standard | Description |
 |----------|-------------|
-| `workflow.md` | Cycle complet : Explorer → Planifier → Implémenter → Parallel Gate (Review + Vérifier) → Committer |
-| `verification.md` | Vérifications build/lint/test obligatoires avant validation |
-| `review-before-done.md` | Examen contradictoire (adversarial) avant de déclarer une tâche terminée |
+| `workflow.md` | Full cycle: Explore → Plan → Implement → Parallel Gate (Review + Verify) → Commit |
+| `verification.md` | Mandatory build/lint/test checks before sign-off |
+| `review-before-done.md` | Adversarial review before declaring a task done |
 
 ### Communication & style
 
 | Standard | Description |
 |----------|-------------|
-| `communication.md` | Style de réponse — direct, synthétique, structuré, orienté action |
+| `communication.md` | Response style — direct, concise, structured, action-oriented |
 
-### Mémoire projet
-
-| Standard | Description |
-|----------|-------------|
-| `memory-session-flow.md` | Lecture mémoire en début de session (STATUS → PLAN → WARNINGS → INDEX) |
-| `memory-auto-update.md` | Persistance mémoire en fin de session (7 fichiers en parallèle) |
-| `memory-checklist.md` | Checklist de fin de session — vérifier que la mémoire est persistée |
-
-### Qualité & erreurs
+### Project memory
 
 | Standard | Description |
 |----------|-------------|
-| `error-correction.md` | Règle des 2 corrections échouées — stopper et reset après 2 échecs |
-| `anti-patterns.md` | Détection des patterns d'échec (session fourre-tout, exploration infinie...) |
-| `escalation.md` | Gestion des blocages — quand et comment escalader |
-| `delegation-failure.md` | Procédure après échec de sous-agent — constater, diagnostiquer, agir |
+| `memory-session-flow.md` | Memory reading at session start (STATUS → PLAN → WARNINGS → INDEX) |
+| `memory-auto-update.md` | Memory persistence at session end (7 files in parallel) |
+| `memory-checklist.md` | End-of-session checklist — verify memory is persisted |
+
+### Quality & errors
+
+| Standard | Description |
+|----------|-------------|
+| `error-correction.md` | 2-failed-corrections rule — stop and reset after 2 failures |
+| `anti-patterns.md` | Failure pattern detection (catch-all session, infinite exploration...) |
+| `escalation.md` | Blocker handling — when and how to escalate |
+| `delegation-failure.md` | Procedure after a sub-agent failure — notice, diagnose, act |
 
 ### Audit & exploration
 
 | Standard | Description |
 |----------|-------------|
-| `audit.md` | Audit read-only multi-axes (qualité, architecture, dépendances, performance) |
-| `exploration-limits.md` | Délimitation des investigations — pas de scan global sans objectif précis |
+| `audit.md` | Read-only multi-axis audit (quality, architecture, dependencies, performance) |
+| `exploration-limits.md` | Investigation boundaries — no global scan without a precise objective |
 
-### Artefacts & format
+### Artifacts & format
 
 | Standard | Description |
 |----------|-------------|
-| `artifact-authoring.md` | Création homogène de nouveaux standards/agents/frameworks |
-| `agent-output.md` | Format de retour JSON structuré pour les sous-agents |
-| `commits.md` | Format et règles de commit (Conventional Commits + conventions Infomaniak) |
+| `artifact-authoring.md` | Consistent creation of new standards/agents/frameworks |
+| `agent-output.md` | Structured JSON return format for sub-agents |
+| `commits.md` | Commit format and rules (Conventional Commits + Infomaniak conventions) |
 
-## Ordre d'application
+## Application order
 
-Les standards sont appliqués par ordre décroissant de spécificité :
+Standards are applied in descending order of specificity:
 
 ```
-Standards globaux → Agents globaux → Frameworks globaux → AGENTS.md projet → docs/ai/
+Global standards → Global agents → Global frameworks → Project AGENTS.md → docs/ai/
 ```
 
-Le `AGENTS.md` local du projet est la source de vérité — le local l'emporte toujours.
+The project's local `AGENTS.md` is the source of truth — local always wins.

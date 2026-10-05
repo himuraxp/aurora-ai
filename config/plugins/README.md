@@ -1,39 +1,41 @@
 # config/plugins/
 
-Plugins OpenCode écrits en TypeScript. Les plugins étendent le comportement d'OpenCode via des hooks sur le cycle de vie des tools.
+> **Language note:** OpenCode plugins are TypeScript code (language-neutral); this documentation and code comments may reference French — the maintainer's working language. Public-facing docs: the [root README](../../README.md) and [`docs/`](../../docs/).
+
+OpenCode plugins written in TypeScript. Plugins extend OpenCode's behavior via hooks on the tool lifecycle.
 
 ## Plugins
 
 ### rtk.ts
 
-Plugin RTK (Rewrite ToolKit) — réécrit les commandes bash pour économiser des tokens.
+RTK plugin (Rewrite ToolKit) — rewrites bash commands to save tokens.
 
-**Fonctionnement :**
-1. Intercepte `tool.execute.before` pour les tools `bash`/`shell`
-2. Délègue à `rtk rewrite <command>` pour la réécriture
-3. Remplace la commande si `rtk` a produit une version réécrite
-4. Passthrough silencieux si `rtk` n'est pas installé ou échoue
+**How it works:**
+1. Intercepts `tool.execute.before` for the `bash`/`shell` tools
+2. Delegates to `rtk rewrite <command>` for rewriting
+3. Replaces the command if `rtk` produced a rewritten version
+4. Silent passthrough if `rtk` is not installed or fails
 
-**Dépendance :**
-- `rtk` >= 0.23.0 dans `PATH`
+**Dependency:**
+- `rtk` >= 0.23.0 in `PATH`
 
-**Source de vérité :**
-Toute la logique de réécriture vit dans `rtk` (Rust, `src/discover/registry.rs`). Ce plugin est un thin delegator — pour modifier les règles de réécriture, éditer le registry Rust, pas ce fichier.
+**Source of truth:**
+All rewriting logic lives in `rtk` (Rust, `src/discover/registry.rs`). This plugin is a thin delegator — to change rewriting rules, edit the Rust registry, not this file.
 
-**Installation :**
-- `setup.sh` installe `rtk` automatiquement
-- Le plugin est chargé via `config/oh-my-opencode-slim.json` → `plugin`
+**Installation:**
+- `setup.sh` installs `rtk` automatically
+- The plugin is loaded via `config/oh-my-opencode-slim.json` → `plugin`
 
-## Ajouter un plugin
+## Adding a plugin
 
-1. Créer un fichier `<plugin-name>.ts` dans ce dossier
-2. Exporter un objet `Plugin` depuis `@opencode-ai/plugin`
-3. Implémenter les hooks nécessaires (`tool.execute.before`, `tool.execute.after`, etc.)
-4. Ajouter les dépendances npm dans `config/package.json`
-5. Lancer `npm run update` (ou `./scripts/install.sh`) pour déployer
-6. Référencer le plugin dans `config/oh-my-opencode-slim.json` si applicable
+1. Create a `<plugin-name>.ts` file in this folder
+2. Export a `Plugin` object from `@opencode-ai/plugin`
+3. Implement the needed hooks (`tool.execute.before`, `tool.execute.after`, etc.)
+4. Add npm dependencies in `config/package.json`
+5. Run `npm run update` (or `./scripts/install.sh`) to deploy
+6. Reference the plugin in `config/oh-my-opencode-slim.json` if applicable
 
-## API Plugin
+## Plugin API
 
 ```typescript
 import type { Plugin } from "@opencode-ai/plugin"
@@ -41,10 +43,10 @@ import type { Plugin } from "@opencode-ai/plugin"
 export const MyPlugin: Plugin = async ({ $ }) => {
   return {
     "tool.execute.before": async (input, output) => {
-      // Intercepter avant exécution
+      // Intercept before execution
     },
     "tool.execute.after": async (input, output) => {
-      // Intercepter après exécution
+      // Intercept after execution
     },
   }
 }

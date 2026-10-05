@@ -1,17 +1,19 @@
 # mcp/
 
-MCP (Model Context Protocol) servers pour OpenCode. Chaque serveur expose des tools spécifiques via stdio transport.
+> **Language note:** MCP servers are Node.js code (language-neutral); this documentation and code comments may be partially in French — the maintainer's working language. Public-facing docs: the [root README](../README.md) and [`docs/`](../docs/).
 
-## Serveurs
+MCP (Model Context Protocol) servers for OpenCode. Each server exposes specific tools via stdio transport.
 
-| Serveur | Description | README |
-|---------|-------------|--------|
-| `infomaniak/` | API Infomaniak — radio, VOD, newsletter, DNS, events, AI, accounts | [README](infomaniak/README.md) |
-| `angular-elements/` | Design system Angular Elements — composants, API, stories, install info | [README](angular-elements/README.md) |
+## Servers
+
+| Server | Description | README |
+|--------|-------------|--------|
+| `infomaniak/` | Infomaniak API — radio, VOD, newsletter, DNS, events, AI, accounts | [README](infomaniak/README.md) |
+| `angular-elements/` | Angular Elements design system — components, API, stories, install info | [README](angular-elements/README.md) |
 
 ## Configuration
 
-Les MCP servers sont déclarés dans `config/opencode.json` :
+MCP servers are declared in `config/opencode.json`:
 
 ```json
 {
@@ -38,20 +40,20 @@ Les MCP servers sont déclarés dans `config/opencode.json` :
 }
 ```
 
-## MCP servers intégrés (npx)
+## Built-in MCP servers (npx)
 
-En plus des serveurs locaux ci-dessus, la config inclut deux serveurs auto-installés via npx :
+In addition to the local servers above, the config includes three servers auto-installed via npx:
 
-| Serveur | Command | Description |
-|---------|---------|-------------|
-| `context7` | `npx -y @upstash/context7-mcp` | Documentation à jour des librairies et frameworks |
-| `chrome-devtools` | `npx -y chrome-devtools-mcp@latest --headless --isolated` | Debugging navigateur, screenshots, performance traces |
-| `ios-simulator` | `npx -y ios-simulator-mcp` | Contrôle du simulateur iOS (screenshots, UI, tap) |
+| Server | Command | Description |
+|--------|---------|-------------|
+| `context7` | `npx -y @upstash/context7-mcp` | Up-to-date library and framework documentation |
+| `chrome-devtools` | `npx -y chrome-devtools-mcp@latest --headless --isolated` | Browser debugging, screenshots, performance traces |
+| `ios-simulator` | `npx -y ios-simulator-mcp` | iOS simulator control (screenshots, UI, tap) |
 
-## Développement
+## Development
 
 ```bash
-# Build un serveur
+# Build a server
 cd mcp/<server-name>
 npm install
 npm run build
@@ -63,10 +65,10 @@ npm run dev
 npm start
 ```
 
-## Ajouter un MCP server
+## Adding an MCP server
 
-1. Créer un dossier `mcp/<server-name>/`
-2. Initialiser un projet Node.js avec `@modelcontextprotocol/sdk`
-3. Implémenter les tools (voir `angular-elements/` comme exemple)
-4. Ajouter l'entrée dans `config/opencode.json` → `mcp.<server-name>`
-5. Lancer `npm run update` (ou `./scripts/install.sh`) pour déployer
+1. Create a `mcp/<server-name>/` folder
+2. Initialize a Node.js project with `@modelcontextprotocol/sdk`
+3. Implement the tools (see `angular-elements/` as an example)
+4. Add the entry in `config/opencode.json` → `mcp.<server-name>`
+5. Run `npm run update` (or `./scripts/install.sh`) to deploy

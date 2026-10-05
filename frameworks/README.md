@@ -1,41 +1,43 @@
 # frameworks/
 
-Règles et conventions par stack technique. Chaque fichier définit les patterns, structures et bonnes pratiques à appliquer quand un projet utilise la stack correspondante.
+> **Language note:** the framework rule files referenced here are written in French — the maintainer's working language. The agent runtime consumes them language-agnostically, so behavior is unaffected. Public-facing docs: the [root README](../README.md) and [`docs/`](../docs/).
 
-## Frameworks supportés
+Per-stack rules and conventions. Each file defines the patterns, structures and best practices to apply when a project uses the matching stack.
 
-| Framework | Fichier | Détection |
-|-----------|---------|-----------|
-| Angular 20 | `angular-20.md` | `angular.json` ou `.angular-cli.json` |
+## Supported frameworks
+
+| Framework | File | Detection |
+|-----------|------|-----------|
+| Angular 20 | `angular-20.md` | `angular.json` or `.angular-cli.json` |
 | NestJS | `nestjs.md` | `nest-cli.json` |
 | Astro | `astro.md` | `astro.config.*` |
 | Node.js | `nodejs.md` | `package.json` (fallback) |
 
-## Détection automatique
+## Automatic detection
 
-Le script `scripts/init-project.sh` détecte la stack du projet et ajoute automatiquement la référence au framework approprié dans le `AGENTS.md` local.
+The `scripts/init-project.sh` script detects the project's stack and automatically adds the matching framework reference to the local `AGENTS.md`.
 
 ```bash
 cd /path/to/project
 npm run init-project --prefix ~/.config/opencode-config
-# ou: ~/.config/opencode-config/scripts/init-project.sh
+# or: ~/.config/opencode-config/scripts/init-project.sh
 ```
 
 ## Application
 
-Les frameworks sont appliqués par ordre décroissant de spécificité :
+Frameworks are applied in descending order of specificity:
 
 ```
-Standards globaux → Agents globaux → Frameworks globaux → AGENTS.md projet
+Global standards → Global agents → Global frameworks → Project AGENTS.md
 ```
 
-Le framework fournit des règles spécifiques (structure de dossiers, naming, patterns de test, etc.) qui s'ajoutent aux standards globaux sans les remplacer.
+The framework provides stack-specific rules (folder structure, naming, test patterns, etc.) that extend the global standards without replacing them.
 
-## Ajouter un framework
+## Adding a framework
 
-1. Créer un fichier `<framework-name>.md`
-2. Documenter : structure, conventions, patterns, tests, dépendances
-3. Ajouter la détection dans `scripts/init-project.sh`
-4. Lancer `npm run update` (ou `./scripts/install.sh`) pour déployer
+1. Create a `<framework-name>.md` file
+2. Document: structure, conventions, patterns, tests, dependencies
+3. Add detection in `scripts/init-project.sh`
+4. Run `npm run update` (or `./scripts/install.sh`) to deploy
 
-Voir `standards/artifact-authoring.md` pour les règles de création homogène.
+See `standards/artifact-authoring.md` for consistent creation rules.

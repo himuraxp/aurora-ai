@@ -641,6 +641,16 @@ L'agent reçoit et applique dans cet ordre (du plus général au plus spécifiqu
 
 ---
 
+## Politique linguistique
+
+La documentation publique (ce README, `docs/`, les READMEs de dossiers) est en anglais. La **couche d'exécution** — `agents/`, `standards/`, `frameworks/` et les fichiers `SKILL.md` des skills — est écrite en **français**, la langue de travail du mainteneur. C'est un choix assumé :
+
+- Le runtime d'agents consomme ces fichiers sans distinction de langue — les LLM lisent le français et l'anglais avec une fidélité identique, le comportement est donc inchangé.
+- Les mots-clés déclencheurs de `agents/aurora.md` sont comparés aux requêtes françaises du mainteneur — les traduire casserait silencieusement le routage de délégation.
+- Forker et utiliser cette configuration ne demande pas de lire le français ; forker pour *éditer* la couche d'exécution, si, par conception.
+
+---
+
 ## Licence
 
 MIT

@@ -1,8 +1,23 @@
 ---
-description: AIO / GEO Specialist — optimisation pour moteurs de recherche génératifs (Google AI Overviews, ChatGPT Search, Perplexity, Gemini). Entity clarity, extractability, citation potential. Délégué par Aurora ou Atlas. Note : agent différent du preset `oracle` du plugin oh-my-opencode-slim (renommé Sage pour éviter le conflit).
+description: "AIO / GEO Specialist — optimisation pour moteurs de recherche génératifs (Google AI Overviews, ChatGPT Search, Perplexity, Gemini). Entity clarity, extractability, citation potential. Délégué par Aurora ou Atlas. Note : agent différent du preset `oracle` du plugin oh-my-opencode-slim (renommé Sage pour éviter le conflit)."
 mode: subagent
 model: infomaniak/euria-code
 permission:
+  aurora-memory_entity_search: deny
+  aurora-memory_entity_upsert: deny
+  aurora-memory_fact_query: deny
+  aurora-memory_fact_insert: deny
+  aurora-memory_relation_query: deny
+  aurora-memory_relation_upsert: deny
+  aurora-memory_preference_query: deny
+  aurora-memory_preference_set: deny
+  aurora-memory_goal_list: deny
+  aurora-memory_goal_create: deny
+  aurora-memory_goal_update_status: deny
+  aurora-memory_event_list: deny
+  aurora-memory_event_append: deny
+  aurora-memory_memory_search: deny
+  aurora-memory_projection_generate: deny
   edit: ask
   skill: allow
   bash:

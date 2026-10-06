@@ -3,6 +3,21 @@ description: Multimodal vision agent. Use when the user attaches an image or scr
 mode: all
 model: infomaniak/Qwen/Qwen3.5-397B-A17B-FP8
 permission:
+  aurora-memory_entity_search: deny
+  aurora-memory_entity_upsert: deny
+  aurora-memory_fact_query: deny
+  aurora-memory_fact_insert: deny
+  aurora-memory_relation_query: deny
+  aurora-memory_relation_upsert: deny
+  aurora-memory_preference_query: deny
+  aurora-memory_preference_set: deny
+  aurora-memory_goal_list: deny
+  aurora-memory_goal_create: deny
+  aurora-memory_goal_update_status: deny
+  aurora-memory_event_list: deny
+  aurora-memory_event_append: deny
+  aurora-memory_memory_search: deny
+  aurora-memory_projection_generate: deny
   edit: deny
   bash: deny
   webfetch: deny

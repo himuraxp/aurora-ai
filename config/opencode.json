@@ -60,8 +60,8 @@
           "name": "mistralai/Ministral-3-14B-Instruct-2512",
           "tool_call": true,
           "cost": {
-            "input": 0.30,
-            "output": 0.40
+            "input": 0.3,
+            "output": 0.4
           },
           "modalities": {
             "input": [
@@ -86,7 +86,7 @@
           "name": "mistralai/Mistral-Small-4-119B-2603",
           "tool_call": true,
           "cost": {
-            "input": 0.20,
+            "input": 0.2,
             "output": 0.75
           },
           "modalities": {
@@ -111,8 +111,8 @@
           "name": "Qwen/Qwen3.5-122B-A10B-FP8",
           "tool_call": true,
           "cost": {
-            "input": 0.40,
-            "output": 3.20
+            "input": 0.4,
+            "output": 3.2
           },
           "modalities": {
             "input": [
@@ -132,8 +132,8 @@
           "name": "Qwen/Qwen3.5-397B-A17B-FP8",
           "tool_call": true,
           "cost": {
-            "input": 0.80,
-            "output": 3.60
+            "input": 0.8,
+            "output": 3.6
           },
           "modalities": {
             "input": [
@@ -157,8 +157,8 @@
           "name": "google/gemma-4-31B-it",
           "tool_call": true,
           "cost": {
-            "input": 0.20,
-            "output": 0.40
+            "input": 0.2,
+            "output": 0.4
           },
           "modalities": {
             "input": [
@@ -182,8 +182,8 @@
           "name": "moonshotai/Kimi-K2.6",
           "tool_call": true,
           "cost": {
-            "input": 0.60,
-            "output": 3.00
+            "input": 0.6,
+            "output": 3.0
           },
           "modalities": {
             "input": [
@@ -204,7 +204,7 @@
           "tool_call": true,
           "cost": {
             "input": 0.05,
-            "output": 0.20
+            "output": 0.2
           },
           "modalities": {
             "input": [
@@ -223,8 +223,8 @@
           "name": "swiss-ai/Apertus-v1.5-70B",
           "tool_call": true,
           "cost": {
-            "input": 0.70,
-            "output": 2.50
+            "input": 0.7,
+            "output": 2.5
           },
           "modalities": {
             "input": [
@@ -330,8 +330,8 @@
           "name": "mistralai/Ministral-3-14B-Instruct-2512",
           "tool_call": true,
           "cost": {
-            "input": 0.30,
-            "output": 0.40
+            "input": 0.3,
+            "output": 0.4
           },
           "modalities": {
             "input": [
@@ -351,8 +351,8 @@
           "name": "Qwen/Qwen3.5-397B-A17B-FP8",
           "tool_call": true,
           "cost": {
-            "input": 0.80,
-            "output": 3.60
+            "input": 0.8,
+            "output": 3.6
           },
           "modalities": {
             "input": [
@@ -372,7 +372,7 @@
           "name": "mistralai/Mistral-Small-4-119B-2603",
           "tool_call": true,
           "cost": {
-            "input": 0.20,
+            "input": 0.2,
             "output": 0.75
           },
           "modalities": {
@@ -397,7 +397,24 @@
   "subagent_depth": 3,
   "agent": {
     "orchestrator": {
-      "model": "infomaniak/euria-code"
+      "model": "infomaniak/euria-code",
+      "permission": {
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
+      }
     },
     "build": {
       "model": "infomaniak/euria-code",
@@ -460,7 +477,22 @@
         "external_directory": {
           "/tmp/*": "allow",
           "/private/tmp/*": "allow"
-        }
+        },
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
       }
     },
     "plan": {
@@ -469,13 +501,64 @@
         "write": false,
         "edit": false,
         "bash": false
+      },
+      "permission": {
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
       }
     },
     "explore": {
-      "disable": true
+      "disable": true,
+      "permission": {
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
+      }
     },
     "general": {
-      "disable": true
+      "disable": true,
+      "permission": {
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
+      }
     },
     "security": {
       "model": "infomaniak/euria-code",
@@ -514,7 +597,22 @@
           "rm *": "deny",
           "kill *": "deny"
         },
-        "webfetch": "allow"
+        "webfetch": "allow",
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
       }
     },
     "cybersec": {
@@ -539,10 +637,6 @@
           "*/pip *": "allow",
           "*/pip3 *": "allow",
           "ruby *": "allow",
-          "pip *": "allow",
-          "pip3 *": "allow",
-          "*/pip *": "allow",
-          "*/pip3 *": "allow",
           "node *": "allow",
           "npm *": "allow",
           "npx *": "allow",
@@ -595,14 +689,44 @@
           "mkfs *": "deny",
           "dd *of=/dev/*": "deny"
         },
-        "webfetch": "allow"
+        "webfetch": "allow",
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
       }
     },
     "architect": {
       "model": "infomaniak/euria-code",
       "permission": {
         "edit": "allow",
-        "bash": "ask"
+        "bash": "ask",
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
       }
     },
     "aurora": {
@@ -611,7 +735,6 @@
         "edit": "allow",
         "bash": {
           "*": "allow",
-
           "git push *": "ask",
           "git push --force*": "ask",
           "watch *": "ask",
@@ -635,7 +758,6 @@
           "chown -R *": "ask",
           "killall *": "ask",
           "pkill *": "ask",
-
           "sudo *": "deny",
           "su *": "deny",
           "doas *": "deny",
@@ -658,9 +780,7 @@
         },
         "webfetch": "allow",
         "external_directory": {
-
           "*": "allow",
-
           "/Library/*": "ask",
           "/usr/local/*": "ask",
           "/opt/homebrew/*": "ask",
@@ -670,7 +790,6 @@
           "/private/var/log/*": "ask",
           "~/Library/Cookies/*": "ask",
           "~/Library/Group Containers/*": "ask",
-
           "/System/*": "deny",
           "/private/etc/master.passwd": "deny",
           "/etc/master.passwd": "deny",
@@ -695,7 +814,6 @@
         "edit": "allow",
         "bash": {
           "*": "allow",
-
           "git push *": "ask",
           "git push --force*": "ask",
           "watch *": "ask",
@@ -719,7 +837,6 @@
           "chown -R *": "ask",
           "killall *": "ask",
           "pkill *": "ask",
-
           "sudo *": "deny",
           "su *": "deny",
           "doas *": "deny",
@@ -742,9 +859,7 @@
         },
         "webfetch": "allow",
         "external_directory": {
-
           "*": "allow",
-
           "/Library/*": "ask",
           "/usr/local/*": "ask",
           "/opt/homebrew/*": "ask",
@@ -754,7 +869,6 @@
           "/private/var/log/*": "ask",
           "~/Library/Cookies/*": "ask",
           "~/Library/Group Containers/*": "ask",
-
           "/System/*": "deny",
           "/private/etc/master.passwd": "deny",
           "/etc/master.passwd": "deny",
@@ -770,7 +884,22 @@
           "~/.git-credentials": "deny",
           "~/.config/opencode/.env*": "deny",
           "~/.config/opencode/secrets/*": "deny"
-        }
+        },
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
       }
     },
     "atlas": {
@@ -778,7 +907,22 @@
       "permission": {
         "edit": "allow",
         "bash": "ask",
-        "webfetch": "allow"
+        "webfetch": "allow",
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
       }
     },
     "beacon": {
@@ -786,7 +930,22 @@
       "permission": {
         "edit": "allow",
         "bash": "ask",
-        "webfetch": "allow"
+        "webfetch": "allow",
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
       }
     },
     "crawler": {
@@ -794,35 +953,110 @@
       "permission": {
         "edit": "allow",
         "bash": "ask",
-        "webfetch": "allow"
+        "webfetch": "allow",
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
       }
     },
     "designer": {
       "model": "infomaniak/Qwen/Qwen3.5-397B-A17B-FP8",
       "permission": {
         "edit": "allow",
-        "bash": "ask"
+        "bash": "ask",
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
       }
     },
     "echo": {
       "model": "infomaniak/mistralai/Mistral-Small-4-119B-2603",
       "permission": {
         "edit": "allow",
-        "bash": "ask"
+        "bash": "ask",
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
       }
     },
     "mobile": {
       "model": "infomaniak/euria-code",
       "permission": {
         "edit": "allow",
-        "bash": "ask"
+        "bash": "ask",
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
       }
     },
     "pulse": {
       "model": "infomaniak/mistralai/Mistral-Small-4-119B-2603",
       "permission": {
         "edit": "allow",
-        "bash": "ask"
+        "bash": "ask",
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
       }
     },
     "reviewer": {
@@ -837,7 +1071,22 @@
           "rg *": "allow",
           "grep *": "allow"
         },
-        "webfetch": "ask"
+        "webfetch": "ask",
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
       }
     },
     "sage": {
@@ -845,14 +1094,44 @@
       "permission": {
         "edit": "allow",
         "bash": "ask",
-        "webfetch": "allow"
+        "webfetch": "allow",
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
       }
     },
     "scribe": {
       "model": "infomaniak/mistralai/Mistral-Small-4-119B-2603",
       "permission": {
         "edit": "allow",
-        "bash": "ask"
+        "bash": "ask",
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
       }
     },
     "spark": {
@@ -871,7 +1150,22 @@
           "cat *": "allow",
           "ls *": "allow",
           "pwd": "allow"
-        }
+        },
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
       }
     },
     "tester": {
@@ -887,14 +1181,139 @@
           "pytest *": "allow",
           "git diff*": "allow",
           "git status *": "allow"
-        }
+        },
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
       }
     },
     "vision": {
       "model": "infomaniak/Qwen/Qwen3.5-397B-A17B-FP8",
       "permission": {
         "edit": "deny",
-        "bash": "ask"
+        "bash": "ask",
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
+      }
+    },
+    "compaction": {
+      "permission": {
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
+      }
+    },
+    "explorer": {
+      "permission": {
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
+      }
+    },
+    "fixer": {
+      "permission": {
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
+      }
+    },
+    "librarian": {
+      "permission": {
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
+      }
+    },
+    "oracle": {
+      "permission": {
+        "aurora-memory_entity_upsert": "deny",
+        "aurora-memory_entity_search": "deny",
+        "aurora-memory_relation_upsert": "deny",
+        "aurora-memory_relation_query": "deny",
+        "aurora-memory_fact_insert": "deny",
+        "aurora-memory_fact_query": "deny",
+        "aurora-memory_preference_set": "deny",
+        "aurora-memory_preference_query": "deny",
+        "aurora-memory_goal_create": "deny",
+        "aurora-memory_goal_list": "deny",
+        "aurora-memory_goal_update_status": "deny",
+        "aurora-memory_event_append": "deny",
+        "aurora-memory_event_list": "deny",
+        "aurora-memory_memory_search": "deny",
+        "aurora-memory_projection_generate": "deny"
       }
     }
   },
@@ -973,14 +1392,22 @@
       "env": {
         "GITLAB_TOKEN": "{env:GITLAB_TOKEN}"
       }
+    },
+    "aurora-memory": {
+      "type": "local",
+      "command": [
+        "node",
+        "{env:HOME}/dev/aurora-core/services/aurora-memory/node_modules/tsx/dist/cli.mjs",
+        "{env:HOME}/dev/aurora-core/services/aurora-memory/src/index.ts"
+      ],
+      "enabled": true,
+      "timeout": 30000
     }
   },
   "lsp": true,
   "permission": {
-
     "external_directory": {
       "*": "allow",
-
       "/Library/*": "ask",
       "/usr/local/*": "ask",
       "/opt/homebrew/*": "ask",
@@ -990,7 +1417,6 @@
       "/private/var/log/*": "ask",
       "~/Library/Cookies/*": "ask",
       "~/Library/Group Containers/*": "ask",
-
       "/System/*": "deny",
       "/private/etc/master.passwd": "deny",
       "/etc/master.passwd": "deny",
@@ -1005,7 +1431,7 @@
       "~/.netrc": "deny",
       "~/.git-credentials": "deny",
       "~/.config/opencode/.env*": "deny",
-          "~/.config/opencode/secrets/*": "deny"
+      "~/.config/opencode/secrets/*": "deny"
     }
   }
 }

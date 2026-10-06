@@ -91,7 +91,7 @@ The same managed block also exports `IDB_UDID` and `IDB_PATH` (ios-simulator MCP
 
 ## MCP Servers
 
-The configuration includes six MCP servers:
+The configuration includes seven MCP servers:
 
 - **chrome-devtools**: auto-installed via `npx` (no manual action) — isolated headless browser (Designer, audits)
 - **browser-debug**: auto-installed via `npx` — connects to a browser in debug mode (`http://127.0.0.1:9222`); used by the `ai-cowork` skill (Aurora ↔ ChatGPT co-working); requires a browser started with `--remote-debugging-port=9222 --user-data-dir=~/.config/opencode/brave-debug-profile`
@@ -99,6 +99,7 @@ The configuration includes six MCP servers:
 - **infomaniak**: MCP server for the Infomaniak API (radio, VOD, newsletter, DNS, events, AI, etc.)
 - **angular-elements**: MCP server for the Angular Elements design system (components, API, stories, install info)
 - **context7**: Up-to-date library and framework documentation
+- **aurora-memory**: personal memory MCP (aurora-core repo, Phase 1) — 15 tools (KG, facts, preferences, goals, events, semantic search, projection), launched via `node` + `tsx/dist/cli.mjs` (never the `.bin/tsx` binary: its shebang fails under OpenCode's restricted spawn env). **Gating by agent**: tools denied in every agent config (`agent.<name>.permission`) except `aurora` (15 explicit allows in `agents/aurora.md`) — never use a global deny (it removes the tools for the whole session, agent allows cannot resurrect them). Usage discipline lives in `agents/aurora.md` (read freely on intent, write only on explicit user intent with provenance). New agents MUST carry the 15 denies or they will see the tools. See aurora-core ADR-019.
 
 ## Models and Fallback
 

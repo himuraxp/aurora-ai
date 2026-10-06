@@ -1,0 +1,114 @@
+{
+  "$comment": "Versioned role policy for Aurora model configuration. Describes FUNCTIONAL needs (roles, requirements, preferred model families) — never specific user deployments. scripts/configure-models.sh resolves these roles against models verified with the user's API keys and generates the live OpenCode config only; this repository is never modified by the generator. Families are case-insensitive substrings matched against model IDs. See docs and ADR notes in the ChatGPT cowork thread (tours 11-12).",
+  "schemaVersion": 1,
+  "defaultRole": "expert",
+  "roles": {
+    "expert": {
+      "description": "Main orchestrator (default model) and analysis/review agents: complex reasoning, code review, security, architecture.",
+      "requires": { "chat": true, "minContext": 200000 },
+      "preferredFamilies": [
+        "euria-code",
+        "claude-opus",
+        "claude-sonnet",
+        "gpt-5",
+        "gpt-4.1",
+        "o3",
+        "gemini-3-pro",
+        "gemini-2.5-pro",
+        "qwen3.5-397",
+        "kimi-k2",
+        "glm-5",
+        "nemotron-3-nano"
+      ],
+      "fallbackFamilies": ["kimi-k2", "nemotron-3-nano"]
+    },
+    "multimodal": {
+      "description": "Vision/design agents needing multimodal input and large context: designer, vision, aurora-heavy.",
+      "requires": { "chat": true, "minContext": 128000 },
+      "preferredFamilies": [
+        "qwen3.5-397",
+        "gemini-3-pro",
+        "gemini-2.5-pro",
+        "gpt-5",
+        "gpt-4o",
+        "claude-sonnet",
+        "claude-opus"
+      ],
+      "fallbackFamilies": ["kimi-k2", "nemotron-3-nano"]
+    },
+    "intermediate": {
+      "description": "SEO content and growth agents: scribe, pulse, echo.",
+      "requires": { "chat": true, "minContext": 100000 },
+      "preferredFamilies": [
+        "mistral-small",
+        "mistral24b",
+        "qwen3.5-122",
+        "gpt-4o-mini",
+        "gpt-5-mini",
+        "claude-haiku",
+        "gemini-flash",
+        "ministral"
+      ],
+      "fallbackFamilies": ["kimi-k2", "nemotron-3-nano"]
+    },
+    "cli": {
+      "description": "Light CLI skill wrappers: spark (commits, GitLab CLI skills).",
+      "requires": { "chat": true, "minContext": 60000 },
+      "preferredFamilies": [
+        "mistral24b",
+        "ministral",
+        "mistral-small",
+        "gpt-4o-mini",
+        "gpt-5-mini",
+        "gemini-flash",
+        "claude-haiku"
+      ],
+      "fallbackFamilies": []
+    }
+  },
+  "optionalRoles": {
+    "embedding": {
+      "description": "Vectorization for the aurora-memory service (not referenced by agents).",
+      "requires": { "type": "embedding" },
+      "providerWhitelist": ["infomaniak"]
+    },
+    "transcription": {
+      "description": "Audio to text (whisper).",
+      "requires": { "type": "stt" },
+      "providerWhitelist": ["infomaniak"]
+    }
+  },
+  "agents": {
+    "architect": "expert",
+    "atlas": "expert",
+    "beacon": "expert",
+    "build": "expert",
+    "crawler": "expert",
+    "cybersec": "expert",
+    "mobile": "expert",
+    "plan": "expert",
+    "reviewer": "expert",
+    "sage": "expert",
+    "security": "expert",
+    "tester": "expert",
+    "aurora-heavy": "multimodal",
+    "designer": "multimodal",
+    "vision": "multimodal",
+    "echo": "intermediate",
+    "pulse": "intermediate",
+    "scribe": "intermediate",
+    "spark": "cli"
+  },
+  "providers": {
+    "infomaniak": {
+      "kind": "custom",
+      "envKeys": ["OPENAI_API_KEY_INFOMANIAK", "INFOMANIAK_API_TOKEN"],
+      "catalogEnvKeys": ["INFOMANIAK_API_TOKEN"]
+    },
+    "openai": { "kind": "builtin", "envKeys": ["OPENAI_API_KEY"] },
+    "anthropic": { "kind": "builtin", "envKeys": ["ANTHROPIC_API_KEY"] },
+    "google": { "kind": "builtin", "envKeys": ["GEMINI_API_KEY", "GOOGLE_API_KEY"] },
+    "openrouter": { "kind": "builtin", "envKeys": ["OPENROUTER_API_KEY"] },
+    "ollama": { "kind": "local", "envKeys": [] }
+  }
+}

@@ -652,6 +652,26 @@ EOF
   fi
 fi
 
+# ─── Step 6b: Model configuration (optional, non-breaking, re-runnable) ──────
+
+ui_section "Model Configuration"
+echo "Aurora can detect which models your API keys can actually use"
+echo "(real probes) and map them to agent roles — Claude, GPT, Gemini,"
+echo "OpenRouter, local Ollama or Infomaniak. Existing verified setups"
+echo "are preserved as-is."
+echo ""
+printf "Configure models now? [y/N]: "
+read -r configure_models_answer || configure_models_answer=""
+if [[ "$configure_models_answer" =~ ^[Yy] ]]; then
+  if "$ROOT_DIR/scripts/configure-models.sh"; then
+    ok "Model configuration applied"
+  else
+    warn "Model configuration skipped (you can re-run: scripts/configure-models.sh)"
+  fi
+else
+  info "Skipped — run scripts/configure-models.sh anytime"
+fi
+
 # ─── Step 7: Verification ────────────────────────────────────────────────────
 
 ui_section "Verification"

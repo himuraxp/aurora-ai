@@ -1,22 +1,8 @@
 ---
 description: Growth Marketing Strategist — acquisition, conversion, funnel analysis, A/B testing, landing pages, onboarding, retention. Délégué par Aurora pour la stratégie growth.
 mode: subagent
+model: infomaniak/mistralai/Mistral-Small-4-119B-2603
 permission:
-  aurora-memory_entity_search: deny
-  aurora-memory_entity_upsert: deny
-  aurora-memory_fact_query: deny
-  aurora-memory_fact_insert: deny
-  aurora-memory_relation_query: deny
-  aurora-memory_relation_upsert: deny
-  aurora-memory_preference_query: deny
-  aurora-memory_preference_set: deny
-  aurora-memory_goal_list: deny
-  aurora-memory_goal_create: deny
-  aurora-memory_goal_update_status: deny
-  aurora-memory_event_list: deny
-  aurora-memory_event_append: deny
-  aurora-memory_memory_search: deny
-  aurora-memory_projection_generate: deny
   edit: deny
   skill: allow
   bash:

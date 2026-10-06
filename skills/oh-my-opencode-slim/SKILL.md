@@ -103,12 +103,45 @@ Common customizations:
 Important schema boundary:
 
 - Built-in agents (`orchestrator`, `oracle`, `librarian`, `explorer`,
-  `designer`, `fixer`, `observer`, `council`) can set models, variants, skills,
-  MCPs, options, and display names in config.
+  `designer`, `fixer`, `observer`, `council`, `councillor`) can set models,
+  variants, skills, MCPs, options, and display names in config.
 - Built-in agent `prompt` and `orchestratorPrompt` fields are **not** supported
   in `oh-my-opencode-slim.json[c]`; use markdown prompt override files instead.
 - Unknown keys under top-level `agents` are custom agents. Custom agents may use
   `prompt` and `orchestratorPrompt` directly in config.
+
+### Custom agents require a `model` (mandatory)
+
+Any key under top-level `agents` that is not a plugin built-in or alias is a
+custom agent, and a custom agent **without a non-empty `model` is silently
+skipped by the plugin** at every session startup:
+
+```txt
+[oh-my-opencode] Custom agent 'X' skipped: 'model' is required
+```
+
+Rules:
+
+- `model` is mandatory for every custom agent: a non-empty string
+  (`"infomaniak/euria-code"`) or a non-empty array of model entries
+  (`[{"id": "...", "variant": "high"}]`).
+- Built-in agent names that must NOT be treated as custom (they have plugin
+  defaults): `orchestrator`, `oracle`, `librarian`, `explorer`, `designer`,
+  `fixer`, `observer`, `council`, `councillor`. Aliases: `explore`,
+  `frontend-ui-ux-engineer`.
+- Custom agents listed in `disabled_agents` are filtered before the model
+  check by the plugin — no warning for them.
+- Host agents defined in `opencode.json` (`agent.<name>`) are unrelated: the
+  plugin only validates keys in its own `agents` map. An agent like
+  `architect` defined in `opencode.json` with a model is fine — an `architect`
+  key under `oh-my-opencode-slim.json` `agents` without a model is not.
+- Plugin >= 3.0: `inheritModelFrom: "orchestrator" | "session"` can replace
+  `model` on a custom agent.
+- Validate after editing: `./scripts/health-check.sh` (repo) validates the
+  repo copy of the config. If you edited the installed file
+  (`~/.config/opencode/oh-my-opencode-slim.json`) directly, re-run
+  `install.sh` or apply the same fix there — the check does not read the
+  installed file.
 
 ## Config Shapes
 

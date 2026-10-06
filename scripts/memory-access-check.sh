@@ -5,15 +5,19 @@
 # Aurora accesses memory only through the orchestrator-scoped adapter (B3, pending);
 # capability agents get memory context injected by aurora and return memory_observations.
 #
-# Verified invariants:
-#   1. mcp."aurora-memory".enabled == false in repo and live (surface closed).
+# Verified invariants (ADR-021, B3 v1 implemented):
+#   1. mcp."aurora-memory".enabled == false in repo and live (surface closed — the
+#      bridge plugin is the ONLY memory access path, never re-enable the global MCP).
 #   2. No aurora-memory_* permission key in the config (global or per-agent) — old
 #      per-tool denies are removed (they were cosmetic, ADR-021).
 #   3. agent.plan is minimal (no tools/permission field that would block MCP spawn).
 #   4. Plugin is pinned (oh-my-opencode-slim@<version>) — cache version skew.
 #   5. agents/*.md: no aurora-memory_* frontmatter permission except aurora.md (15 allows,
 #      documentation of intent); READ agents carry the "broker via aurora" section.
-#   6. Live matches repo (mcp entry, aurora.md, agents frontmatters).
+#   6. B3 bridge plugin present in repo and live, identical
+#      (config/plugins/aurora-memory.ts -> ~/.config/opencode/plugins/).
+#   7. Memory server bundle exists (services/aurora-memory/dist/index.mjs) — soft warning.
+#   8. Live matches repo (mcp entry, aurora.md, agents frontmatters).
 #
 # Usage: scripts/memory-access-check.sh [--no-live]
 set -uo pipefail
@@ -70,14 +74,34 @@ if [[ "$AA" == "15" ]]; then pass "aurora.md keeps 15 intent allows"; else fail 
 BROKER=$(grep -l "Mémoire personnelle (broker via aurora)" "$AGENTS_DIR"/{architect,reviewer,designer,mobile}.md 2>/dev/null | wc -l | tr -d ' ')
 if [[ "$BROKER" == "4" ]]; then pass "4 READ agents carry the broker contract"; else fail "broker contract missing in $BROKER/4 READ agents"; fi
 
+# 6. B3 bridge plugin (repo + live)
+echo "== 3. B3 bridge plugin =="
+BRIDGE="$ROOT/config/plugins/aurora-memory.ts"
+if [[ -f "$BRIDGE" ]]; then
+  if grep -q "ORCHESTRATOR_AGENTS" "$BRIDGE" && grep -q "aurora_memory" "$BRIDGE"; then
+    pass "bridge plugin present in repo (gated tool found)"
+  else fail "bridge plugin file incomplete (missing gate or tool)"; fi
+else fail "bridge plugin missing: $BRIDGE"; fi
+if [[ -f "${HOME}/dev/aurora-core/services/aurora-memory/dist/index.mjs" ]]; then
+  pass "memory server bundle exists"
+else
+  echo "  ⚠ memory server bundle missing — build it (aurora-core services/aurora-memory, build:mcp)"
+fi
+
 if [[ "$CHECK_LIVE" == true ]]; then
-  echo "== 3. Live consistency (~/.config/opencode) =="
+  echo "== 4. Live consistency (~/.config/opencode) =="
   LIVE_CFG="${HOME}/.config/opencode/opencode.json"
   LIVE_AGENTS="${HOME}/.config/opencode/agents"
   if [[ ! -f "$LIVE_CFG" ]]; then
     fail "live config missing: $LIVE_CFG"
   else
-    check_config "$LIVE_CFG" "3a. Live config (surface closed)"
+    check_config "$LIVE_CFG" "4a. Live config (surface closed)"
+    LIVE_PLUGINS="${HOME}/.config/opencode/plugins"
+    if [[ -f "$LIVE_PLUGINS/aurora-memory.ts" ]]; then
+      if diff -q "$ROOT/config/plugins/aurora-memory.ts" "$LIVE_PLUGINS/aurora-memory.ts" >/dev/null 2>&1; then
+        pass "bridge plugin: live identical to repo"
+      else fail "bridge plugin: live differs — redeploy (cp config/plugins/aurora-memory.ts ~/.config/opencode/plugins/)"; fi
+    else fail "bridge plugin missing in live: $LIVE_PLUGINS/aurora-memory.ts"; fi
     for f in "$AGENTS_DIR"/*.md; do
       b=$(basename "$f")
       [[ -f "$LIVE_AGENTS/$b" ]] || { fail "live agents/$b missing"; continue; }

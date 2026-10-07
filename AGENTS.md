@@ -103,6 +103,26 @@ The configuration includes seven MCP servers:
 
 ## Models and Fallback
 
+### Dynamic model resolution (normative)
+
+Since `scripts/configure-models.sh` (see `config/model-roles.json`), agents are
+bound to **roles, not concrete models**:
+
+```text
+before:  Agent → euria-code (hard-coded)
+now:     Agent → expert/multimodal/intermediate/cli role
+                    ↓ resolved at setup from available providers
+             concrete model (verified by live probe)
+```
+
+The concrete model each agent runs on is generated at setup from the
+providers whose keys are actually configured, verified against the live API
+(probe = entitlement), filtered by what the installed runtime can resolve,
+and recorded in `~/.config/opencode/aurora-models.json`. The tables below are
+the **reference Infomaniak catalogue and fallback design** — the active
+mapping is whatever `aurora-models.json` contains. Final acceptance oracle
+for any new provider: a real `opencode run` against the generated config.
+
 ### 14 configured models
 
 The configuration uses **14 models** across 6 categories:
@@ -131,26 +151,30 @@ Ministral-3 (80k) → Mistral-Small-4 (256k) → Kimi-K2.6 → Nemotron-3-Nano (
 
 ### Agent matrix
 
-| Agent | Model | Cost (in/out) | Role | When to delegate |
-|-------|-------|---------------|------|------------------|
-| `spark` | Mistral-Small-4 (119B) | $0.20 / $0.75 | Commits, CLI skills | ✅ Default for `commit`, `create-mr` |
-| `mobile` | euria-code | $0.60 / $3.00 | iOS, Android, RN, Flutter | Mobile audit, native code |
-| `designer` | Qwen3.5-397B | $0.80 / $3.60 | UX/UI, design system, a11y | UI screenshots, mockups, wireframes |
-| `vision` | Qwen3.5-397B | $0.80 / $3.60 | Non-UI images | Diagrams, photos, charts |
-| `reviewer` | euria-code | $0.60 / $3.00 | Adversarial code review | Pre-MR, strict code review |
-| `tester` | euria-code | $0.60 / $3.00 | Unit, integration tests | Jest, Cypress, Vitest, coverage |
-| `architect` | euria-code | $0.60 / $3.00 | Architecture, breakdown | Technical debt, migration, structure |
-| `security` | euria-code | $0.60 / $3.00 | Defensive security | AppSec, threat modeling, OWASP |
-| `cybersec` | euria-code | $0.60 / $3.00 | Offensive security | Pentest, exploitation, Red Team |
-| `atlas` | euria-code | $0.60 / $3.00 | SEO strategy | Keyword research, content gaps |
-| `crawler` | euria-code | $0.60 / $3.00 | Technical SEO | Indexing, Core Web Vitals, SSR |
-| `sage` | euria-code | $0.60 / $3.00 | AIO / GEO | AI Overviews, ChatGPT Search |
-| `scribe` | Mistral-Small-4 | $0.20 / $0.75 | SEO content | Copywriting, meta, H1-H3, FAQ |
-| `pulse` | Mistral-Small-4 | $0.20 / $0.75 | Growth marketing | Funnels, A/B testing, landing pages |
-| `echo` | Mistral-Small-4 | $0.20 / $0.75 | Social distribution | LinkedIn, Instagram, X, TikTok |
-| `beacon` | euria-code | $0.60 / $3.00 | Analytics | GSC, GA4, PageSpeed, conversion |
-| `aurora` | euria-code | $0.60 / $3.00 | Main orchestrator | Complex tasks, coordination |
-| `aurora-heavy` | Qwen3.5-397B | $0.80 / $3.60 | Advanced reasoning | Critical architecture, complex legacy |
+Model IDs below are the **Infomaniak reference deployment** — with dynamic
+resolution, the normative column is the Role; run
+`scripts/configure-models.sh` to see the live mapping.
+
+| Agent | Role | Reference model | When to delegate |
+|-------|------|-----------------|------------------|
+| `spark` | intermediate | Mistral-Small-4 (119B) | ✅ Default for `commit`, `create-mr` |
+| `mobile` | expert | euria-code | Mobile audit, native code |
+| `designer` | multimodal | Qwen3.5-397B | UX/UI, design system, a11y, screenshots, mockups |
+| `vision` | multimodal | Qwen3.5-397B | Non-UI images: diagrams, photos, charts |
+| `reviewer` | expert | euria-code | Adversarial code review, pre-MR |
+| `tester` | expert | euria-code | Unit/integration tests, coverage |
+| `architect` | expert | euria-code | Architecture, breakdown, technical debt |
+| `security` | expert | euria-code | Defensive security, AppSec, OWASP |
+| `cybersec` | expert | euria-code | Offensive security, pentest, Red Team |
+| `atlas` | expert | euria-code | SEO strategy, keyword research |
+| `crawler` | expert | euria-code | Technical SEO, Core Web Vitals, SSR |
+| `sage` | expert | euria-code | AIO / GEO, AI Overviews |
+| `scribe` | intermediate | Mistral-Small-4 | SEO content, copywriting, meta |
+| `pulse` | intermediate | Mistral-Small-4 | Growth marketing, funnels, A/B testing |
+| `echo` | intermediate | Mistral-Small-4 | Social distribution: LinkedIn, Instagram, X, TikTok |
+| `beacon` | expert | euria-code | Analytics: GSC, GA4, PageSpeed, conversion |
+| `aurora` | expert | euria-code | Main orchestrator: complex tasks, coordination |
+| `aurora-heavy` | expert | Qwen3.5-397B | Advanced reasoning: critical architecture, complex legacy |
 
 > **Rule**: Aurora delegates **automatically** via the trigger keywords (see `agents/aurora.md`). Never delegate manually unless there is a specific need.
 

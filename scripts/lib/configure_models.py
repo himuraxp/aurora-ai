@@ -31,6 +31,13 @@ Diagnostic guidance when API probe = VERIFIED but runtime probe fails:
 "OpenCode OAuth credentials may override environment authentication —
 run /connect or remove/refresh the stale connection."
 
+ACCEPTANCE ORACLE (tour 16, final review): discovery, runtime inventory
+and provider probes are PARTIAL evidence. The only complete validation of
+the chain (credentials → discovery → probes → generation → resolution →
+execution) is a final `opencode run` against the generated config with
+the real key — mandatory for any NEW provider integration. Both live
+gates (OpenAI 2026-10-07, Anthropic 2026-10-07) were closed this way.
+
 Usage (usually via scripts/configure-models.sh):
   python3 configure_models.py [--yes] [--dry-run] [--providers a,b] [--force]
 """
@@ -39,6 +46,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import shutil
@@ -144,6 +152,13 @@ def probe_provider(provider, env: dict, existing: list, roles_policy: dict,
 
     out["auth"] = "env"
     pool = provider.discover(env, existing)
+    # dedup, discovery-first: existing refs seed discovery but must never
+    # dominate the shortlist (Anthropic gate 2026-10-07: an existing config
+    # with 12 agents on the same model produced 12 duplicate pool entries —
+    # the 15-slot shortlist filled with duplicates and starved the real
+    # candidates; control probes were wasted on them)
+    seen: set = set()
+    pool = [m for m in pool if not (m in seen or seen.add(m))]
     if allowed_ids is not None:
         pool = [m for m in pool if m in allowed_ids]
     out["pool"] = pool
@@ -222,7 +237,13 @@ def load_runtime_ids() -> "dict | None":
     Established 2026-10-07 at the acceptance gate: runtime 1.18.34 refuses
     gpt-5 and gpt-5-mini (ProviderModelNotFoundError) even though both are
     listed by the live models.dev site and probe-verified on the account.
-    An ID absent here can never be resolved by OpenCode."""
+
+    INVARIANT (tour 16): PRESENCE in this inventory is positive evidence of
+    resolvability; ABSENCE is UNKNOWN, never unavailable. The inventory is
+    incomplete (it lists openai/* without any provider configured, but no
+    anthropic/* although the runtime resolves claude-* perfectly once the
+    key is in the env). The filter therefore only applies when the provider
+    appears in the inventory; the final `opencode run` is the oracle."""
     exe = shutil.which("opencode")
     if not exe:
         return None
@@ -262,7 +283,13 @@ def load_modelsdev_ids() -> "dict | None":
 def rank_role(models: dict, role_def: dict) -> list:
     """Order VERIFIED models for a role: requirements (hard when known),
     then preferredFamilies order, then light-suffix penalty, then context
-    desc, then id asc (deterministic)."""
+    desc, then id asc (deterministic).
+
+    Version-desc is a TIE-BREAKER ONLY (tour 16, improvement 4): it fixes
+    alphabetical order picking the oldest model within a family
+    (claude-opus-4-5 over claude-opus-4-8 — Anthropic gate 2026-10-07).
+    It is never a general quality measure; curated role preferences
+    (preferredFamilies, requirements) always win."""
     req = role_def.get("requires", {})
     fams = [f.lower() for f in role_def.get("preferredFamilies", [])]
     scored = []
@@ -282,9 +309,19 @@ def rank_role(models: dict, role_def: dict) -> list:
         # prefers that suffix family.
         light = re.search(r"-(mini|nano|tiny|lite|small)([-_.]|$)", low)
         light_rank = len(fams) + 100 if (light and not any(light.group(1) in f for f in fams)) else 0
-        scored.append((fam_rank + light_rank, -ctx, mid))
+        # version-desc (acceptance gate 2026-10-07, Anthropic): within the
+        # same family and unknown context, alphabetical order picked the
+        # OLDEST model (claude-opus-4-5 over claude-opus-4-8). Providers
+        # name models with increasing versions — prefer the numerically
+        # newest; the dated-suffix variant wins over the undated twin.
+        vtuple = tuple(int(x) for x in re.findall(r"\d+", mid.rsplit("/", 1)[-1]))
+        # desc order with a +inf pad: (-5,)* < (-5,-5) in Python (shorter
+        # prefix sorts first) — the pad makes the LONGER version tuple
+        # (claude-opus-5-5) rank before its shorter twin (claude-opus-5)
+        vkey = tuple(-v for v in vtuple) + (math.inf,)
+        scored.append((fam_rank + light_rank, -ctx, vkey, mid))
     scored.sort()
-    return [m for _f, _c, m in scored]
+    return [m for *_rest, m in scored]
 
 
 def resolve_all(policy: dict, states: dict, live_cfg: dict, force: bool,
@@ -373,6 +410,25 @@ def resolve_all(policy: dict, states: dict, live_cfg: dict, force: bool,
             entry["reason"] = "empty (plugin-provided) — untouched"
             return entry
         status, reason = probe_state(current)
+        if force:
+            # --force: re-rank even when the current selection verifies
+            # (found un-wired during the Anthropic acceptance gate — the
+            # flag was documented but never consulted by _resolve_one)
+            new = best_for(role_name)
+            if not new:
+                issues.append(f"no VERIFIED model for role '{role_name}' "
+                              f"(needed by {name}) — keeping current")
+                entry["reason"] = f"kept (forced, nothing better: {status}: {reason or 'n/a'})"
+                entry["fallbacks"] = None
+                return entry
+            if new == current:
+                entry["reason"] = "kept (forced — still best-ranked)"
+                entry["fallbacks"] = fallbacks_for(role_name, new) or None
+                return entry
+            entry["reason"] = f"forced re-resolution (was {status}: {reason or 'n/a'})"
+            entry["new"] = new
+            entry["fallbacks"] = fallbacks_for(role_name, new)
+            return entry
         if status == VERIFIED:
             entry["reason"] = "kept (verified)"
             entry["fallbacks"] = None  # None = preserve existing chain
@@ -698,9 +754,13 @@ def main() -> int:
             states[pid] = {"auth": "none", "pool": [], "results": {}, "meta": {}}
             continue
         allowed = modelsdev.get(pid) if (provider.kind == "builtin" and modelsdev) else None
-        states[pid] = probe_provider(provider, env,
-                                     existing_by_provider.get(pid, []), policy,
-                                     quiet=args.quiet, allowed_ids=allowed)
+        try:
+            states[pid] = probe_provider(provider, env,
+                                         existing_by_provider.get(pid, []), policy,
+                                         quiet=args.quiet, allowed_ids=allowed)
+        except Exception as e:  # noqa: BLE001 - provider errors are diagnoses, not crashes
+            states[pid] = {"auth": "env", "pool": [], "results": {},
+                           "meta": {}, "error": str(e)}
         if states[pid].get("error") and not args.quiet:
             print(f"  ! {pid}: {states[pid]['error']}")
 

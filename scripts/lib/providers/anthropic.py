@@ -5,6 +5,13 @@ Probe: POST /v1/messages with max_tokens=1.
 OAuth (Claude Pro/Max) credentials live in OpenCode's auth store: the engine
 probes those through the OpenCode runtime (`opencode run --model`), never by
 parsing auth.json (tour 12, condition 3).
+
+Workspace scoping (2026-10-07, acceptance gate): an org-scoped API key
+(Console → Scope: Organisation) is REJECTED by /v1/models and /v1/messages
+with 400 "must include the anthropic-workspace-id header". Admin API
+(/v1/organizations/workspaces) requires admin keys — user keys cannot
+discover their workspace ID. Set ANTHROPIC_WORKSPACE_ID to use an org key,
+or (recommended) create a workspace-scoped key: Scope = default workspace.
 """
 
 from __future__ import annotations
@@ -25,12 +32,28 @@ class AnthropicProvider(Provider):
     def env_keys(self):
         return ["ANTHROPIC_API_KEY"]
 
+    def _headers(self, env: dict) -> dict:
+        h = {"x-api-key": self._key(env), "anthropic-version": VERSION}
+        ws = env.get("ANTHROPIC_WORKSPACE_ID")
+        if ws:
+            h["anthropic-workspace-id"] = ws
+        return h
+
     def discover(self, env: dict, existing: list) -> list:
         ids: list = list(existing or [])
         code, body, _err = http_json(
             f"{BASE}/models?limit=100",
-            headers={"x-api-key": self._key(env), "anthropic-version": VERSION},
+            headers=self._headers(env),
         )
+        if code == 400 and isinstance(body, dict):
+            msg = (body.get("error") or {}).get("message", "")
+            if "workspace" in msg.lower():
+                raise RuntimeError(
+                    "org-scoped API key rejected: Anthropic requires "
+                    "anthropic-workspace-id for workspace-unscoped keys, and "
+                    "user keys cannot list workspaces (admin only). Fix: "
+                    "create a workspace-scoped key (Scope = default "
+                    "workspace) or set ANTHROPIC_WORKSPACE_ID.")
         if code == 200 and isinstance(body, dict):
             for m in body.get("data", []):
                 mid = m.get("id") or ""
@@ -39,7 +62,7 @@ class AnthropicProvider(Provider):
         return ids
 
     def probe(self, model_id: str, env: dict) -> ProbeResult:
-        headers = {"x-api-key": self._key(env), "anthropic-version": VERSION}
+        headers = self._headers(env)
 
         def send():
             return http_json(

@@ -220,7 +220,19 @@ else
   warn "config/oh-my-opencode-slim.json — not found"
 fi
 
-# ─── 5. Orphan detection (installed config) ────────────────────────────────
+# ─── 5. S-05 invariant — bash ruleset order (empirically validated 2026-10-07) ─
+
+if [[ -f "$ROOT_DIR/scripts/check-bash-ruleset-order.py" ]]; then
+  echo ""
+  echo "--- S-05 invariant (bash ruleset order) ---"
+  if python3 "$ROOT_DIR/scripts/check-bash-ruleset-order.py" "$ROOT_DIR/config/opencode.json"; then
+    ok "S-05 invariant respected (catch-all deny first)"
+  else
+    warn "S-05 invariant violated — terminal catch-all deny removes the bash tool (see script output)"
+  fi
+fi
+
+# ─── 6. Orphan detection (installed config) ────────────────────────────────
 
 if [[ "$CHECK_INSTALLED" == true ]]; then
   echo ""

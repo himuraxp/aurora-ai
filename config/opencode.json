@@ -393,7 +393,7 @@
     }
   },
   "model": "infomaniak/euria-code",
-  "default_agent": "plan",
+  "default_agent": "aurora",
   "subagent_depth": 3,
   "agent": {
     "architect": {

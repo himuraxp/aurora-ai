@@ -35,6 +35,9 @@ _ui_count_files() {
     done
   done
 
+  # root AGENTS.md (global OpenCode instructions)
+  [[ -f "$ROOT_DIR/AGENTS.md" ]] && count=$((count + 1))
+
   # skills (recursive)
   if [[ -d "$ROOT_DIR/skills" ]]; then
     while IFS= read -r -d '' f; do
@@ -376,12 +379,14 @@ _step_run() {
 _step_agents()    { install_dir "$ROOT_DIR/agents"     "$TARGET_BASE/agents"; }
 _step_standards() { install_dir "$ROOT_DIR/standards"  "$TARGET_BASE/standards"; }
 _step_frameworks(){ install_dir "$ROOT_DIR/frameworks" "$TARGET_BASE/frameworks"; }
+_step_agentsmd()  { copy_file "$ROOT_DIR/AGENTS.md"    "$TARGET_BASE/AGENTS.md"; }
 
 # ─── Install steps ───────────────────────────────────────────────────────────
 
 _step_run "Installing Agents"        _step_agents
 _step_run "Installing Standards"     _step_standards
 _step_run "Installing Frameworks"    _step_frameworks
+_step_run "Installing AGENTS.md"     _step_agentsmd
 _step_run "Installing Skills"        install_skills
 _step_run "Installing Scripts"       install_scripts
 _step_run "Enabling Git hooks"       install_hooks

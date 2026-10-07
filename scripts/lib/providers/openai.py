@@ -19,6 +19,10 @@ _NON_CHAT_PREFIXES = ("dall-e", "whisper", "tts", "davinci", "babbage",
 class OpenAIProvider(Provider):
     id = "openai"
     kind = "builtin"
+    # probe output budget (tour 15 improvement 4: a PARAMETER, not a magic
+    # number — reasoning models reject budgets below their reasoning cost;
+    # a future provider/model may retry with a higher value, never lower)
+    PROBE_BUDGET = 64
 
     def auth_modes(self):
         return ["env", "opencode_auth"]
@@ -56,7 +60,8 @@ class OpenAIProvider(Provider):
                 headers=headers,
                 body={"model": model_id,
                       "messages": [{"role": "user", "content": "OK"}],
-                      "max_completion_tokens": 1},
+                      # see PROBE_BUDGET above — 64, not 1
+                      "max_completion_tokens": self.PROBE_BUDGET},
             )
 
         return self._probe_with_recheck(send, model_id)

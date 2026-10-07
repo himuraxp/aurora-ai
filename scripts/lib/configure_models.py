@@ -7,6 +7,30 @@ Design: ChatGPT cowork tours 11-12 (APPROVED) — discovery ≠ entitlement
 (probe-only VERIFIED), canonical probes with control model, live-only
 generation, preservation of existing working selections (no breaking change).
 
+THREE INDEPENDENT MODEL STATES (tour 15, formalized after the OpenAI
+acceptance gate — eligibility requires all three to converge):
+
+  1. RUNTIME RESOLVABILITY — can the installed OpenCode resolve this ID?
+     Source: `opencode models` (inventory of the pinned binary; fallback
+     models.dev with a User-Agent — the site 403s bare urllib).
+     Established empirically: runtime 1.18.34 refuses gpt-5/gpt-5-mini
+     although models.dev lists them and the account probes them 200.
+  2. PROVIDER ENTITLEMENT — can the user's key actually call this model?
+     Source: canonical probe only (VERIFIED). Catalogs are never proof.
+  3. METADATA — context/cost/capabilities. Source: models.dev / provider
+     catalogs. Used for ranking only.
+
+    eligible model = resolvable AND entitled AND role-requirements met
+
+CREDENTIAL PRECEDENCE WARNING (tour 15): OpenCode runtime credentials
+(~/.local/share/opencode/auth.json, written by /connect — e.g. a stale
+OAuth entry) OVERRIDE environment variables. A successful API probe does
+NOT guarantee `opencode run` uses the same identity: an expired OAuth
+entry yields "Token refresh failed: 401" even with a valid env key.
+Diagnostic guidance when API probe = VERIFIED but runtime probe fails:
+"OpenCode OAuth credentials may override environment authentication —
+run /connect or remove/refresh the stale connection."
+
 Usage (usually via scripts/configure-models.sh):
   python3 configure_models.py [--yes] [--dry-run] [--providers a,b] [--force]
 """
@@ -37,7 +61,7 @@ sys.path.insert(0, HERE)
 from providers import anthropic, google, infomaniak, ollama, openai, openrouter  # noqa: E402
 from providers.base import (  # noqa: E402
     AUTH_REQUIRED, CATALOG_AVAILABLE, TRANSIENT, UNAVAILABLE, VERIFIED,
-    ModelMeta, ProbeResult,
+    ModelMeta, ProbeResult, http_json,
 )
 
 
@@ -108,16 +132,20 @@ def _is_probeable(provider, model_id: str) -> bool:
 
 
 def probe_provider(provider, env: dict, existing: list, roles_policy: dict,
-                   quiet: bool) -> dict:
+                   quiet: bool, allowed_ids=None) -> dict:
     """Discover + control probe + candidate probes.
     Returns {'pool', 'results': {id: ProbeResult}, 'auth': 'env'|'none',
-             'meta': {id: ModelMeta}, 'error': str|None}."""
+             'meta': {id: ModelMeta}, 'error': str|None}.
+    allowed_ids (built-ins only): restrict discovery to IDs the OpenCode
+    runtime can actually resolve (models.dev — see load_modelsdev_ids)."""
     out = {"pool": [], "results": {}, "meta": {}, "auth": "none", "error": None}
     if not provider.is_configured(env):
         return out
 
     out["auth"] = "env"
     pool = provider.discover(env, existing)
+    if allowed_ids is not None:
+        pool = [m for m in pool if m in allowed_ids]
     out["pool"] = pool
     if not pool:
         out["error"] = "discovery returned no candidates"
@@ -129,18 +157,43 @@ def probe_provider(provider, env: dict, existing: list, roles_policy: dict,
         out["error"] = "no probeable candidate matching any role family"
         return out
 
-    # control probe: canonical payload must succeed once before any candidate
-    # is classified UNAVAILABLE (tour 11b improvement 1)
-    control = short[0]
-    cres = provider.probe(control, env)
-    out["results"][control] = cres
-    if not cres.ok:
-        out["error"] = (f"control probe failed on '{control}' "
-                        f"({cres.status}/{cres.reason}) — provider skipped, "
+    # control probe: the FIRST successful probe validates the provider.
+    # Real-world findings (2026-10-07, acceptance gate OpenAI):
+    # - a valid, funded account can lack ONE shortlisted model (gpt-5.2-codex
+    #   → 404 model_not_found);
+    # - shortlist order follows preferred families (gpt-5.x first) and can
+    #   stack several non-entitled models. Control candidates are therefore
+    #   ordered cheap-model-first (mini/flash/small/nano/tiny/lite — nearly
+    #   universally entitled), then the rest of the shortlist. Up to 5
+    #   attempts; individual 4xx results stay recorded per model. Skip the
+    #   provider only if none verifies.
+    def _control_order() -> list:
+        cheap = [m for m in pool
+                 if re.search(r"(mini|flash|small|nano|tiny|lite)", m, re.I)]
+        ordered = [m for m in short if m in cheap]
+        ordered += [m for m in cheap if m not in ordered]
+        ordered += [m for m in short if m not in ordered]
+        return ordered
+
+    control = None
+    probed = 0
+    for mid in _control_order()[:5]:
+        cres = provider.probe(mid, env)
+        out["results"][mid] = cres
+        probed += 1
+        if cres.ok:
+            control = mid
+            break
+    if control is None:
+        first_tried = next(iter(out["results"]))
+        res0 = out["results"][first_tried]
+        out["error"] = (f"control probe failed on {probed} candidate(s) "
+                        f"(first tried: '{first_tried}', {res0.status}/"
+                        f"{res0.reason}) — provider skipped, "
                         "live config untouched")
         return out
 
-    for mid in short[1:]:
+    for mid in short:
         if mid in out["results"]:
             continue
         out["results"][mid] = provider.probe(mid, env)
@@ -160,9 +213,56 @@ def _context_of(meta: ModelMeta) -> int:
     return meta.context or 0
 
 
+def load_runtime_ids() -> "dict | None":
+    """IDs the INSTALLED OpenCode runtime can actually resolve, per provider
+    (from `opencode models`).
+
+    Source of truth for built-in recommendation filtering — stronger than
+    models.dev: it reflects the catalog embedded in the pinned binary.
+    Established 2026-10-07 at the acceptance gate: runtime 1.18.34 refuses
+    gpt-5 and gpt-5-mini (ProviderModelNotFoundError) even though both are
+    listed by the live models.dev site and probe-verified on the account.
+    An ID absent here can never be resolved by OpenCode."""
+    exe = shutil.which("opencode")
+    if not exe:
+        return None
+    try:
+        r = subprocess.run([exe, "models"], capture_output=True, text=True,
+                           timeout=30)
+    except Exception:  # noqa: BLE001 - runtime inventory is best-effort
+        return None
+    if r.returncode != 0:
+        return None
+    out: dict = {}
+    for line in (r.stdout or "").splitlines():
+        ref = line.strip()
+        if ref and "/" in ref:
+            pid, _, mid = ref.partition("/")
+            out.setdefault(pid, set()).add(mid)
+    return out or None
+
+
+def load_modelsdev_ids() -> "dict | None":
+    """models.dev catalog: {provider_id: set(model_ids)} — fallback source
+    when the runtime inventory is unavailable.
+
+    models.dev is a RESOLUTION filter for built-in recommendations and still
+    NEVER an entitlement proof (the probe remains the only entitlement
+    source). Requires a User-Agent (models.dev blocks bare urllib — 403)."""
+    code, body, _err = http_json("https://models.dev/api.json", timeout=20)
+    if code != 200 or not isinstance(body, dict):
+        return None
+    out = {}
+    for pid, pdata in body.items():
+        if isinstance(pdata, dict) and isinstance(pdata.get("models"), dict):
+            out[pid] = set(pdata["models"].keys())
+    return out
+
+
 def rank_role(models: dict, role_def: dict) -> list:
     """Order VERIFIED models for a role: requirements (hard when known),
-    then preferredFamilies order, then context desc, then id asc (deterministic)."""
+    then preferredFamilies order, then light-suffix penalty, then context
+    desc, then id asc (deterministic)."""
     req = role_def.get("requires", {})
     fams = [f.lower() for f in role_def.get("preferredFamilies", [])]
     scored = []
@@ -175,7 +275,14 @@ def rank_role(models: dict, role_def: dict) -> list:
         ctx = _context_of(meta)
         if req.get("minContext") and ctx and ctx < req["minContext"]:
             continue  # hard requirement only when context is actually known
-        scored.append((fam_rank, -ctx, mid))
+        # light-suffix penalty: a "-mini/-nano/-tiny/-lite" model must never
+        # win an expert/multimodal role by alphabetical tie-break alone
+        # (acceptance gate 2026-10-07: gpt-5-mini ranked first with unknown
+        # context metadata). The penalty is voided when the role explicitly
+        # prefers that suffix family.
+        light = re.search(r"-(mini|nano|tiny|lite|small)([-_.]|$)", low)
+        light_rank = len(fams) + 100 if (light and not any(light.group(1) in f for f in fams)) else 0
+        scored.append((fam_rank + light_rank, -ctx, mid))
     scored.sort()
     return [m for _f, _c, m in scored]
 
@@ -576,6 +683,13 @@ def main() -> int:
             existing_by_provider.setdefault(pid, []).extend(block["models"].keys())
 
     print("Discovering and verifying models (catalogs are NOT entitlement — probing)…")
+    # resolution filter: what the INSTALLED runtime can resolve wins;
+    # models.dev is the fallback inventory
+    modelsdev = load_runtime_ids() or load_modelsdev_ids()
+    if modelsdev is None:
+        print("  ! runtime inventory AND models.dev unavailable — built-in IDs "
+              "will NOT be checked against the resolution catalog (risk: "
+              "recommending an ID OpenCode cannot resolve)")
     states = {}
     for pid, provider in registry.items():
         if only and pid not in only:
@@ -583,9 +697,10 @@ def main() -> int:
         if not provider.is_configured(env):
             states[pid] = {"auth": "none", "pool": [], "results": {}, "meta": {}}
             continue
+        allowed = modelsdev.get(pid) if (provider.kind == "builtin" and modelsdev) else None
         states[pid] = probe_provider(provider, env,
                                      existing_by_provider.get(pid, []), policy,
-                                     quiet=args.quiet)
+                                     quiet=args.quiet, allowed_ids=allowed)
         if states[pid].get("error") and not args.quiet:
             print(f"  ! {pid}: {states[pid]['error']}")
 

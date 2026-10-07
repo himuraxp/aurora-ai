@@ -120,8 +120,13 @@ if command -v opencode &>/dev/null; then
     ok "opencode-ai up to date: ${CURRENT_VER}"
   fi
 else
-  info "Installing opencode-ai globally..."
-  npm install -g opencode-ai
+  # Pinned to the validated runtime (Security Gate 2026-10-07, S-07):
+  # supply chain — never install an unverified latest. Bump deliberately
+  # after a real smoke test (see skills/release-smoke-test), keep in sync
+  # with the version referenced in aurora-core ADRs.
+  TESTED_OPENCODE_VER="1.18.35"
+  info "Installing opencode-ai@${TESTED_OPENCODE_VER} (validated version)..."
+  npm install -g "opencode-ai@${TESTED_OPENCODE_VER}"
   ok "opencode-ai installed: $(opencode --version 2>/dev/null || echo 'unknown')"
 fi
 
@@ -355,12 +360,15 @@ _emit_export() {
 # Also MOVES any existing free-standing export of the managed variables into
 # the block, so nothing is ever duplicated: the managed block is the single
 # copy of the API key, IDB_UDID and IDB_PATH (read by opencode.json {env:...}).
+# OPENAI_API_KEY (often a stale alias of the Infomaniak key, Security Gate
+# S-03 2026-10-07) is moved into the block the same way.
 write_shell_block() {
   local key_value="$1" idb_udid="${2:-}" idb_path="${3:-}"
   [[ -n "$SHELL_RC" ]] || return 1
   local tmp="${SHELL_RC}.opencode.tmp"
-  local prev_key prev_udid prev_path mode=""
+  local prev_key prev_udid prev_path prev_openai mode=""
   prev_key="$(rc_var_value OPENAI_API_KEY_INFOMANIAK)"
+  prev_openai="$(rc_var_value OPENAI_API_KEY)"
   prev_udid="$(rc_var_value IDB_UDID)"
   prev_path="$(rc_var_value IDB_PATH)"
   if [[ -f "$SHELL_RC" ]]; then
@@ -371,7 +379,7 @@ write_shell_block() {
       'index($0, begin) == 1 { skip = 1; next }
        index($0, end) == 1   { skip = 0; next }
        skip == 1 { next }
-       /^[[:space:]]*export[[:space:]]+(OPENAI_API_KEY_INFOMANIAK|IDB_UDID|IDB_PATH)=/ { next }
+       /^[[:space:]]*export[[:space:]]+(OPENAI_API_KEY_INFOMANIAK|IDB_UDID|IDB_PATH|OPENAI_API_KEY)=/ { next }
        { lines[NR] = $0 }
        END { n = NR; while (n > 0 && lines[n] ~ /^[[:space:]]*$/) n--;
              for (i = 1; i <= n; i++) print lines[i] }' \
@@ -385,6 +393,9 @@ write_shell_block() {
     printf '%s\n' "$MANAGED_BLOCK_BEGIN" > "$tmp"
   fi
   _emit_export OPENAI_API_KEY_INFOMANIAK "$key_value" "$prev_key" >> "$tmp"
+  # move the free-standing OPENAI_API_KEY alias into the managed block
+  # (Security Gate S-03: 2 copies = drift; empty = nothing to move)
+  [[ -n "$prev_openai" ]] && _emit_export OPENAI_API_KEY "$prev_openai" "$prev_openai" >> "$tmp"
   [[ -n "$idb_udid" ]] && _emit_export IDB_UDID "$idb_udid" "$prev_udid" >> "$tmp"
   [[ -n "$idb_path" ]] && _emit_export IDB_PATH "$idb_path" "$prev_path" >> "$tmp"
   printf '%s\n' "$MANAGED_BLOCK_END" >> "$tmp"
@@ -748,6 +759,25 @@ if [[ -f "${ROOT_DIR}/mcp/infomaniak/dist/index.js" ]]; then
 else
   warn "infomaniak-mcp: not built — run: cd $ROOT_DIR/mcp/infomaniak && npm install && npm run build"
   ERRORS=$((ERRORS + 1))
+fi
+
+# Duplicate-secret detection (Security Gate S-03, 2026-10-07): the same token
+# value must never live in both the shell rc AND .env — guaranteed rotation
+# drift. Values are compared silently (never printed).
+if [[ -f "$SHELL_RC" && -f "$ENV_FILE" ]]; then
+  dup_found=0
+  while IFS= read -r rc_val; do
+    [[ -n "$rc_val" ]] || continue
+    while IFS= read -r env_val; do
+      [[ -n "$env_val" ]] || continue
+      if [[ "$rc_val" == "$env_val" && ${#rc_val} -ge 12 ]]; then
+        warn "Duplicate secret detected: the same token value exists in both $SHELL_RC and $ENV_FILE"
+        warn "  → rotate one of them and keep a single copy (S-03)"
+        dup_found=$((dup_found + 1))
+      fi
+    done < <(grep -Eo '=(sk-|glpat-|figd_|pk\.|Bearer |gh[pu]_)[A-Za-z0-9._-]{10,}' "$ENV_FILE" 2>/dev/null | cut -d= -f2-)
+  done < <(grep -Eo '=(sk-|glpat-|figd_|pk\.|Bearer |gh[pu]_)[A-Za-z0-9._-]{10,}' "$SHELL_RC" 2>/dev/null | cut -d= -f2-)
+  [[ $dup_found -eq 0 ]] && ok "No duplicate secrets between shell rc and .env"
 fi
 
 # Summary

@@ -572,9 +572,11 @@ def apply_plan(plan: dict, policy: dict, live_cfg: dict, dry: bool) -> dict:
         return report
 
     ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    # unique even for two runs in the same second (tour 13 improvement 6)
+    # unique even for two runs in the same second (tour 13 improvement 6);
+    # 0o700: backups contain the full live config — user-only readable
+    # (Security Gate 2026-10-07, S-09)
     bdir = os.path.join(BACKUP_DIR, f"{ts}-{os.getpid()}")
-    os.makedirs(bdir, exist_ok=True)
+    os.makedirs(bdir, mode=0o700, exist_ok=True)
     shutil.copy2(LIVE_CONFIG, os.path.join(bdir, "opencode.json"))
     report["backup"] = bdir
 

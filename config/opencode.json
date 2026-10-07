@@ -497,8 +497,6 @@
           "git status *": "allow",
           "git diff*": "allow",
           "git log *": "allow",
-          "echo *": "allow",
-          "cat *": "allow",
           "ls *": "allow",
           "pwd": "allow"
         }
@@ -509,7 +507,6 @@
       "permission": {
         "edit": "allow",
         "bash": {
-          "*test*": "allow",
           "yarn test *": "allow",
           "npm test *": "allow",
           "jest *": "allow",
@@ -711,6 +708,11 @@
           "/private/var/db/dslocal/*": "deny",
           "~/.ssh/*": "deny",
           "~/.gnupg/*": "deny",
+          "~/.zshrc": "deny",
+          "~/.zshenv": "deny",
+          "~/.zprofile": "deny",
+          "~/.bash_profile": "deny",
+          "~/.config/opencode/brave-debug-profile/*": "deny",
           "~/Library/Keychains/*": "deny",
           "~/.aws/credentials": "deny",
           "~/.aws/config": "deny",
@@ -762,12 +764,10 @@
           "cd *": "allow",
           "cp *": "allow",
           "mkdir *": "allow",
-          "rm *": "allow",
           "zip *": "allow",
           "head *": "allow",
           "tail *": "allow",
           "awk *": "allow",
-          "kill *": "allow",
           "lsof *": "allow",
           "awk *inplace*": "ask",
           "awk *system*": "ask",
@@ -804,7 +804,7 @@
       "command": [
         "npx",
         "-y",
-        "@upstash/context7-mcp"
+        "@upstash/context7-mcp@4.1.2"
       ],
       "enabled": true,
       "timeout": 30000
@@ -814,7 +814,7 @@
       "command": [
         "npx",
         "-y",
-        "chrome-devtools-mcp@latest",
+        "chrome-devtools-mcp@1.10.1",
         "--headless",
         "--isolated"
       ],
@@ -826,7 +826,7 @@
       "command": [
         "npx",
         "-y",
-        "chrome-devtools-mcp@latest",
+        "chrome-devtools-mcp@1.10.1",
         "--browserUrl",
         "http://127.0.0.1:9222"
       ],
@@ -838,7 +838,7 @@
       "command": [
         "npx",
         "-y",
-        "ios-simulator-mcp"
+        "ios-simulator-mcp@2.1.0"
       ],
       "enabled": true,
       "timeout": 30000,

@@ -39,6 +39,9 @@ PATTERNS=(
   'FIGMA_TOKEN[[:space:]]*[:=]'                 # Figma token assignment
   'AIza[0-9A-Za-z_-]\{35\}'                     # Google API keys
   'sk_live_[A-Za-z0-9]\{24,\}'                  # Stripe secret keys
+  'sk-proj-[A-Za-z0-9_-]\{20,\}'                # OpenAI project keys (bare)
+  'sk-ant-[A-Za-z0-9_-]\{20,\}'                 # Anthropic keys (bare)
+  'pk\.[a-z0-9]\{1,12\}\.[A-Za-z0-9]\{20,\}'    # Infomaniak app tokens (bare)
   'eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*'  # JWT tokens
 )
 

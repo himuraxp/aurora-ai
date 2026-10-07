@@ -19,7 +19,7 @@ The `explorer`, `fixer`, `librarian` and `oracle` agents are provided by the **o
 Plus 6 support folders:
 
 ```txt
-scripts/     Installation and maintenance (setup.sh, install.sh, init-project.sh, sync-project.sh, health-check.sh, permissions-matrix.sh, validate-memory.sh, create-mr/, hooks/)
+scripts/     Installation and maintenance (setup.sh, install.sh, configure-models.sh, init-project.sh, sync-project.sh, health-check.sh, permissions-matrix.sh, validate-memory.sh, create-mr/, hooks/, lib/)
 templates/   Files injected into projects (AGENTS.md, docs/ai/*)
 docs/        User guides (workflow, customization, angular-20, code-review, testing, architecture)
 examples/    Ready-to-use examples (angular-app, node-api, monorepo)

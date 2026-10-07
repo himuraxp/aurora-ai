@@ -10,6 +10,7 @@ Installation, maintenance and automation scripts for opencode-config.
 |--------|-------|-------------|
 | `setup.sh` | `./scripts/setup.sh [--force] [--no-animation]` | First install on a machine. Interactive: installs opencode-ai, rtk, MCP servers, copies the config, collects secrets |
 | `install.sh` | `./scripts/install.sh [--prune] [--no-config] [--dry-run]` | Update. Copies only modified files to `~/.config/opencode/` |
+| `configure-models.sh` | `./scripts/configure-models.sh [--yes] [--dry-run] [--providers LIST] [--force]` | Detects which models the configured API keys can actually use (real probes) and maps them to agent roles — Infomaniak, OpenAI, Anthropic, Google, OpenRouter, local Ollama. Preserves existing verified setups; fail-closed (writes nothing if a required role can't be resolved) |
 | `init-project.sh` | `./scripts/init-project.sh [--dry-run]` | Initializes a project: copies `AGENTS.md`, detects the stack, adds the framework |
 | `sync-project.sh` | `./scripts/sync-project.sh [--dry-run]` | Syncs a project's templates (creates `.new` on conflict) |
 | `health-check.sh` | `./scripts/health-check.sh [--installed] [--quiet]` | Consistency checks: valid JSON, agents, models, orphans |
@@ -21,6 +22,7 @@ Installation, maintenance and automation scripts for opencode-config.
 
 | Folder | Description |
 |--------|-------------|
+| `lib/` | Model configuration engine: role policy (`model-roles.json` in `config/`), Python engine `configure_models.py`, provider adapters in `lib/providers/`, contract tests `test_probes.py` (no network required) |
 | `create-mr/` | Merge request creation scripts (see `create-mr/README.md`) |
 | `hooks/` | Git hooks (see `hooks/README.md`) |
 

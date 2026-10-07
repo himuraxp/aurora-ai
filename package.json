@@ -11,6 +11,7 @@
   "scripts": {
     "setup": "bash scripts/setup.sh",
     "update": "bash scripts/install.sh",
+    "configure-models": "bash scripts/configure-models.sh",
     "prune": "bash scripts/install.sh --prune",
     "dry-run": "bash scripts/install.sh --dry-run",
     "init-project": "bash scripts/init-project.sh",

@@ -51,6 +51,8 @@ npm run setup
 
 If `.env` already exists with the required variables, the configuration step is skipped. To reconfigure: `npm run setup -- --force`.
 
+With an API key configured, the setup ends with an optional **model configuration** step: `configure-models.sh` probes which models your keys can actually use and maps them to agent roles — Infomaniak, OpenAI, Anthropic, Google, OpenRouter or a local Ollama. Existing verified setups are preserved as-is; skip the prompt and run `npm run configure-models` anytime.
+
 ### 2. Update (subsequent changes)
 
 ```bash
@@ -244,6 +246,8 @@ ios-simulator MCP does not read `.env`):
 ---
 
 ## Models and Fallback
+
+> The table below describes the **maintainer's reference setup** (Infomaniak AI). If you use other providers — Claude (Anthropic), GPT (OpenAI), Gemini (Google), OpenRouter or a local Ollama — run [`scripts/configure-models.sh`](scripts/README.md): it discovers which models your keys can actually use (real probes, no catalog guesswork), maps them to the same agent roles, and rewrites the config while preserving every already-verified selection. A transient outage never triggers a durable reconfiguration.
 
 ### 14 configured models
 

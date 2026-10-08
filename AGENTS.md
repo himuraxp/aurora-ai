@@ -126,6 +126,15 @@ the **reference Infomaniak catalogue and fallback design** — the active
 mapping is whatever `aurora-models.json` contains. Final acceptance oracle
 for any new provider: a real `opencode run` against the generated config.
 
+> **Caution — `--force` during a provider outage (2026-10-08 incident)**: when
+> the current primary fails the live probe (e.g. transient HTTP 503), a
+> `--force` re-rank can resolve a role to a model **outside its preferred AND
+> fallback families** (observed: `multimodal` → `mistral24b`). After any
+> `--force` run, diff `aurora-models.json` against `model-roles.json`
+> expectations; a model outside preferred+fallback is a defect to hand-restore,
+> not a decision to accept. Prefer re-running the script once the provider
+> recovers over accepting the downgrade.
+
 ### 14 configured models
 
 The configuration uses **14 models** across 6 categories:

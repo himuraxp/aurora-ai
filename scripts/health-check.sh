@@ -232,7 +232,31 @@ if [[ -f "$ROOT_DIR/scripts/check-bash-ruleset-order.py" ]]; then
   fi
 fi
 
-# ─── 6. Orphan detection (installed config) ────────────────────────────────
+# ─── 6. S-02 invariant — Infomaniak MCP write gate (2026-10-07) ─────────────
+
+if [[ -f "$ROOT_DIR/scripts/check-infomaniak-write-gate.mjs" ]]; then
+  echo ""
+  echo "--- S-02 invariant (Infomaniak MCP write gate) ---"
+  if node "$ROOT_DIR/scripts/check-infomaniak-write-gate.mjs"; then
+    ok "S-02 write gate enforced (global MCP read-only, writes behind orchestrator bridge)"
+  else
+    warn "S-02 write gate violated — global Infomaniak MCP must stay read-only (see script output)"
+  fi
+fi
+
+# ─── 7. MCP local lock — no npx at runtime (chantier 7a, 2026-10-07) ────────
+
+if [[ -f "$ROOT_DIR/scripts/setup-mcp-lock.py" ]]; then
+  echo ""
+  echo "--- MCP local lock (no runtime registry dependency) ---"
+  if python3 "$ROOT_DIR/scripts/setup-mcp-lock.py" --check-only; then
+    ok "MCP binaries locally locked and present"
+  else
+    warn "MCP lock violated — run 'npm run mcp-lock' to install/lock npx-based MCPs"
+  fi
+fi
+
+# ─── 8. Orphan detection (installed config) ────────────────────────────────
 
 if [[ "$CHECK_INSTALLED" == true ]]; then
   echo ""

@@ -85,6 +85,8 @@ Tu disposes des skills `commit` et `create-mr`. Quand on te demande de committer
 2. Suis ses instructions à la lettre (format, langue, étapes).
 3. Exécute les commandes git/glab nécessaires.
 
+**Interdiction absolue — invocation de skill via bash** : n'exécute JAMAIS un skill par une commande bash (`skill commit`, `cat .../SKILL.md`, `ls skills/**`, etc.). Le seul chemin autorisé est le tool `skill`. Le runtime refuse toute invocation bash d'un skill (TRTK deny sur les fichiers `**/*.md`) et la tâche échoue immédiatement. Les commandes bash autorisées (git/glab/lecture) ne servent qu'APRÈS le chargement du skill.
+
 Ne jamais improviser un format de commit ou de MR : le skill est la source de vérité.
 
 ## Règle absolue — Pas d'hallucination

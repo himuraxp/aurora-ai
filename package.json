@@ -17,6 +17,7 @@
     "init-project": "bash scripts/init-project.sh",
     "sync": "bash scripts/sync-project.sh",
     "health-check": "bash scripts/health-check.sh",
+    "mcp-lock": "python3 scripts/setup-mcp-lock.py",
     "permissions": "bash scripts/permissions-matrix.sh",
     "validate-memory": "bash scripts/validate-memory.sh"
   }

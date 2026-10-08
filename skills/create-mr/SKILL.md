@@ -85,6 +85,7 @@ Les scripts globaux ne contiennent ni n'exécutent `git commit`, `git push`,
 | `validate_title.sh` | Valide le format Conventional Commit du titre |
 | `build_body.sh` | Assemble le body depuis template + variables ou format défaut |
 | `upload_media.sh` | Upload fichiers média vers GitLab, retourne le Markdown |
+| `ensure_glab_token.sh` | Préflight : re-source un `GITLAB_TOKEN` frais depuis le disque si le token du process est périmé (401). À SOURCER (`source ... || exit 1`) dans le même shell que l'appel glab |
 | `push_branch.sh` | Push la branche courante si commits non pushés |
 | `create_mr.sh` | Crée la MR via `glab mr create` (ou dry-run) |
 
@@ -107,7 +108,36 @@ git status --porcelain
 Si le résultat montre des changements non commités, invoquer le skill `commit`
 avant de continuer.
 
+### Étape 0 — Fraîcheur du token GitLab (obligatoire)
+
+Le process opencode hérite de son environnement au démarrage de la session et
+ne le recharge **jamais** : si le token a été tourné sur disque pendant la
+session (source canonique `~/.config/opencode/.env`), le process garde l'ancien
+et chaque appel glab échoue en 401 "Token is expired" — même si un token frais
+existe. Ne **jamais** conclure "token expiré, re-authentifie-toi" sans avoir
+exécuté le préflight.
+
+Le shell de l'agent est réinitialisé entre chaque commande : le script doit être
+**sourcé** dans le même appel que la commande glab qui en dépend.
+
+```bash
+# À SOURCER (l'export doit vivre dans le shell courant) — même tool call que create_mr.sh
+source "${SCRIPTS_DIR}/ensure_glab_token.sh" || exit 1
+bash "${SCRIPTS_DIR}/create_mr.sh" ...
+```
+
+Le script : (1) valide le token de l'environnement ; (2) sinon re-source le
+premier token valide trouvé dans `~/.config/opencode/.env` puis `~/.zshrc` ;
+(3) échoue avec la procédure de rotation si toutes les sources sont périmées.
+Il n'affiche jamais de secret.
+
 ## Cycle de création
+
+### 0. Assurer la fraîcheur du token
+
+```bash
+source "${SCRIPTS_DIR}/ensure_glab_token.sh" || exit 1
+```
 
 ### 1. Vérifier le workspace
 
@@ -326,7 +356,7 @@ rm -f "$BODY_FILE"
 - Workspace sale (changements non commités)
 - Branche courante est `main`/`master`/`develop`
 - Branche cible inexistante
-- `glab` non disponible ou non authentifié
+- `glab` non disponible ou non authentifié (après préflight `ensure_glab_token.sh`)
 - Titre invalide (Conventional Commit)
 - Description trop courte (< 50 caractères)
 - Push échoue

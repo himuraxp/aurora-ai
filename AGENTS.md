@@ -89,6 +89,8 @@ Secrets are stored in `~/.config/opencode/.env` (never versioned); the Infomania
 
 The same managed block also exports `IDB_UDID` and `IDB_PATH` (ios-simulator MCP, which only reads its process environment — no `.env` fallback). The block is idempotent and **moves** pre-existing exports of these 3 variables into the block — never duplicated. Other variables (`INFOMANIAK_API_TOKEN`, `FIGMA_TOKEN`, ...) stay in `.env`: the relevant MCPs read that file as a fallback in their own code.
 
+**`GITLAB_TOKEN` rotation (2026-10-08 incident)**: canonical source is `~/.config/opencode/.env`; a mirror export lives in `~/.zshrc` (glab reads only the process environment, never `.env`). On rotation, update **both** — otherwise the opencode process (env frozen at session start from `.zshrc`) keeps serving the stale token to every conversation and glab fails with 401 "Token is expired". The preflight `scripts/create-mr/ensure_glab_token.sh` (sourced before any glab call, see `skills/create-mr/SKILL.md` step 0) re-resolves a fresh token from disk and must be run before concluding that a token is expired.
+
 ## MCP Servers
 
 The configuration includes seven MCP servers:

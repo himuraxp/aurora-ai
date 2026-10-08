@@ -160,7 +160,7 @@ resolution, the normative column is the Role; run
 
 | Agent | Role | Reference model | When to delegate |
 |-------|------|-----------------|------------------|
-| `spark` | intermediate | Mistral-Small-4 (119B) | ✅ Default for `commit`, `create-mr` |
+| `spark` | cli | Kimi-K2.6 (256k) | ✅ Default for `commit`, `create-mr` |
 | `mobile` | expert | euria-code | Mobile audit, native code |
 | `designer` | multimodal | Qwen3.5-397B | UX/UI, design system, a11y, screenshots, mockups |
 | `vision` | multimodal | Qwen3.5-397B | Non-UI images: diagrams, photos, charts |

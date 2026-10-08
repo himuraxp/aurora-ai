@@ -52,18 +52,20 @@
       "fallbackFamilies": ["kimi-k2", "nemotron-3-nano"]
     },
     "cli": {
-      "description": "Light CLI skill wrappers: spark (commits, GitLab CLI skills).",
-      "requires": { "chat": true, "minContext": 60000 },
+      "description": "Light CLI skill wrappers: spark (commits, GitLab CLI skills). Reliability-first (2026-10-08): 5/8 task failures on mistral24b (fabricated results, skipped execution, wrong tool path, mojibake) showed it too weak for faithful multi-step tool execution — kimi-k2 promoted, cost impact negligible at commit-task token volumes.",
+      "requires": { "chat": true, "minContext": 100000 },
       "preferredFamilies": [
+        "kimi-k2",
+        "mistral-small",
+        "qwen3.5-122",
         "mistral24b",
         "ministral",
-        "mistral-small",
         "gpt-4o-mini",
         "gpt-5-mini",
         "gemini-flash",
         "claude-haiku"
       ],
-      "fallbackFamilies": []
+      "fallbackFamilies": ["mistral-small", "nemotron-3-nano"]
     }
   },
   "optionalRoles": {

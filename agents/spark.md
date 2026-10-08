@@ -1,7 +1,7 @@
 ---
 description: Agent Spark - Agent rapide et léger pour les mini-tâches simples (commit, MR, appels de skills, etc.) qui ne nécessitent pas de raisonnement complexe.
 mode: all
-model: infomaniak/mistral24b
+model: infomaniak/moonshotai/Kimi-K2.6
 permission:
   edit: deny
   skill: allow

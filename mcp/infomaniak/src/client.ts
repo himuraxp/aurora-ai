@@ -131,9 +131,51 @@ function buildUrl(
   return url.toString();
 }
 
+// ─── Write gate (Security Gate 2026-10-07, S-02) ─────────────────────────────
+//
+// The MCP server is registered GLOBALLY in OpenCode, and client-side filtering
+// (permission denies, tool hiding) is empirically inoperative for file agents
+// (ADR-021). Therefore the write boundary must live HERE, at the single choke
+// point every tool handler goes through: the HTTP client itself.
+//
+// Policy: mutating methods (POST/PUT/PATCH/DELETE) are refused unless the
+// operator explicitly opts in with INFOMANIAK_MCP_ALLOW_WRITES=1. The
+// orchestrator performs writes through the `infomaniak_api_call` bridge plugin
+// (config/plugins/infomaniak-bridge.ts), which is orchestrator-scoped.
+//
+// This mirrors the aurora-memory bridge model (ADR-021): broad reads,
+// writes behind an explicit decision. The gate keys on the real HTTP method,
+// not on tool names, so no naming convention can bypass it.
+
+export class WriteBlockedError extends Error {
+  constructor(method: string, path: string) {
+    super(
+      `Write blocked (read-only MCP mode): ${method} ${path}. ` +
+        `Mutating calls are gated by INFOMANIAK_MCP_ALLOW_WRITES. ` +
+        `The orchestrator must use the infomaniak_api_call bridge tool instead.`,
+    );
+    this.name = "WriteBlockedError";
+  }
+}
+
+function isMutatingMethod(method: string): boolean {
+  return method !== "GET";
+}
+
+function assertWriteAllowed(method: string, path: string): void {
+  if (!isMutatingMethod(method)) {
+    return;
+  }
+  if (process.env.INFOMANIAK_MCP_ALLOW_WRITES === "1") {
+    return;
+  }
+  throw new WriteBlockedError(method, path);
+}
+
 export async function apiCall<T = unknown>(
   params: ApiCallParams,
 ): Promise<InfomaniakResponse<T>> {
+  assertWriteAllowed(params.method, params.path);
   waitForRateLimit();
 
   const url = buildUrl(params.path, params.params);
@@ -230,6 +272,7 @@ export interface MultipartCallParams {
 export async function apiCallMultipart<T = unknown>(
   params: MultipartCallParams,
 ): Promise<InfomaniakResponse<T>> {
+  assertWriteAllowed(params.method, params.path);
   waitForRateLimit();
 
   const url = `${BASE_URL}${params.path}`;

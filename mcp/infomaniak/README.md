@@ -34,6 +34,15 @@ npm run build
 
 ### Configuration
 
+> **Security (2026-10-07, S-02) — read-only by default**: mutating methods (POST/PUT/PATCH/DELETE)
+> are refused at the HTTP client level unless `INFOMANIAK_MCP_ALLOW_WRITES=1` is set. The gate keys
+> on the real HTTP method, not on tool names, so no naming convention can bypass it. Writes are
+> performed through the **orchestrator-only bridge plugin**
+> (`config/plugins/infomaniak-bridge.ts` → tool `infomaniak_api_call`), following the
+> aurora-memory bridge model (ADR-021): broad reads for every agent, writes behind an explicit
+> orchestrator decision. Verify with `scripts/check-infomaniak-write-gate.mjs` (wired into
+> `health-check.sh`).
+
 Add to `opencode.json`:
 
 ```json
@@ -45,7 +54,8 @@ Add to `opencode.json`:
       "enabled": true,
       "timeout": 30000,
       "env": {
-        "INFOMANIAK_API_TOKEN": "{env:INFOMANIAK_API_TOKEN}"
+        "INFOMANIAK_API_TOKEN": "{env:INFOMANIAK_API_TOKEN}",
+        "INFOMANIAK_MCP_ALLOW_WRITES": "0"
       }
     }
   }

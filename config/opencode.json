@@ -802,9 +802,8 @@
     "context7": {
       "type": "local",
       "command": [
-        "npx",
-        "-y",
-        "@upstash/context7-mcp@4.1.2"
+        "node",
+        "{env:HOME}/.config/opencode/mcp-npm/node_modules/@upstash/context7-mcp/dist/index.js"
       ],
       "enabled": true,
       "timeout": 30000
@@ -812,9 +811,8 @@
     "chrome-devtools": {
       "type": "local",
       "command": [
-        "npx",
-        "-y",
-        "chrome-devtools-mcp@1.10.1",
+        "node",
+        "{env:HOME}/.config/opencode/mcp-npm/node_modules/chrome-devtools-mcp/build/src/bin/chrome-devtools-mcp.js",
         "--headless",
         "--isolated"
       ],
@@ -824,9 +822,8 @@
     "browser-debug": {
       "type": "local",
       "command": [
-        "npx",
-        "-y",
-        "chrome-devtools-mcp@1.10.1",
+        "node",
+        "{env:HOME}/.config/opencode/mcp-npm/node_modules/chrome-devtools-mcp/build/src/bin/chrome-devtools-mcp.js",
         "--browserUrl",
         "http://127.0.0.1:9222"
       ],
@@ -836,9 +833,8 @@
     "ios-simulator": {
       "type": "local",
       "command": [
-        "npx",
-        "-y",
-        "ios-simulator-mcp@2.1.0"
+        "node",
+        "{env:HOME}/.config/opencode/mcp-npm/node_modules/ios-simulator-mcp/build/index.js"
       ],
       "enabled": true,
       "timeout": 30000,
@@ -856,7 +852,8 @@
       "enabled": true,
       "timeout": 30000,
       "env": {
-        "INFOMANIAK_API_TOKEN": "{env:INFOMANIAK_API_TOKEN}"
+        "INFOMANIAK_API_TOKEN": "{env:INFOMANIAK_API_TOKEN}",
+        "INFOMANIAK_MCP_ALLOW_WRITES": "0"
       }
     },
     "angular-elements": {

@@ -302,9 +302,23 @@ install_config() {
     return 1
   fi
 
-  # opencode.json
+  # opencode.json — MERGE, not blind copy (dette WARNINGS 2026-10-06 / Security Gate 2026-10-07):
+  # the live file accumulates runtime-granted permissions that a blind copy would drop.
+  # Deep-merge repo INTO live (repo wins on conflicts, live-only keys preserved).
+  # Plain copy only when the live file does not exist yet (fresh install).
   if [[ -f "$src/opencode.json" ]]; then
-    copy_file "$src/opencode.json" "$dest/opencode.json"
+    if [[ -f "$dest/opencode.json" ]] && [[ -f "$ROOT_DIR/scripts/lib/merge-opencode-json.py" ]]; then
+      if [[ "$DRY_RUN" == true ]]; then
+        echo "  merged:  $dest/opencode.json (live-only keys preserved — repo changes applied on top)"
+      elif python3 "$ROOT_DIR/scripts/lib/merge-opencode-json.py" \
+            --repo "$src/opencode.json" --live "$dest/opencode.json" --write-live; then
+        UPDATED_COUNT=$((UPDATED_COUNT + 1))
+      else
+        echo "  ERROR merging $dest/opencode.json — live left untouched; review the backup" >&2
+      fi
+    else
+      copy_file "$src/opencode.json" "$dest/opencode.json"
+    fi
   fi
 
   # oh-my-opencode-slim.json

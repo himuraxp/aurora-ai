@@ -41,8 +41,11 @@ docs/ai/
 # ai-cowork loop artifacts (captures, proofs, local server) — session-only
 .cowork/
 
-# Config backups (kept local, never versioned)
+# Config backups (kept local, never versioned — merge-opencode-json.py / setup-mcp-lock.py)
 *.bak
+*.bak-*
+*.fix-*
+*.tmp-*
 
 # Local secret files (never commit — real secrets live outside this repo)
 secrets/

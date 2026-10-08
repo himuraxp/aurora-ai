@@ -34,6 +34,45 @@ const SERVER_PATH =
 const CALL_TIMEOUT_MS = 30_000
 const PROTOCOL_VERSION = "2024-11-05"
 
+/** Max simultaneous spawned servers (P2, STATUS 2026-10-07: concurrence max).
+ * Each call spawns a node process; without a cap, a chatty orchestrator can
+ * pile up processes. Slots transfer directly waiter→waiter to keep the count exact. */
+const MAX_CONCURRENT_CALLS = 2
+let activeCalls = 0
+const slotWaiters: Array<() => void> = []
+
+function releaseSlot(): void {
+  activeCalls--
+  const next = slotWaiters.shift()
+  if (next) {
+    activeCalls++
+    next()
+  }
+}
+
+function acquireSlot(): Promise<() => void> {
+  if (activeCalls < MAX_CONCURRENT_CALLS) {
+    activeCalls++
+    return Promise.resolve(releaseSlot)
+  }
+  return new Promise((resolve) => {
+    slotWaiters.push(() => resolve(releaseSlot))
+  })
+}
+
+/** SIGTERM then SIGKILL fallback (P2, STATUS 2026-10-07: abort propagation).
+ * A server hung on SIGTERM must not outlive the call; the fallback timer is
+ * unref'd so it never keeps the host process alive by itself. */
+function killServer(proc: ReturnType<typeof spawn>): void {
+  try {
+    proc.kill("SIGTERM")
+  } catch { /* already exited */ }
+  const fallback = setTimeout(() => {
+    try { proc.kill("SIGKILL") } catch { /* already exited */ }
+  }, 500)
+  fallback.unref()
+}
+
 const OPERATIONS_HINT =
   "entity_upsert, entity_search, relation_upsert, relation_query, fact_insert, fact_query, preference_set, preference_query, goal_create, goal_list, goal_update_status, event_append, event_list, memory_search, projection_generate"
 
@@ -45,27 +84,36 @@ type JsonRpcResponse = {
   error?: { code: number; message: string; data?: unknown }
 }
 
-/** Minimal MCP stdio client: spawn server, initialize, call one tool, collect text. */
-function callMcpTool(operation: string, args: Record<string, unknown>): Promise<string> {
+/** Minimal MCP stdio client: spawn server, initialize, call one tool, collect text.
+ * Concurrency-capped (acquireSlot) and guaranteed to release its slot on any exit path. */
+async function callMcpTool(operation: string, args: Record<string, unknown>): Promise<string> {
+  const release = await acquireSlot()
   return new Promise<string>((resolve, reject) => {
-    const proc = spawn("node", [SERVER_PATH], { stdio: ["pipe", "pipe", "pipe"] })
-    let stdout = Buffer.alloc(0)
-    let settled = false
-
-    const finish = (fn: () => void) => {
-      if (settled) return
-      settled = true
+    let done = false
+    const settle = (fn: () => void) => {
+      if (done) return
+      done = true
       clearTimeout(timer)
-      try { proc.kill() } catch { /* already exited */ }
+      killServer(proc)
+      release()
       fn()
     }
-
-    const timer = setTimeout(() => {
-      finish(() => reject(new Error(`aurora_memory: server timed out after ${CALL_TIMEOUT_MS}ms`)))
+    let timer: NodeJS.Timeout
+    let proc: ReturnType<typeof spawn>
+    try {
+      proc = spawn("node", [SERVER_PATH], { stdio: ["pipe", "pipe", "pipe"] })
+    } catch (err) {
+      release()
+      reject(new Error(`aurora_memory: cannot spawn memory server (${(err as Error).message}). Check that the bundle exists: ${SERVER_PATH} (build it with the service's build:mcp script).`))
+      return
+    }
+    let stdout = Buffer.alloc(0)
+    timer = setTimeout(() => {
+      settle(() => reject(new Error(`aurora_memory: server timed out after ${CALL_TIMEOUT_MS}ms`)))
     }, CALL_TIMEOUT_MS)
 
     proc.on("error", (err) => {
-      finish(() => reject(new Error(
+      settle(() => reject(new Error(
         `aurora_memory: cannot spawn memory server (${err.message}). Check that the bundle exists: ${SERVER_PATH} (build it with the service's build:mcp script).`
       )))
     })
@@ -86,7 +134,7 @@ function callMcpTool(operation: string, args: Record<string, unknown>): Promise<
         try {
           msg = JSON.parse(line) as JsonRpcResponse
         } catch {
-          finish(() => reject(new Error("aurora_memory: invalid JSON-RPC payload from memory server")))
+          settle(() => reject(new Error("aurora_memory: invalid JSON-RPC payload from memory server")))
           return
         }
         if (msg.id === 1) return resolveHandshake(msg)
@@ -114,7 +162,7 @@ function callMcpTool(operation: string, args: Record<string, unknown>): Promise<
 
     const resolveCall = (msg: JsonRpcResponse) => {
       if (msg.error) {
-        finish(() => reject(new Error(`aurora_memory: ${msg.error?.message ?? "server error"}`)))
+        settle(() => reject(new Error(`aurora_memory: ${msg.error?.message ?? "server error"}`)))
         return
       }
       const text = (msg.result?.content ?? [])
@@ -122,16 +170,16 @@ function callMcpTool(operation: string, args: Record<string, unknown>): Promise<
         .join("\n")
         .trim()
       if (msg.result?.isError) {
-        finish(() => reject(new Error(`aurora_memory: ${text || "operation failed"}`)))
+        settle(() => reject(new Error(`aurora_memory: ${text || "operation failed"}`)))
         return
       }
-      finish(() => resolve(text))
+      settle(() => resolve(text))
     }
 
     proc.stdin.on("error", () => { /* surfaced via exit/timeout */ })
     proc.on("exit", (code) => {
-      if (!settled) {
-        finish(() => reject(new Error(`aurora_memory: server exited prematurely (code ${code})`)))
+      if (!done) {
+        settle(() => reject(new Error(`aurora_memory: server exited prematurely (code ${code})`)))
       }
     })
 

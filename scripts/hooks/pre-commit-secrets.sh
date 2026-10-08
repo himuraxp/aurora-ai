@@ -63,6 +63,21 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   exit 0
 fi
 
+# Optional deep scan: gitleaks (if installed) covers far more detectors than the
+# regex list below. Absent tool → skip silently (hook stays dependency-free).
+if command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks deep scan on staged changes…"
+  if ! gitleaks protect --staged --redact -v; then
+    echo ""
+    echo "gitleaks detected potential secrets in staged changes."
+    echo "Review the report above. If these are false positives, add an"
+    echo "allowlist entry to .gitleaksignore, or commit with --no-verify."
+    exit 1
+  fi
+else
+  echo "pre-commit: gitleaks not installed — regex-only scan (install gitleaks for deep scan)"
+fi
+
 found_secrets=0
 
 # Use null-terminated output to handle filenames with spaces

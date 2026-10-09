@@ -28,8 +28,8 @@ ls -la "${OPENCODE_GLOBAL_DIR}/scripts/create-mr/"*.sh
 # Installation (macOS)
 brew install glab
 
-# Authentification
-glab auth login --hostname gitlab.infomaniak.ch
+# Authentification (hostname = votre instance GitLab, ex. gitlab.example.com)
+glab auth login --hostname <votre-host-gitlab>
 
 # Vérification
 glab auth status

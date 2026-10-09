@@ -207,8 +207,8 @@ All `glab ci` commands support:
 **Repository Formats:**
 - `OWNER/REPO` - Short format
 - `GROUP/NAMESPACE/REPO` - Full namespace
-- Full URL: `https://gitlab.infomaniak.ch/owner/repo`
-- Git URL: `git@gitlab.infomaniak.ch:owner/repo.git`
+- Full URL: `https://gitlab.example.com/owner/repo`
+- Git URL: `git@gitlab.example.com:owner/repo.git`
 
 ## Tips
 

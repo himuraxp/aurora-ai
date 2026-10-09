@@ -35,10 +35,12 @@ Format obligatoire:
 **Récupérer le nom du projet depuis le repo local:**
 
 ```bash
-# Détecter le remote git et extraire le chemin du projet
+# Détecter le remote git, en déduire le host GitLab et le chemin du projet
+# (le host du remote EST la source de vérité pour les MR/compare links)
 GIT_REMOTE=$(git remote get-url origin 2>/dev/null || git config --get remote.origin.url)
-PROJECT_PATH=$(echo "$GIT_REMOTE" | sed 's/.*gitlab.infomaniak.ch\///' | sed 's/\.git$//')
-echo "Projet: $PROJECT_PATH"
+GITLAB_HOST=$(echo "$GIT_REMOTE" | sed -E 's#^(ssh://)?(git@|https?://)##; s#[/:].*##')
+PROJECT_PATH=$(echo "$GIT_REMOTE" | sed "s#.*$GITLAB_HOST/##" | sed 's/\.git$//')
+echo "Projet: $PROJECT_PATH (host: $GITLAB_HOST)"
 ```
 
 ### Étape 2: Récupérer les tags de version
@@ -137,7 +139,7 @@ echo ""
 # Header avec ou sans comparaison
 if [[ "$HAS_TAGS" == true && -n "$PREVIOUS_TAG" ]]; then
   # Avec tags - lien de comparaison
-  echo "#### [$VERSION](https://gitlab.infomaniak.ch/$PROJECT_PATH/-/compare/${PREVIOUS_TAG}...${LATEST_TAG}) ($RELEASE_DATE)"
+  echo "#### [$VERSION](https://$GITLAB_HOST/$PROJECT_PATH/-/compare/${PREVIOUS_TAG}...${LATEST_TAG}) ($RELEASE_DATE)"
 else
   # Sans tags - titre simple avec la date
   echo "#### Deployment du $RELEASE_DATE"
@@ -148,7 +150,7 @@ echo ""
 if [[ -n "$FEATURES" ]]; then
   echo "#### Features"
   echo ""
-  echo "$COMMITS" | jq -r '.[] | select(.title | test("^(feat|feature):"; "i")) | "* " + (.title | sub("^[a-z]+: ?"; ""; "i")) + ([" + (.id | .[:8]) + "](https://gitlab.infomaniak.ch/'$PROJECT_PATH'/-/commit/" + .id + "))"'
+  echo "$COMMITS" | jq -r '.[] | select(.title | test("^(feat|feature):"; "i")) | "* " + (.title | sub("^[a-z]+: ?"; ""; "i")) + ([" + (.id | .[:8]) + "](https://'$GITLAB_HOST'/'$PROJECT_PATH'/-/commit/" + .id + "))"'
   echo ""
 fi
 
@@ -156,7 +158,7 @@ fi
 if [[ -n "$FIXES" ]]; then
   echo "#### Bug Fixes"
   echo ""
-  echo "$COMMITS" | jq -r '.[] | select(.title | test("^fix:"; "i")) | "* " + (.title | sub("^fix: ?"; ""; "i")) + ([" + (.id | .[:8]) + "](https://gitlab.infomaniak.ch/'$PROJECT_PATH'/-/commit/" + .id + "))"'
+  echo "$COMMITS" | jq -r '.[] | select(.title | test("^fix:"; "i")) | "* " + (.title | sub("^fix: ?"; ""; "i")) + ([" + (.id | .[:8]) + "](https://'$GITLAB_HOST'/'$PROJECT_PATH'/-/commit/" + .id + "))"'
   echo ""
 fi
 
@@ -178,7 +180,7 @@ if [[ -n "$OTHERS" ]]; then
       
       if [[ -n "$merge_request" ]]; then
         mr_title=$(echo "$merge_request" | jq -r '.title')
-        echo "* $mr_title ([$short_hash](https://gitlab.infomaniak.ch/$PROJECT_PATH/-/commit/$commit_id))"
+        echo "* $mr_title ([$short_hash](https://$GITLAB_HOST/$PROJECT_PATH/-/commit/$commit_id))"
       else
         # Fallback: essayer de trouver la MR via la branche source dans le message de merge
         branch_name=$(echo "$commit_title" | sed -n "s/.*['\"]\([^'\"]*\)['\"].*/\1/p" | grep -v "^$" | head -1)
@@ -188,18 +190,18 @@ if [[ -n "$OTHERS" ]]; then
           
           if [[ -n "$merge_request" ]]; then
             mr_title=$(echo "$merge_request" | jq -r '.title')
-            echo "* $mr_title ([$short_hash](https://gitlab.infomaniak.ch/$PROJECT_PATH/-/commit/$commit_id))"
+            echo "* $mr_title ([$short_hash](https://$GITLAB_HOST/$PROJECT_PATH/-/commit/$commit_id))"
           else
             # Aucune MR trouvée, afficher le message original
-            echo "* $commit_title ([$short_hash](https://gitlab.infomaniak.ch/$PROJECT_PATH/-/commit/$commit_id))"
+            echo "* $commit_title ([$short_hash](https://$GITLAB_HOST/$PROJECT_PATH/-/commit/$commit_id))"
           fi
         else
-          echo "* $commit_title ([$short_hash](https://gitlab.infomaniak.ch/$PROJECT_PATH/-/commit/$commit_id))"
+          echo "* $commit_title ([$short_hash](https://$GITLAB_HOST/$PROJECT_PATH/-/commit/$commit_id))"
         fi
       fi
     else
       # Pas un merge commit, afficher normalement
-      echo "* $commit_title ([$short_hash](https://gitlab.infomaniak.ch/$PROJECT_PATH/-/commit/$commit_id))"
+      echo "* $commit_title ([$short_hash](https://$GITLAB_HOST/$PROJECT_PATH/-/commit/$commit_id))"
     fi
   done
   
@@ -233,7 +235,7 @@ if [[ -n "$OTHERS" ]]; then
       
       if [[ -n "$merge_request" ]]; then
         mr_title=$(echo "$merge_request" | jq -r '.title')
-        OTHER_CONTENT="${OTHER_CONTENT}* $mr_title ([$short_hash](https://gitlab.infomaniak.ch/$PROJECT_PATH/-/commit/$commit_id))"
+        OTHER_CONTENT="${OTHER_CONTENT}* $mr_title ([$short_hash](https://$GITLAB_HOST/$PROJECT_PATH/-/commit/$commit_id))"
       else
         # Fallback: essayer de trouver la MR via la branche source dans le message de merge
         branch_name=$(echo "$commit_title" | sed -n "s/.*['\"]\([^'\"]*\)['\"].*/\1/p" | grep -v "^$" | head -1)
@@ -243,16 +245,16 @@ if [[ -n "$OTHERS" ]]; then
           
           if [[ -n "$merge_request" ]]; then
             mr_title=$(echo "$merge_request" | jq -r '.title')
-            OTHER_CONTENT="${OTHER_CONTENT}* $mr_title ([$short_hash](https://gitlab.infomaniak.ch/$PROJECT_PATH/-/commit/$commit_id))"
+            OTHER_CONTENT="${OTHER_CONTENT}* $mr_title ([$short_hash](https://$GITLAB_HOST/$PROJECT_PATH/-/commit/$commit_id))"
           else
-            OTHER_CONTENT="${OTHER_CONTENT}* $commit_title ([$short_hash](https://gitlab.infomaniak.ch/$PROJECT_PATH/-/commit/$commit_id))"
+            OTHER_CONTENT="${OTHER_CONTENT}* $commit_title ([$short_hash](https://$GITLAB_HOST/$PROJECT_PATH/-/commit/$commit_id))"
           fi
         else
-          OTHER_CONTENT="${OTHER_CONTENT}* $commit_title ([$short_hash](https://gitlab.infomaniak.ch/$PROJECT_PATH/-/commit/$commit_id))"
+          OTHER_CONTENT="${OTHER_CONTENT}* $commit_title ([$short_hash](https://$GITLAB_HOST/$PROJECT_PATH/-/commit/$commit_id))"
         fi
       fi
     else
-      OTHER_CONTENT="${OTHER_CONTENT}* $commit_title ([$short_hash](https://gitlab.infomaniak.ch/$PROJECT_PATH/-/commit/$commit_id))"
+      OTHER_CONTENT="${OTHER_CONTENT}* $commit_title ([$short_hash](https://$GITLAB_HOST/$PROJECT_PATH/-/commit/$commit_id))"
     fi
     OTHER_CONTENT="${OTHER_CONTENT}
 "
@@ -262,11 +264,11 @@ if [[ -n "$OTHERS" ]]; then
 fi
 
 CHANGELOG_CONTENT=$(cat <<EOF
-#### $(if [[ "$HAS_TAGS" == true && -n "$PREVIOUS_TAG" ]]; then echo "[$VERSION](https://gitlab.infomaniak.ch/$PROJECT_PATH/-/compare/${PREVIOUS_TAG}...${LATEST_TAG}) ($RELEASE_DATE)"; else echo "Deployment du $RELEASE_DATE"; fi)
+#### $(if [[ "$HAS_TAGS" == true && -n "$PREVIOUS_TAG" ]]; then echo "[$VERSION](https://$GITLAB_HOST/$PROJECT_PATH/-/compare/${PREVIOUS_TAG}...${LATEST_TAG}) ($RELEASE_DATE)"; else echo "Deployment du $RELEASE_DATE"; fi)
 
-$(if [[ -n "$FEATURES" ]]; then echo "#### Features"; echo ""; echo "$COMMITS" | jq -r '.[] | select(.title | test("^(feat|feature):"; "i")) | "* " + (.title | sub("^[a-z]+: ?"; ""; "i")) + " ([" + (.id | .[:8]) + "](https://gitlab.infomaniak.ch/'$PROJECT_PATH'/-/commit/" + .id + "))"'; echo ""; fi)
+$(if [[ -n "$FEATURES" ]]; then echo "#### Features"; echo ""; echo "$COMMITS" | jq -r '.[] | select(.title | test("^(feat|feature):"; "i")) | "* " + (.title | sub("^[a-z]+: ?"; ""; "i")) + " ([" + (.id | .[:8]) + "](https://'$GITLAB_HOST'/'$PROJECT_PATH'/-/commit/" + .id + "))"'; echo ""; fi)
 
-$(if [[ -n "$FIXES" ]]; then echo "#### Bug Fixes"; echo ""; echo "$COMMITS" | jq -r '.[] | select(.title | test("^fix:"; "i")) | "* " + (.title | sub("^fix: ?"; ""; "i")) + " ([" + (.id | .[:8]) + "](https://gitlab.infomaniak.ch/'$PROJECT_PATH'/-/commit/" + .id + "))"'; echo ""; fi)
+$(if [[ -n "$FIXES" ]]; then echo "#### Bug Fixes"; echo ""; echo "$COMMITS" | jq -r '.[] | select(.title | test("^fix:"; "i")) | "* " + (.title | sub("^fix: ?"; ""; "i")) + " ([" + (.id | .[:8]) + "](https://'$GITLAB_HOST'/'$PROJECT_PATH'/-/commit/" + .id + "))"'; echo ""; fi)
 
 $OTHER_CONTENT
 EOF

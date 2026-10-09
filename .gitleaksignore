@@ -1,0 +1,9 @@
+# Per-finding gitleaks ignores — each entry must reference the acceptance doc:
+# docs/SECURITY-ACCEPTANCE.md (F-02 class: internal metadata in PUBLIC history,
+# accepted risk, NO history rewrite). Do not add entries for real credentials.
+#
+# 13b470c — Figma DS file_key (document identifier, not a credential; access
+# requires FIGMA_TOKEN). Value removed from the tip (env-config); the historic
+# copies stay public, same acceptance class as the GitLab registry exposure.
+13b470ced5f8d409a5a6f914eecf80747901097e:mcp/figma-ds/src/config.ts:generic-api-key:6
+13b470ced5f8d409a5a6f914eecf80747901097e:skills/figma-ds-sync/SKILL.md:generic-api-key:163

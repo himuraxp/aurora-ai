@@ -39,13 +39,15 @@ git config core.hooksPath scripts/hooks
 - `test-pre-commit-patterns.sh` (fixture suite — contains sample secret SHAPES by design)
 - Binary files, images
 
-**Deep scan (gitleaks):**
+**Deep scan (gitleaks) — fail-closed:**
 
-When `gitleaks` is installed, the hook runs `gitleaks protect --staged --redact` first (far more detectors than the regex layer). Configuration lives in the root `.gitleaks.toml` (allowlists the fixture suite). Set `HOOK_SKIP_GITLEAKS=1` to force regex-only mode (used by the fixture suite for determinism).
+The hook runs `gitleaks protect --staged --redact` (far more detectors than the regex layer). Configuration lives in the root `.gitleaks.toml`; per-finding history ignores live in `.gitleaksignore` (each entry references `docs/SECURITY-ACCEPTANCE.md`). **Fail-closed** (audited 2026-10-09): gitleaks missing or erroring BLOCKS the commit. Per-commit escape hatch: `HOOK_SKIP_GITLEAKS=1 git commit ...` (regex-only, warning printed).
+
+**Server-side layer:** the local hook can be bypassed (local config). `.github/workflows/secret-scan.yml` runs full-history gitleaks + the fixture suite on every push/PR — require that check on `main` via branch protection (see `docs/SECURITY-ACCEPTANCE.md`).
 
 **Validation:**
 
-`scripts/hooks/test-pre-commit-patterns.sh` is an end-to-end fixture suite: it builds a sandbox git repo, runs REAL commits with positive fixtures (26 cases — each must be blocked and reported by case id), negative fixtures (must pass), and a rename-bypass case (`git mv` + appended secret). It is executed by `scripts/health-check.sh` (section "Git hooks").
+`scripts/hooks/test-pre-commit-patterns.sh` is an end-to-end fixture suite: it builds a sandbox git repo, runs REAL commits with positive fixtures (26 cases — each must be blocked and reported by case id), negative fixtures (must pass), a rename-bypass case (`git mv` + appended secret), an index-vs-worktree case (staged token hidden from the worktree), gitleaks fail-closed cases (absent tool, tool error), a gitleaks-only detector (`npm_` token — proves the gitleaks layer independently), and a mutation test (a deleted pattern must let its case pass — proving the suite detects a silenced detector). The regex-layer commits run with `HOOK_SKIP_GITLEAKS=1` so results are deterministic; fixture shapes are assembled at runtime so this file never contains a complete secret signature. It is executed by `scripts/health-check.sh` (section "Git hooks") and by the CI workflow.
 
 **False positives:**
 

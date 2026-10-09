@@ -74,23 +74,35 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   exit 0
 fi
 
-# Optional deep scan: gitleaks (if installed) covers far more detectors than the
-# regex list below. Absent tool → skip silently (hook stays dependency-free).
-# HOOK_SKIP_GITLEAKS=1 forces regex-only mode (used by the fixture suite to keep
-# results deterministic regardless of whether gitleaks is installed).
+# Optional deep scan: gitleaks covers far more detectors than the regex list
+# below. FAIL-CLOSED by design (audited 2026-10-09): a missing tool or a
+# tool error BLOCKS the commit. Explicit escape hatch for a single commit:
+#   HOOK_SKIP_GITLEAKS=1 git commit ...   (regex-only, warning printed)
 if [[ "${HOOK_SKIP_GITLEAKS:-0}" == "1" ]]; then
   echo "pre-commit: gitleaks deep scan skipped (HOOK_SKIP_GITLEAKS=1)"
 elif command -v gitleaks >/dev/null 2>&1; then
   echo "pre-commit: gitleaks deep scan on staged changes…"
-  if ! gitleaks protect --staged --redact -v; then
+  set +e
+  gitleaks protect --staged --redact -v
+  gitleaks_rc=$?
+  set -e
+  if [[ $gitleaks_rc -eq 1 ]]; then
     echo ""
     echo "gitleaks detected potential secrets in staged changes."
     echo "Review the report above. If these are false positives, add an"
     echo "allowlist entry to .gitleaksignore, or commit with --no-verify."
     exit 1
+  elif [[ $gitleaks_rc -ne 0 ]]; then
+    echo ""
+    echo "gitleaks failed (exit $gitleaks_rc) — blocking commit (fail-closed)."
+    echo "Fix the gitleaks installation/config, or use HOOK_SKIP_GITLEAKS=1."
+    exit 1
   fi
 else
-  echo "pre-commit: gitleaks not installed — regex-only scan (install gitleaks for deep scan)"
+  echo "pre-commit: gitleaks NOT installed — blocking commit (fail-closed)." >&2
+  echo "  Install it: brew install gitleaks" >&2
+  echo "  Or accept regex-only for THIS commit: HOOK_SKIP_GITLEAKS=1 git commit ..." >&2
+  exit 1
 fi
 
 found_secrets=0

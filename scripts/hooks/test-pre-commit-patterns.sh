@@ -8,12 +8,14 @@ set -euo pipefail
 # fixtures (must commit cleanly), then runs REAL commits — a hook is only
 # proven by a real commit, never by manual execution.
 #
-# The suite runs the hook with HOOK_SKIP_GITLEAKS=1 so results stay
-# deterministic whether or not gitleaks is installed (gitleaks coverage is a
-# separate concern; this suite validates the regex layer).
+# The regex layer runs with HOOK_SKIP_GITLEAKS=1 so results stay deterministic.
+# The gitleaks layer is validated separately below: absence must fail-closed,
+# tool errors must fail-closed, and a gitleaks-only detector must be caught.
 #
-# Positive fixtures necessarily contain sample secret SHAPES — this file is
-# excluded from its own scan (see SKIP_FILES in pre-commit-secrets.sh).
+# Positive fixtures necessarily contain sample secret SHAPES — those shapes are
+# assembled at RUNTIME inside the sandbox (this file must never contain a
+# complete signature: GitHub Push Protection blocks pushes that carry one). The
+# file is also excluded from its own scan (see SKIP_FILES in the hook).
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$DIR/pre-commit-secrets.sh"
@@ -43,7 +45,7 @@ CASE_MONGODB: mongodb://user:secret123@host.example.com:27017/db
 CASE_POSTGRES: postgresql://user:secret123@host.example.com:5432/db
 CASE_MYSQL: mysql://user:secret123@host.example.com:3306/db
 CASE_REDIS: redis://user:secret123@host.example.com:6379/0
-CASE_GITHUB: ghp_AbCdEf1234567890AbCdEf1234567890AbCd
+CASE_GITHUB: GHP_PLACEHOLDER
 CASE_AWS: AKIAIOSFODNN7EXAMPLE
 CASE_GLPAT: GLPAT_PLACEHOLDER
 CASE_PAT_FORMAT: token=PATfakesecret1234567890.01.xxxxxxxx
@@ -52,7 +54,7 @@ CASE_INFOMANIAK_NAME: INFOMANIAK_API_TOKEN=fakeexampletoken
 CASE_PREPROD_NAME: INFOMANIAK_PREPROD_API_TOKEN=fakepreprodtoken123
 CASE_FIGMA_NAME: FIGMA_TOKEN=fakefigmatoken123
 CASE_GITLAB_NAME: GITLAB_TOKEN=PATfakesecret1234567890.01.xxxxxxxx
-CASE_GOOGLE: AIzaAbCdEf1234567890AbCdEf1234567890AbC
+CASE_GOOGLE: GOOGLE_PLACEHOLDER
 CASE_STRIPE: SKLIVE_PLACEHOLDER
 CASE_OPENAI_BARE: sk-proj-AbCdEf1234567890AbCdEf123
 CASE_ANTHROPIC_BARE: sk-ant-AbCdEf1234567890AbCdEf123
@@ -66,20 +68,28 @@ CASE_SLACK: xoxb-123456789012-AbCdEfGhIjKl
 CASE_OPENAI_ENV: OPENAI_API_KEY=sk-fakekey1234567890
 EOF
 
-# Assemble two shapes at RUNTIME: this script must never contain a complete
-# secret signature, or GitHub push protection blocks any push that carries it.
-# Split prefix/body keep the local regex fixtures intact once assembled.
+# Assemble four shapes at RUNTIME: this script must never contain a complete
+# secret signature, or GitHub Push Protection blocks any push that carries one
+# (lived incident 2026-10-09). Split prefix/body keep the local regex fixtures
+# intact once assembled.
+ghp_body="AbCdEf1234567890AbCdEf1234567890AbCd"
+google_body="AbCdEf1234567890AbCdEf1234567890AbC"
 glpat_body="AbCdEf1234567890AbCd"
 sklive_body="AbCdEf1234567890AbCdEf1234"
 sed -i.bak \
+  -e "s|GHP_PLACEHOLDER|ghp_${ghp_body}|" \
+  -e "s|GOOGLE_PLACEHOLDER|AIza${google_body}|" \
   -e "s|GLPAT_PLACEHOLDER|glpat-${glpat_body}|" \
   -e "s|SKLIVE_PLACEHOLDER|sk_live_${sklive_body}|" \
   "$sandbox/positive-fixtures.md"
 rm -f "$sandbox/positive-fixtures.md.bak"
 
 git -C "$sandbox" add positive-fixtures.md
+# HOOK_SKIP_GITLEAKS=1: with gitleaks active, it blocks the commit first and
+# the hook exits before the regex layer runs — the regex cases would be
+# invisible. The gitleaks layer is validated by the dedicated cases below.
 set +e
-positive_output="$(git -C "$sandbox" commit -m "positive fixtures" 2>&1)"
+positive_output="$(HOOK_SKIP_GITLEAKS=1 git -C "$sandbox" commit -m "positive fixtures" 2>&1)"
 positive_status=$?
 set -e
 
@@ -128,7 +138,7 @@ Docs and interpolations that must NOT trigger the hook:
 EOF
 
 git -C "$sandbox" add negative-fixtures.md
-if ! negative_output="$(git -C "$sandbox" commit -m "negative fixtures" 2>&1)"; then
+if ! negative_output="$(HOOK_SKIP_GITLEAKS=1 git -C "$sandbox" commit -m "negative fixtures" 2>&1)"; then
   echo "FAIL: hook blocked the negative fixtures (false positives):"
   echo "$negative_output" | sed 's/^/  /'
   exit 1
@@ -156,5 +166,119 @@ if ! grep -q "CASE_RENAME_SECRET" <<<"$rename_output"; then
   echo "FAIL: renamed-file secret not reported"
   exit 1
 fi
+# Cleanup: the blocked commit left renamed.md staged — unstage and remove it so
+# later probe commits (index≠worktree, mutation) carry only their own file.
+git -C "$sandbox" reset -q HEAD -- . 2>/dev/null || true
+rm -f "$sandbox/renamed.md"
 
-echo "OK: pre-commit hook patterns validated (${#CASES[@]} positive cases blocked, negatives pass, rename bypass blocked)"
+# ─── Index ≠ working tree: staged token hidden from the worktree must block ───
+# The hook must scan the STAGED content (git diff --cached / gitleaks --staged),
+# not the working tree: a token staged then removed from the file WITHOUT
+# re-staging is what actually gets committed.
+staged_file="$sandbox/index-vs-worktree.md"
+git -C "$sandbox" checkout -q HEAD -- . 2>/dev/null || true
+echo "CASE_INDEX_TOKEN: INFOMANIAK_API_TOKEN=fakeindextoken123" > "$staged_file"
+git -C "$sandbox" add index-vs-worktree.md
+echo "cleaned from worktree — never re-staged" > "$staged_file"
+set +e
+index_output="$(git -C "$sandbox" commit -m "staged token hidden from worktree" 2>&1)"
+index_status=$?
+set -e
+if [[ $index_status -eq 0 ]]; then
+  echo "FAIL: hook scanned the working tree instead of the index (staged-token bypass)"
+  exit 1
+fi
+if ! grep -q "CASE_INDEX_TOKEN" <<<"$index_output"; then
+  echo "FAIL: staged-token (index ≠ worktree) not reported"
+  exit 1
+fi
+git -C "$sandbox" restore --staged index-vs-worktree.md 2>/dev/null || true
+rm -f "$staged_file"
+
+# ─── gitleaks absent → FAIL-CLOSED (commit must be blocked) ───────────────────
+# PATH reduced to the system dirs so gitleaks (/usr/local/bin, brew) is hidden
+# while git/grep/sed stay available. No HOOK_SKIP_GITLEAKS escape → must block.
+echo "CASE_ABSENT_PROBE: nothing secret here" > "$sandbox/absent-probe.md"
+git -C "$sandbox" add absent-probe.md
+set +e
+absent_output="$(env -i HOME="$HOME" PATH=/usr/bin:/bin git -C "$sandbox" commit -m "gitleaks absent probe" 2>&1)"
+absent_status=$?
+set -e
+if [[ $absent_status -eq 0 ]]; then
+  echo "FAIL: hook did NOT fail-closed when gitleaks is absent"
+  exit 1
+fi
+if ! grep -qi "fail-closed" <<<"$absent_output"; then
+  echo "FAIL: gitleaks-absent block message does not mention fail-closed"
+  exit 1
+fi
+git -C "$sandbox" restore --staged absent-probe.md 2>/dev/null || true
+rm -f "$sandbox/absent-probe.md"
+
+# ─── gitleaks tool error → FAIL-CLOSED (commit must be blocked) ───────────────
+# A fake gitleaks exiting 3 (not 0/1) simulates a broken tool/config: the hook
+# must block instead of silently passing.
+shim="$(mktemp -d)"
+printf '#!/bin/sh\nexit 3\n' > "$shim/gitleaks"
+chmod +x "$shim/gitleaks"
+echo "CASE_ERROR_PROBE: nothing secret here" > "$sandbox/error-probe.md"
+git -C "$sandbox" add error-probe.md
+set +e
+error_output="$(env -u HOOK_SKIP_GITLEAKS PATH="$shim:$PATH" git -C "$sandbox" commit -m "gitleaks error probe" 2>&1)"
+error_status=$?
+set -e
+if [[ $error_status -eq 0 ]]; then
+  echo "FAIL: hook did NOT fail-closed when gitleaks errored (exit 3)"
+  exit 1
+fi
+if ! grep -qi "fail-closed" <<<"$error_output"; then
+  echo "FAIL: gitleaks-error block message does not mention fail-closed"
+  exit 1
+fi
+git -C "$sandbox" restore --staged error-probe.md 2>/dev/null || true
+rm -f "$sandbox/error-probe.md" "$shim/gitleaks" && rmdir "$shim"
+
+# ─── gitleaks-only detector (npm_ token): gitleaks layer proven on its own ────
+# npm_ is NOT in the hook regex list: if this case is blocked, it can only be
+# by gitleaks. Skipped with a notice when gitleaks is not installed.
+if command -v gitleaks >/dev/null 2>&1; then
+  echo "CASE_NPM_ONLY: token=npm_AbCdEf1234567890AbCdEf1234567890AbCd" > "$sandbox/npm-only.md"
+  git -C "$sandbox" add npm-only.md
+  set +e
+  npm_output="$(env -u HOOK_SKIP_GITLEAKS git -C "$sandbox" commit -m "gitleaks-only detector" 2>&1)"
+  npm_status=$?
+  set -e
+  if [[ $npm_status -eq 0 ]]; then
+    echo "FAIL: gitleaks did NOT catch the npm_ token (gitleaks-only case)"
+    exit 1
+  fi
+  git -C "$sandbox" restore --staged npm-only.md 2>/dev/null || true
+  rm -f "$sandbox/npm-only.md"
+  gitleaks_validated="gitleaks-only case blocked"
+else
+  gitleaks_validated="gitleaks-only case SKIPPED (gitleaks not installed)"
+fi
+
+# ─── Mutation test: the suite must detect a silenced pattern ──────────────────
+# Copy the hook, delete the glpat pattern, run a glpat fixture through the
+# mutated hook: it must NOT block. This proves the suite would catch a pattern
+# regression (a silent detection loss) instead of green-lighting it.
+mutated_dir="$(mktemp -d)"
+sed '/glpat-\[A-Za-z0-9_-\]{20}/d' "$HOOK" > "$mutated_dir/pre-commit"
+chmod +x "$mutated_dir/pre-commit"
+glpat_mutated="glpat-MutAtEd1234567890Ab"
+echo "CASE_MUTATION: token=$glpat_mutated" > "$sandbox/mutation-probe.md"
+git -C "$sandbox" add mutation-probe.md
+set +e
+mutation_output="$(HOOK_SKIP_GITLEAKS=1 git -C "$sandbox" -c core.hooksPath="$mutated_dir" commit -m "mutation probe" 2>&1)"
+mutation_status=$?
+set -e
+if [[ $mutation_status -ne 0 ]]; then
+  echo "FAIL: mutation test inconclusive — mutated hook still blocked (suite insensitive to pattern removal?)"
+  echo "$mutation_output" | sed 's/^/  /'
+  exit 1
+fi
+git -C "$sandbox" restore --staged mutation-probe.md 2>/dev/null || true
+rm -f "$sandbox/mutation-probe.md" "$mutated_dir/pre-commit" && rmdir "$mutated_dir"
+
+echo "OK: pre-commit hook patterns validated (${#CASES[@]} positive cases blocked, negatives pass, rename bypass blocked, index≠worktree blocked, gitleaks fail-closed ×2, $gitleaks_validated, mutation detected)"

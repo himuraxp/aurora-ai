@@ -116,7 +116,7 @@ Utilisation : injecter `mapping.json` dans les délégations Designer/revues UI 
 
 ### Fichier Figma personnalisé
 
-Par défaut, le CLI utilise le fichier `J09Rdl0amcTh5VetJmnUL5` (Manager Design System).
+Par défaut, le CLI utilise le fichier `<file-key>` (Manager Design System).
 
 Pour utiliser un autre fichier :
 
@@ -212,7 +212,7 @@ Le repo de snapshots contient :
 
 ```json
 {
-  "file_key": "J09Rdl0amcTh5VetJmnUL5",
+  "file_key": "<file-key>",
   "file_name": "Manager Design System",
   "lastModified": "2026-08-31T08:35:32Z",
   "version": "2393807010337623540",
@@ -240,7 +240,7 @@ Le CHANGELOG est généré automatiquement à chaque sync. Exemple :
 ```markdown
 ## Sync du 2026-09-03
 
-**Fichier**: Manager Design System (J09Rdl0amcTh5VetJmnUL5)
+**Fichier**: Manager Design System (<file-key>)
 **Dernière modification**: 2026-08-31T08:47:36Z
 **Variables**: ✗ (Token missing variables scope)
 

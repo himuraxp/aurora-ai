@@ -19,29 +19,39 @@ set -euo pipefail
 
 # Patterns that indicate potential secrets
 # NOTE: use [[:space:]] instead of \s for BSD grep (macOS) compatibility
+# NOTE: patterns are evaluated with `grep -E` (ERE). Do NOT use BRE escapes
+#       (\+, \{n\}) — they are LITERAL characters in ERE and silently disable
+#       the pattern (audited 2026-10-09). Every pattern here is validated by
+#       scripts/hooks/test-pre-commit-patterns.sh (run in health-check).
+# NOTE: name-assignment patterns require a value-looking prefix (["']?[A-Za-z0-9])
+#       so that prose like `export GITLAB_TOKEN="$(...)"` or empty placeholders
+#       in .env.example do not trigger false positives.
 PATTERNS=(
-  'OPENAI_API_KEY[A-Za-z_]*=[A-Za-z0-9]'
-  'Bearer[[:space:]]\+[A-Za-z0-9._-]\{20,\}'
+  '(^|[^A-Za-z0-9_])OPENAI_API_KEY[A-Za-z_]*=[A-Za-z0-9]'
+  'Bearer[[:space:]]+[A-Za-z0-9._-]{20,}'
   '-----BEGIN[A-Z ]*PRIVATE KEY-----'
   'password[[:space:]]*[:=][[:space:]]*[A-Za-z0-9]'
   'passwd[[:space:]]*[:=][[:space:]]*[A-Za-z0-9]'
   'pwd[[:space:]]*[:=][[:space:]]*[A-Za-z0-9]'
-  'mongodb://[^:]\+:[^@]\+@'
-  'postgresql://[^:]\+:[^@]\+@'
-  'mysql://[^:]\+:[^@]\+@'
-  'redis://[^:]\+:[^@]\+@'
-  'xox[baprs]-[A-Za-z0-9-]'                      # Slack tokens
-  'gh[pu]_[A-Za-z0-9]\{36\}'                    # GitHub tokens
-  'AKIA[A-Z0-9]\{16\}'                           # AWS access keys
-  'glpat-[A-Za-z0-9_-]\{20\}'                   # GitLab PAT
-  'figd_[A-Za-z0-9._-]\{16,\}'                  # Figma personal access token
-  'INFOMANIAK_API_TOKEN[[:space:]]*[:=]'        # Infomaniak API token assignment
-  'FIGMA_TOKEN[[:space:]]*[:=]'                 # Figma token assignment
-  'AIza[0-9A-Za-z_-]\{35\}'                     # Google API keys
-  'sk_live_[A-Za-z0-9]\{24,\}'                  # Stripe secret keys
-  'sk-proj-[A-Za-z0-9_-]\{20,\}'                # OpenAI project keys (bare)
-  'sk-ant-[A-Za-z0-9_-]\{20,\}'                 # Anthropic keys (bare)
-  'pk\.[a-z0-9]\{1,12\}\.[A-Za-z0-9]\{20,\}'    # Infomaniak app tokens (bare)
+  'mongodb://[^:]+:[^@]+@'
+  'postgresql://[^:]+:[^@]+@'
+  'mysql://[^:]+:[^@]+@'
+  'redis://[^:]+:[^@]+@'
+  'xox[baprs]-[A-Za-z0-9-]'                            # Slack tokens
+  'gh[pu]_[A-Za-z0-9]{36}'                             # GitHub tokens
+  'AKIA[A-Z0-9]{16}'                                   # AWS access keys
+  'glpat-[A-Za-z0-9_-]{20}'                            # GitLab PAT
+  'PAT[A-Za-z0-9_.-]{10,}\.01\.'                       # GitLab internal PAT format
+  'figd_[A-Za-z0-9._-]{16,}'                           # Figma personal access token
+  '(^|[^A-Za-z0-9_])INFOMANIAK_API_TOKEN[[:space:]]*[:=][[:space:]]*["'"'"']?[A-Za-z0-9]'         # Infomaniak API token assignment
+  '(^|[^A-Za-z0-9_])INFOMANIAK_PREPROD_API_TOKEN[[:space:]]*[:=][[:space:]]*["'"'"']?[A-Za-z0-9]' # Infomaniak preprod token assignment
+  '(^|[^A-Za-z0-9_])FIGMA_TOKEN[[:space:]]*[:=][[:space:]]*["'"'"']?[A-Za-z0-9]'                  # Figma token assignment
+  '(^|[^A-Za-z0-9_])GITLAB_TOKEN[[:space:]]*[:=][[:space:]]*["'"'"']?[A-Za-z0-9]'                 # GitLab token assignment
+  'AIza[0-9A-Za-z_-]{35}'                              # Google API keys
+  'sk_live_[A-Za-z0-9]{24,}'                           # Stripe secret keys
+  'sk-proj-[A-Za-z0-9_-]{20,}'                         # OpenAI project keys (bare)
+  'sk-ant-[A-Za-z0-9_-]{20,}'                          # Anthropic keys (bare)
+  'pk\.[a-z0-9]{1,12}\.[A-Za-z0-9]{20,}'               # Infomaniak app tokens (bare)
   'eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*'  # JWT tokens
 )
 
@@ -56,6 +66,7 @@ SKIP_FILES=(
   yarn.lock
   pnpm-lock.yaml
   .env.example
+  test-pre-commit-patterns.sh   # fixture suite: contains sample secret SHAPES by design
 )
 
 # Get staged files
@@ -65,7 +76,11 @@ fi
 
 # Optional deep scan: gitleaks (if installed) covers far more detectors than the
 # regex list below. Absent tool → skip silently (hook stays dependency-free).
-if command -v gitleaks >/dev/null 2>&1; then
+# HOOK_SKIP_GITLEAKS=1 forces regex-only mode (used by the fixture suite to keep
+# results deterministic regardless of whether gitleaks is installed).
+if [[ "${HOOK_SKIP_GITLEAKS:-0}" == "1" ]]; then
+  echo "pre-commit: gitleaks deep scan skipped (HOOK_SKIP_GITLEAKS=1)"
+elif command -v gitleaks >/dev/null 2>&1; then
   echo "pre-commit: gitleaks deep scan on staged changes…"
   if ! gitleaks protect --staged --redact -v; then
     echo ""
@@ -116,7 +131,7 @@ while IFS= read -r -d '' file; do
       found_secrets=$((found_secrets + 1))
     fi
   done
-done < <(git diff --cached --name-only --diff-filter=ACM -z 2>/dev/null || true)
+done < <(git diff --cached --name-only --diff-filter=ACMR -z 2>/dev/null || true)
 
 if [[ $found_secrets -gt 0 ]]; then
   echo ""

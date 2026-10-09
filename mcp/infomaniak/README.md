@@ -65,7 +65,7 @@ Add to `opencode.json`:
 Set the token in `~/.config/opencode/.env`:
 
 ```
-INFOMANIAK_API_TOKEN=your-token-here
+INFOMANIAK_API_TOKEN=
 ```
 
 Or run `setup.sh` which collects it interactively.

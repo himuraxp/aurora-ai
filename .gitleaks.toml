@@ -1,0 +1,9 @@
+# gitleaks configuration — https://github.com/gitleaks/gitleaks
+# Loaded automatically by `gitleaks protect` from the repo root.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Hook fixture suite contains sample secret SHAPES by design (regex-layer e2e test)"
+paths = ['''(^|/)scripts/hooks/test-pre-commit-patterns\.sh$''']

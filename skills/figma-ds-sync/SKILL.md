@@ -297,7 +297,7 @@ Pas nativement, mais vous pouvez utiliser un cron (le CLI ne suspend jamais : fa
 echo $FIGMA_TOKEN
 
 # Ou ajouter dans ~/.config/opencode/.env
-echo "FIGMA_TOKEN=figd_..." >> ~/.config/opencode/.env
+echo "FIGMA_TOKEN=<your-figma-token>" >> ~/.config/opencode/.env
 ```
 
 ### Erreur "403 Invalid scope(s)" sur les variables

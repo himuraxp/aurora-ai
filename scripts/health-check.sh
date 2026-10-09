@@ -325,6 +325,19 @@ else
   WARNINGS=$((WARNINGS + 1))
 fi
 
+# Fixture suite: end-to-end validation of the hook patterns (regex layer;
+# gitleaks skipped via HOOK_SKIP_GITLEAKS=1 for determinism).
+if [[ -x "$ROOT_DIR/scripts/hooks/test-pre-commit-patterns.sh" ]]; then
+  if HOOK_SKIP_GITLEAKS=1 "$ROOT_DIR/scripts/hooks/test-pre-commit-patterns.sh" > /tmp/hook-fixture-suite.log 2>&1; then
+    ok "pre-commit pattern fixture suite passed"
+  else
+    fail "pre-commit pattern fixture suite FAILED — see /tmp/hook-fixture-suite.log"
+  fi
+else
+  warn "test-pre-commit-patterns.sh missing — hook patterns unvalidated"
+  WARNINGS=$((WARNINGS + 1))
+fi
+
 # ─── Summary ─────────────────────────────────────────────────────────────────
 
 echo ""

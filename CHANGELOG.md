@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-10-09
+
+- Hook pre-commit secrets : patterns ERE morts réparés (échap. BRE `\+`/`\{n\}` = littéraux en ERE), ajout des assignments `GITLAB_TOKEN=`/`INFOMANIAK_PREPROD_API_TOKEN=` (ancrés, préfixe de valeur), format PAT GitLab interne `PAT….01.…`, scan des fichiers renommés (`--diff-filter=ACMR`)
+- Nouvelle suite e2e `scripts/hooks/test-pre-commit-patterns.sh` (sandbox : 26 cas positifs bloqués, négatifs passent, bypass par renommage couvert) branchée dans `scripts/health-check.sh`
+- gitleaks intégré au pre-commit (deep scan) + `.gitleaks.toml` (allowlist de la suite de fixtures)
+- MCP angular-elements : endpoints GitLab internes + project id déplacés vers la configuration `ANGULAR_ELEMENTS_*` (plus aucune valeur interne en dur dans le repo public) ; `ANGULAR_ELEMENTS_REF` optionnel
+- Skills : exemples GitLab internes anonymisés (deployment-changelog, mr-review)
+
 ## 2026-09-09
 
 - Migration du stockage de la clé API Infomaniak : OpenCode ne charge pas les `.env` → la clé vit désormais dans le shell rc de l'utilisateur (`~/.zshrc`, bloc managé idempotent par `setup.sh`), lue via `{env:OPENAI_API_KEY_INFOMANIAK}` (correction 401 sur installation fraîche)

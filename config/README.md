@@ -53,6 +53,10 @@ read only the shell environment. Hence the model:
 |----------|-------------|
 | `INFOMANIAK_API_TOKEN` | Infomaniak API token (infomaniak MCP — `.env` fallback in its code) |
 | `GITLAB_TOKEN` | GitLab token (angular-elements MCP — `.env` fallback in its code) |
+| `ANGULAR_ELEMENTS_GITLAB_API` | GitLab API base for the angular-elements MCP (e.g. `https://gitlab.example.com/api/v4`) |
+| `ANGULAR_ELEMENTS_PROJECT_ID` | Numeric GitLab project id hosting the design system sources |
+| `ANGULAR_ELEMENTS_STORYBOOK_BASE` | Base URL exposing the built Storybook `index.json` |
+| `ANGULAR_ELEMENTS_REF` | Optional Git ref for the angular-elements MCP (default `master`) |
 | `FIGMA_TOKEN` | Figma token (figma-ds) |
 
 The Infomaniak API endpoints (standard + B300) are defined directly in `opencode.json`

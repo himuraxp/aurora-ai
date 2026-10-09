@@ -30,11 +30,11 @@ If `glab` is not authenticated, stop and ask the user to run `glab auth login`.
 
 The user provides a GitLab MR URL or an MR number. Extract:
 
-- **Project**: `infomaniak/media/site-manager` (or from URL)
+- **Project**: `acme-group/acme-app` (or from URL)
 - **MR IID**: from URL or argument
 
 ```bash
-# If URL: https://gitlab.infomaniak.ch/infomaniak/media/site-manager/-/merge_requests/466
+# If URL: https://gitlab.example.com/acme-group/acme-app/-/merge_requests/123
 # Extract project and IID
 ```
 

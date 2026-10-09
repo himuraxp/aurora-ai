@@ -13,19 +13,19 @@ Génère un changelog de déploiement au format spécifié pour les commits sur 
 
 Format obligatoire:
 ```markdown
-[Site Manager] Deploying updates - 1.6.51
+[Acme App] Deploying updates - 1.6.51
 
 ---
 
-#### [1.6.51](https://gitlab.infomaniak.ch/infomaniak/media/site-manager/-/compare/1.6.50...1.6.51) (2026-03-31)
+#### [1.6.51](https://gitlab.example.com/acme-group/acme-app/-/compare/1.6.50...1.6.51) (2026-03-31)
 
 #### Features
 
-* Added a separate AirPlay player option for player configuration and playback management ([491207c8](https://gitlab.infomaniak.ch/infomaniak/media/site-manager/-/commit/491207c8))
+* Added a separate AirPlay player option for player configuration and playback management ([fa1ce01](https://gitlab.example.com/acme-group/acme-app/-/commit/fa1ce01))
 
 #### Bug Fixes
 
-* Updated generated translations to reflect the latest player and interface changes ([4a279094](https://gitlab.infomaniak.ch/infomaniak/media/site-manager/-/commit/4a279094))
+* Updated generated translations to reflect the latest player and interface changes ([cafe012](https://gitlab.example.com/acme-group/acme-app/-/commit/cafe012))
 ```
 
 ## Processus

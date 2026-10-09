@@ -17,8 +17,8 @@ src/
 
 | Source | URL | Usage |
 |--------|-----|-------|
-| GitLab API | `https://gitlab.infomaniak.ch/api/v4/projects/3760` | Component source files (`.component.ts`, `Docs.mdx`, `package.json`, `CHANGELOG.md`) |
-| Storybook index | `https://infomaniak.pages.infomaniak.com/front/angular-elements/index.json` | Component catalog, story entries, docs entries |
+| GitLab API | `$ANGULAR_ELEMENTS_GITLAB_API/projects/$ANGULAR_ELEMENTS_PROJECT_ID` | Component source files (`.component.ts`, `Docs.mdx`, `package.json`, `CHANGELOG.md`) |
+| Storybook index | `$ANGULAR_ELEMENTS_STORYBOOK_BASE/index.json` | Component catalog, story entries, docs entries |
 
 All API responses are cached in-memory for 1 hour (TTL: 3600s).
 
@@ -41,15 +41,20 @@ All API responses are cached in-memory for 1 hour (TTL: 3600s).
 
 ## Configuration
 
-### Environment variable
+Every setting is resolved in this order:
 
-```bash
-GITLAB_TOKEN=your_gitlab_token
-```
+1. The process environment — including values injected by the MCP `env` config in `config/opencode.json` (`{env:VAR}` interpolation)
+2. `~/.config/opencode/.env` (read directly by the client)
 
-The token is resolved in this order:
-1. `GITLAB_TOKEN` environment variable
-2. `~/.config/opencode/.env` file (`GITLAB_TOKEN=...` line)
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GITLAB_TOKEN` | ✅ | GitLab private token — create one at `https://<your-gitlab-host>/-/profile/personal_access_tokens` |
+| `ANGULAR_ELEMENTS_GITLAB_API` | ✅ | GitLab API base, e.g. `https://gitlab.example.com/api/v4` |
+| `ANGULAR_ELEMENTS_PROJECT_ID` | ✅ | Numeric id of the GitLab project hosting the design system sources |
+| `ANGULAR_ELEMENTS_STORYBOOK_BASE` | ✅ | Base URL exposing the built Storybook `index.json` |
+| `ANGULAR_ELEMENTS_REF` | — | Git ref to read (default: `master`) |
+
+Missing required variables fail with an explicit error listing the variable name.
 
 ### OpenCode config
 

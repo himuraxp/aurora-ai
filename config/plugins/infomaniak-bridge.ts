@@ -1,4 +1,3 @@
-import { type Plugin, tool } from "@opencode-ai/plugin"
 import { readFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
@@ -20,6 +19,9 @@ import { join } from "node:path"
  *   surface (named tools + generic GET). This bridge must not become a
  *   general-purpose bypass for non-orchestrator agents.
  * - Audit trail: one JSON line per attempt (who/when/what) — no payloads.
+ *
+ * OpenCode v2 plugin format: default export { id, setup }; the tool is
+ * registered via ctx.tool.transform(draft.add(...)).
  */
 
 const ORCHESTRATOR_AGENTS = new Set(["aurora", "orchestrator"])
@@ -48,10 +50,47 @@ function resolveToken(): string {
   throw new Error("infomaniak_api_call: INFOMANIAK_API_TOKEN not resolvable (env or ~/.config/opencode/.env)")
 }
 
-export const InfomaniakBridgePlugin: Plugin = async () => {
-  return {
-    tool: {
-      infomaniak_api_call: tool({
+/** Minimal structural types for the OpenCode v2 plugin context (types are
+ * stripped by the runtime; they document the contract used here). */
+type V2ToolExecuteContext = {
+  sessionID?: string
+  messageID?: string
+  agent?: string
+}
+
+type V2ToolDef = {
+  name: string
+  description: string
+  /** JSON Schema for the tool input. */
+  input: Record<string, unknown>
+  options?: Record<string, unknown>
+  execute: (
+    input: {
+      method: "POST" | "PUT" | "PATCH" | "DELETE"
+      path: string
+      body?: Record<string, unknown>
+      params?: Record<string, unknown>
+    },
+    context: V2ToolExecuteContext,
+  ) => Promise<{ content: string }>
+}
+
+type V2ToolDraft = {
+  add: (def: V2ToolDef) => void
+}
+
+type V2SetupContext = {
+  tool: {
+    transform: (callback: (draft: V2ToolDraft) => void) => Promise<{ dispose: () => void }>
+  }
+}
+
+const infomaniakBridgePlugin = {
+  id: "infomaniak-bridge",
+  setup: async (ctx: V2SetupContext) => {
+    const registration = await ctx.tool.transform((draft) => {
+      draft.add({
+        name: "infomaniak_api_call",
         description: `Call any Infomaniak API endpoint with a MUTATING method (orchestrator-only write bridge). Use this for POST/PUT/PATCH/DELETE on api.infomaniak.com — the global infomaniak MCP tools are read-only.
 
 Reads (GET) are refused here: use the global infomaniak_* read tools or the generic GET tool instead.
@@ -60,23 +99,34 @@ Discipline:
 - Writes are real, irreversible product mutations (DNS, newsletters, VOD, radio, accounts). Prefer a dedicated infomaniak_* tool when one exists; fall back to this bridge only for endpoints without a named tool.
 - Confirm destructive intent with the user before delete/bulk operations.
 - Capability agents cannot call this tool: route the need through aurora.`,
-        args: {
-          method: tool.schema
-            .enum(["POST", "PUT", "PATCH", "DELETE"])
-            .describe("HTTP method — mutating methods only (GET is refused: use the read-only MCP tools)"),
-          path: tool.schema
-            .string()
-            .describe('API path starting with /, e.g. /2/vod/{product_id}/channels/{channel_id}/chapters'),
-          body: tool.schema
-            .record(tool.schema.string(), tool.schema.unknown())
-            .optional()
-            .describe("Request body (for POST/PUT/PATCH)"),
-          params: tool.schema
-            .record(tool.schema.string(), tool.schema.unknown())
-            .optional()
-            .describe("Query parameters"),
+        input: {
+          type: "object",
+          properties: {
+            method: {
+              type: "string",
+              enum: ["POST", "PUT", "PATCH", "DELETE"],
+              description: "HTTP method — mutating methods only (GET is refused: use the read-only MCP tools)",
+            },
+            path: {
+              type: "string",
+              description: "API path starting with /, e.g. /2/vod/{product_id}/channels/{channel_id}/chapters",
+            },
+            body: {
+              type: "object",
+              additionalProperties: true,
+              description: "Request body (for POST/PUT/PATCH)",
+            },
+            params: {
+              type: "object",
+              additionalProperties: true,
+              description: "Query parameters",
+            },
+          },
+          required: ["method", "path"],
         },
-        async execute(args, context) {
+        options: { codemode: false },
+        async execute(rawArgs, context) {
+          const args = rawArgs ?? {}
           const agent = String(context?.agent ?? "")
           const started = Date.now()
           const audit = (result: "allow" | "deny" | "error", extra?: Record<string, unknown>) => {
@@ -126,20 +176,29 @@ Discipline:
               body: args.body && args.method !== "GET" ? JSON.stringify(args.body) : undefined,
               signal: controller.signal,
             })
-            clearTimeout(timer)
-            const json = (await response.json()) as InfomaniakResponse
+            // Timeout covers headers AND body streaming (review 2026-10-12);
+            // finally guarantees the clear even on a parse failure.
+            let json: InfomaniakResponse
+            try {
+              json = (await response.json()) as InfomaniakResponse
+            } finally {
+              clearTimeout(timer)
+            }
             if (json.result === "error") {
               audit("error", { apiCode: json.error?.code })
               throw new Error(`Infomaniak API error [${json.error?.code ?? "unknown"}]: ${json.error?.description ?? "Unknown error"}`)
             }
             audit("allow")
-            return JSON.stringify(json, null, 2)
+            return { content: JSON.stringify(json, null, 2) }
           } catch (err) {
             audit("error", { error: err instanceof Error ? err.message : String(err) })
             throw err
           }
         },
-      }),
-    },
-  }
+      })
+    })
+    return () => registration.dispose()
+  },
 }
+
+export default infomaniakBridgePlugin

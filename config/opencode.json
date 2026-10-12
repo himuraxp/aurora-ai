@@ -796,7 +796,7 @@
     }
   },
   "plugin": [
-    "oh-my-opencode-slim@2.2.15"
+    "oh-my-opencode-slim@3.0.4"
   ],
   "mcp": {
     "context7": {

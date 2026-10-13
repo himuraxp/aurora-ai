@@ -11,6 +11,7 @@ set -euo pipefail
 #   5. No orphan files in installed config vs repo source
 #   6. No broken standard references in agent files
 #   7. Git hooks enabled (pre-commit secret scan)
+#   8. Technical Council agents (council-* read-only) + council skill
 #
 # Usage: ./scripts/health-check.sh [--installed] [--quiet]
 #   --installed  Also check ~/.config/opencode/ for orphans
@@ -336,6 +337,68 @@ if [[ -x "$ROOT_DIR/scripts/hooks/test-pre-commit-patterns.sh" ]]; then
 else
   warn "test-pre-commit-patterns.sh missing — hook patterns unvalidated"
   WARNINGS=$((WARNINGS + 1))
+fi
+
+# ─── 6. Technical Council agents ─────────────────────────────────────────────
+# 3 seats read-only + synthesizer: file must exist, YAML-valid frontmatter, a
+# model, and deny edit/write/bash/ast_grep_replace (read-only structurel) —
+# skill skills/council depends on them.
+
+COUNCIL_AGENTS=(council-architect council-skeptic council-guardian council-synthesizer)
+COUNCIL_MODELS=(
+  "infomaniak/euria-code"
+  "infomaniak/moonshotai/Kimi-K2.6"
+  "infomaniak/Qwen/Qwen3.5-397B-A17B-FP8"
+  "infomaniak/euria-code-tiny"
+)
+
+# YAML validation of ALL agent frontmatters (catches the unquoted-colon trap —
+# sage.md 2026-10-06, council-synthesizer.md 2026-10-13 — that grep checks miss).
+YAML_ERRORS=0
+for f in "$ROOT_DIR"/agents/*.md; do
+  [[ "$(basename "$f")" == "README.md" ]] && continue
+  if ! ruby -ryaml -e "YAML.safe_load(File.read(ARGV[0]).split(/^---\n/)[1], permitted_classes: [], aliases: false)" "$f" 2>/dev/null; then
+    fail "agent frontmatter YAML invalid: $(basename "$f") (unquoted ':' trap?)"
+    YAML_ERRORS=$((YAML_ERRORS + 1))
+  fi
+done
+if [[ $YAML_ERRORS -eq 0 ]]; then
+  ok "all agents/*.md frontmatter YAML valid"
+fi
+
+for i in "${!COUNCIL_AGENTS[@]}"; do
+  AG="${COUNCIL_AGENTS[$i]}"
+  AGF="$ROOT_DIR/agents/${AG}.md"
+  if [[ ! -f "$AGF" ]]; then
+    fail "council agent $AG missing (skills/council broken)"
+    continue
+  fi
+  if ! grep -Eq "^model: ${COUNCIL_MODELS[$i]}\$" "$AGF"; then
+    fail "council agent $AG: model '${COUNCIL_MODELS[$i]}' not found in frontmatter (plugin skips agents without valid model)"
+  fi
+  for KEY in edit write bash ast_grep_replace; do
+    if ! grep -Eq "^  ${KEY}: deny\$" "$AGF"; then
+      fail "council agent $AG: read-only invariant broken (${KEY}: deny missing)"
+    fi
+  done
+  ok "council agent $AG present, model + read-only verified"
+done
+# Synthesizer contract: NO tool at all (pure synthesis)
+SYNF="$ROOT_DIR/agents/council-synthesizer.md"
+if [[ -f "$SYNF" ]]; then
+  for KEY in read glob grep; do
+    if ! grep -Eq "^  ${KEY}: deny\$" "$SYNF"; then
+      fail "council-synthesizer: no-tools contract broken (${KEY}: deny missing)"
+    fi
+  done
+  ok "council-synthesizer no-tools contract verified"
+fi
+if [[ -f "$ROOT_DIR/skills/council/SKILL.md" ]]; then
+  grep -q '^name: council' "$ROOT_DIR/skills/council/SKILL.md" \
+    && ok "council skill present" \
+    || fail "council skill frontmatter invalid (name: council missing)"
+else
+  fail "skills/council/SKILL.md missing"
 fi
 
 # ─── Summary ─────────────────────────────────────────────────────────────────

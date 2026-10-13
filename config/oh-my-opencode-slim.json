@@ -134,5 +134,6 @@
       "model": "infomaniak/euria-code",
       "orchestratorPrompt": "Delegate to @cybersec for offensive security operations: penetration testing, exploit development, Red Team operations, reconnaissance, initial access, privilege escalation, lateral movement, defense evasion, exfiltration. Can run security tools and scripts. Not for defensive audits (use security)."
     }
-  }
+  },
+  "disabled_hooks": ["council-inject"]
 }

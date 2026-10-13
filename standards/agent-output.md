@@ -216,7 +216,6 @@ Quand Aurora reçoit plusieurs retours d'agents (délégation parallèle), elle 
 ## Compatibilité avec les formats existants
 
 Les agents qui ont déjà une section `## Output expectations` conservent leurs conventions métier (sévérité, niveaux de confiance, etc.). Le schéma JSON est une **couche de transport** qui encapsule ces conventions :
-
 | Format agent | Mapping vers le schéma |
 |---------------|----------------------|
 | Atlas : Finding / Impact / Recommendation / Priority / Expected outcome | `findings[].title` / `findings[].description` / `findings[].recommendation` / `findings[].severity` / `findings[].expected_outcome` |
@@ -235,3 +234,12 @@ Les agents qui ont déjà une section `## Output expectations` conservent leurs 
 | Vision : Description d'image / UI / diagramme | `summary` (synthèse visuelle) + `findings[]` (category=code pour UI, tags=["visual"]) + `metadata.sources` (référence image) |
 | Designer : Composant / États / Accessibilité / Tokens | `findings[]` (category=accessibility) / `findings[].recommendation` / `metadata.scope` (UX/UI/DA/DS) |
 | Mobile : Performance / Code mobile | `findings[]` (category=performance, files[]) / `findings[].recommendation` / `metadata.scope` (iOS/Android/RN/Flutter) |
+
+## Extensions Council (skills/council)
+
+Deux écarts au schéma de base, **délibérés et standardisés** pour les agents `council-*` (délégation via `skills/council/SKILL.md`) :
+
+1. **`missing_context_or_framing_bias`** — champ top-level (string) obligatoire dans les retours des sièges `council-architect` / `council-skeptic` / `council-guardian`. Signale un angle mort du brief ou un cadrage orienté ; valeur `"none"` si le cadrage est neutre et complet. Il s'ajoute au schéma sans remplacer aucun champ standard.
+2. **Synthétiseur en markdown** — `council-synthesizer` retourne un rapport markdown structuré (Council Response / Per-Seat Details / Council Summary) et **non** un bloc JSON : c'est l'exception unique à la règle « bloc JSON obligatoire ». Justification : il n'a aucun outil et son contrat de sortie est intégralement spécifié dans son prompt système ; la consolidation Aurora le traite comme un document, pas comme un set de findings.
+
+Les identités `agent` des sièges sont `council-architect`, `council-skeptic`, `council-guardian` (jamais `architect`/`skeptic`/`guardian` seuls — collision avec les agents généraux existants).

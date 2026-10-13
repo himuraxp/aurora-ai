@@ -39,6 +39,17 @@ Specialized OpenCode personalities. Each `.md` file defines an agent with its ro
 | `echo` | Mistral-Small-4 | Social distribution — LinkedIn, Instagram, X, TikTok, Reddit |
 | `beacon` | Mistral-Small-4 | Analytics — GSC, GA4, PageSpeed, rank tracking, conversion |
 
+### Technical Council
+
+Deliberation seats orchestrated by the `council` skill — **read-only by runtime permissions**, one distinct model each. Not general-purpose delegation targets: invoked only by the council protocol.
+
+| Agent | Model | Mandate |
+|-------|-------|---------|
+| `council-architect` | euria-code | Architectural coherence, codebase integration, scalability, maintainability |
+| `council-skeptic` | Kimi-K2.6 | Simplicity-first (KISS/YAGNI), hidden complexity, fragile assumptions — may conclude a solution is sound |
+| `council-guardian` | Qwen 3.5-397B | Security, failure modes, regressions, testability — material evidence-backed risks only |
+| `council-synthesizer` | euria-code-tiny | Consolidates raw seat analyses into the Council report — no tools at all, does not decide |
+
 ## Collaboration architecture
 
 ```

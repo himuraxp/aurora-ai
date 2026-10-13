@@ -12,6 +12,7 @@ set -euo pipefail
 #   6. No broken standard references in agent files
 #   7. Git hooks enabled (pre-commit secret scan)
 #   8. Technical Council agents (council-* read-only) + council skill
+#   9. Cross-Functional Meeting skill (/meeting + agents cibles du catalogue)
 #
 # Usage: ./scripts/health-check.sh [--installed] [--quiet]
 #   --installed  Also check ~/.config/opencode/ for orphans
@@ -399,6 +400,40 @@ if [[ -f "$ROOT_DIR/skills/council/SKILL.md" ]]; then
     || fail "council skill frontmatter invalid (name: council missing)"
 else
   fail "skills/council/SKILL.md missing"
+fi
+
+# ─── 7. Cross-Functional Meeting skill ───────────────────────────────────────
+# /meeting réutilise les agents exécuteurs existants (pas d'agents dédiés),
+# maintenus read-only par la clause de framing obligatoire du skill (pas par
+# les permissions — certains exécuteurs ont edit: allow en usage normal).
+# Vérifier le skill, la présence des agents cibles du catalogue et l'ancrage
+# de la clause read-only dans le protocole.
+
+MEETING_TARGETS=(architect designer tester security mobile reviewer)
+if [[ -f "$ROOT_DIR/skills/meeting/SKILL.md" ]]; then
+  if grep -q '^name: meeting' "$ROOT_DIR/skills/meeting/SKILL.md"; then
+    ok "meeting skill present"
+    for AG in "${MEETING_TARGETS[@]}"; do
+      [[ -f "$ROOT_DIR/agents/${AG}.md" ]] \
+        && ok "meeting target agent $AG present" \
+        || fail "meeting target agent $AG missing (skills/meeting catalogue broken)"
+    done
+    grep -q 'schema_version: meeting-handoff.v1' "$ROOT_DIR/skills/meeting/SKILL.md" \
+      && ok "meeting handoff contract versioned (meeting-handoff.v1)" \
+      || fail "meeting handoff contract missing (schema_version: meeting-handoff.v1)"
+    # Read-only du meeting = clause de framing OBLIGATOIRE dans les 2 templates
+    # (dispatch Round 0 + re-prompt Round 1) — pas une garantie de permissions.
+    [[ $(grep -c 'MODE MEETING READ-ONLY' "$ROOT_DIR/skills/meeting/SKILL.md") -ge 2 ]] \
+      && ok "meeting read-only framing clause present in both dispatch templates" \
+      || fail "meeting read-only framing clause missing (dispatch templates must carry 'MODE MEETING READ-ONLY')"
+    ruby -ryaml -e "YAML.safe_load(File.read('$ROOT_DIR/skills/meeting/SKILL.md').split(/^---\n/)[1], permitted_classes: [], aliases: false)" \
+      && ok "meeting skill frontmatter valid YAML" \
+      || fail "meeting skill frontmatter invalid YAML"
+  else
+    fail "meeting skill frontmatter invalid (name: meeting missing)"
+  fi
+else
+  fail "skills/meeting/SKILL.md missing"
 fi
 
 # ─── Summary ─────────────────────────────────────────────────────────────────

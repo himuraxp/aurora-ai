@@ -274,10 +274,15 @@ A team specialized in UX/UI, Mobile, Security, Architecture, Testing, Execution,
 | "Where is service X defined?" | Explorer |
 | "How do I use X's API?" | Librarian |
 | "/council" — "convene the council" — "technical deliberation" | Aurora (skill `council` — read-only seats `council-*`, Decision Gate) |
+| "/meeting" — "réunion multi-métiers" — "sécuriser la tâche avant de commencer" | Aurora (skill `meeting` — profils métiers dynamiques sur agents read-only, Handoff Contract, verdict READY/CONDITIONAL/BLOCKED) |
 
 ### Technical Council
 
 3 read-only deliberation seats (`council-architect`/euria-code, `council-skeptic`/Kimi-K2.6, `council-guardian`/Qwen3.5-397B) + 1 no-tools synthesizer (`council-synthesizer`), orchestrated by the `council` skill. Read-only enforced by runtime permissions; `DECISIONS.md` is only written on explicit user ratification. See `skills/council/SKILL.md`.
+
+### Cross-Functional Meeting
+
+Pre-implementation multi-trade gate orchestrated by the `meeting` skill — **no dedicated agents**: lightweight trade profiles (`architecture`, `backend/api`, `frontend`, `ux`, `qa`, `security`, `mobile`, `product-analyst` non-decisional) are injected into the dispatch prompt of existing agents, held **read-only by the mandatory meeting framing clause** (not by agent permissions — some executors like designer/tester/mobile normally have write access). Cross-questions are routed and batched by recipient (`sessionID` resume); output = Meeting Record + `meeting-handoff.v1` with verdict `READY | CONDITIONAL | BLOCKED | UNDETERMINED` (plus internal `execution.status: COMPLETE | INCOMPLETE`; an incomplete meeting can never emit READY). No automatic repository writes; `/council` escalation is a proposal, never recursive. See `skills/meeting/SKILL.md`.
 
 ### Trigger keywords (automatic detection)
 

@@ -572,6 +572,34 @@ if [[ -f "$ROOT_DIR/scripts/test-product-authority.mjs" ]]; then
   fi
 fi
 
+# ─── 11. Task-workflow skill (orchestrateur Trello/GitLab) ──────────────────
+
+if [[ -f "$ROOT_DIR/skills/task-workflow/SKILL.md" ]]; then
+  grep -q '^name: task-workflow' "$ROOT_DIR/skills/task-workflow/SKILL.md" \
+    && ok "task-workflow skill present (frontmatter)" \
+    || fail "task-workflow frontmatter name missing or renamed"
+  grep -qi 'non fiable' "$ROOT_DIR/skills/task-workflow/SKILL.md" \
+    && ok "task-workflow untrusted task-content framing present" \
+    || fail "task-workflow missing the untrusted task-content framing rule"
+  grep -q 'pre-mr-review' "$ROOT_DIR/skills/task-workflow/SKILL.md" \
+    && grep -q 'create-mr' "$ROOT_DIR/skills/task-workflow/SKILL.md" \
+    && grep -q 'new-worktree' "$ROOT_DIR/skills/task-workflow/SKILL.md" \
+    && ok "task-workflow reuses new-worktree + pre-mr-review + create-mr" \
+    || fail "task-workflow must reference the reused skills (new-worktree, pre-mr-review, create-mr)"
+  grep -qi 'jamais de merge automatique\|jamais.*merge automatique' "$ROOT_DIR/skills/task-workflow/SKILL.md" \
+    && ok "task-workflow forbids automatic merge" \
+    || fail "task-workflow must explicitly forbid automatic merge"
+fi
+
+if [[ -f "$ROOT_DIR/skills/task-workflow/tw_state.py" ]]; then
+  ok "task-workflow state contract present (tw_state.py)"
+  if python3 -m unittest discover -s "$ROOT_DIR/skills/task-workflow/tests" >/dev/null 2>&1; then
+    ok "task-workflow state contract tests passed"
+  else
+    fail "task-workflow state contract tests FAILED"
+  fi
+fi
+
 # ─── Summary ─────────────────────────────────────────────────────────────────
 
 echo ""

@@ -410,7 +410,7 @@ fi
 # profondeur) + check git status (couche de détection).
 # Vérifier le skill, la présence des agents cibles, les variantes et l'anti-drift.
 
-MEETING_TARGETS=(architect security reviewer meeting-designer meeting-tester meeting-mobile)
+MEETING_TARGETS=(architect security reviewer meeting-designer meeting-tester meeting-mobile product-owner)
 if [[ -f "$ROOT_DIR/skills/meeting/SKILL.md" ]]; then
   if grep -q '^name: meeting' "$ROOT_DIR/skills/meeting/SKILL.md"; then
     ok "meeting skill present"
@@ -473,6 +473,104 @@ for AG in designer tester mobile; do
   fi
   [[ $_VAR_FAIL -eq 0 ]] && ok "meeting variant meeting-${AG} present, deny set + anti-drift verified"
 done
+
+# ─── 10. Product Authority (Standard v1.1 — Étape 3 MVP) ─────────────────────
+# Agent PO read-only structurel + skill orchestrator + plugin contrôleur +
+# registre privé + intégration meeting (profil + handoff additif) + standard.
+
+PA_STANDARD="$ROOT_DIR/standards/product-authority.md"
+PA_AGENT="$ROOT_DIR/agents/product-owner.md"
+PA_SKILL="$ROOT_DIR/skills/product-authority/SKILL.md"
+PA_PLUGIN="$ROOT_DIR/config/plugins/product-authority.ts"
+LIVE_DIR="$HOME/.config/opencode"
+
+[[ -f "$PA_STANDARD" ]] && ok "product-authority standard present (v1.1 source of truth)" \
+  || fail "standards/product-authority.md missing (Product Authority contracts ungrounded)"
+
+if [[ -f "$PA_AGENT" ]]; then
+  _PA_FAIL=0
+  for KEY in edit write bash webfetch task question ast_grep_replace skill; do
+    grep -Eq "^  ${KEY}: deny\$" "$PA_AGENT" || {
+      fail "product-owner: read-only invariant broken (${KEY}: deny missing)"
+      _PA_FAIL=1
+    }
+  done
+  grep -Eq "^model: " "$PA_AGENT" || { fail "product-owner: model missing (plugin skips agents without valid model)"; _PA_FAIL=1; }
+  grep -q 'product-authority.md' "$PA_AGENT" || { fail "product-owner: standard reference missing"; _PA_FAIL=1; }
+  # Le PO ne référence jamais le chemin du registre (il ne lit JAMAIS la politique — §10.6)
+  grep -q 'aurora-product-authority.json' "$PA_AGENT" && {
+    fail "product-owner: mentions the policy registry path (must never know it — §10.6)"
+    _PA_FAIL=1
+  }
+  [[ $_PA_FAIL -eq 0 ]] && ok "product-owner agent present, deny set + model + blind-policy verified"
+else
+  fail "agents/product-owner.md missing (Product Authority MVP incomplete)"
+fi
+
+if [[ -f "$PA_SKILL" ]]; then
+  grep -q '^name: product-authority' "$PA_SKILL" \
+    && ok "product-authority skill present" \
+    || fail "product-authority skill frontmatter invalid (name missing)"
+  for ACT in show set revoke defer reconcile; do
+    grep -q "action: \"${ACT}\"\|action: \`${ACT}\`\|### \`${ACT}\`" "$PA_SKILL" \
+      || fail "product-authority skill: action '${ACT}' not documented"
+  done
+else
+  fail "skills/product-authority/SKILL.md missing"
+fi
+
+if [[ -f "$PA_PLUGIN" ]]; then
+  for TOOL in authorizeProductDecision verifyAuthorization productAuthorityPolicy; do
+    grep -q "name: \"${TOOL}\"" "$PA_PLUGIN" \
+      || fail "product-authority plugin: tool '${TOOL}' missing"
+  done
+  grep -q 'ORCHESTRATOR_AGENTS' "$PA_PLUGIN" \
+    && ok "product-authority plugin present (3 tools, orchestrator gate)" \
+    || fail "product-authority plugin: orchestrator gate missing (pattern ADR-021 broken)"
+  # Déploiement live : le plugin doit être copié pour exécuter
+  [[ -f "$LIVE_DIR/plugins/product-authority.ts" ]] \
+    && ok "product-authority plugin deployed to live config" \
+    || warn "product-authority plugin NOT deployed to ~/.config/opencode/plugins/ (tools inert until deployed)"
+else
+  fail "config/plugins/product-authority.ts missing (controller absent)"
+fi
+
+if [[ -f "$LIVE_DIR/aurora-product-authority.json" ]]; then
+  python3 -c "import json,sys; r=json.load(open('$HOME/.config/opencode/aurora-product-authority.json')); assert r.get('schema_version')==1 and 'projects' in r" 2>/dev/null \
+    && ok "live product-authority registry valid (schema_version 1)" \
+    || fail "live product-authority registry invalid (schema drift or corrupt JSON)"
+else
+  warn "live registry absent — onboarding will create it at first real product-decision need (expected on fresh installs)"
+fi
+
+if [[ -f "$ROOT_DIR/skills/meeting/SKILL.md" ]]; then
+  grep -q 'product-owner' "$ROOT_DIR/skills/meeting/SKILL.md" \
+    && grep -q 'decisions: \[\]' "$ROOT_DIR/skills/meeting/SKILL.md" \
+    && ok "meeting skill integrates Product Authority (profile + handoff decisions[])" \
+    || fail "meeting skill missing Product Authority integration (profile product-owner / handoff decisions[])"
+fi
+
+# Product-authority reception suite — behavioral invariants the static greps
+# above cannot cover (gate, fail-closed, v2 return shape, lifecycle).
+if [[ -f "$ROOT_DIR/scripts/test-product-authority.mjs" ]]; then
+  NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
+  PA_FLAGS=""
+  if (( NODE_MAJOR >= 23 )); then
+    PA_FLAGS=""
+  elif (( NODE_MAJOR == 22 )); then
+    PA_FLAGS="--experimental-strip-types"
+  fi
+  if (( NODE_MAJOR >= 22 )); then
+    # shellcheck disable=SC2086
+    if node $PA_FLAGS "$ROOT_DIR/scripts/test-product-authority.mjs" >/dev/null 2>&1; then
+      ok "product-authority reception suite passed (behavioral invariants)"
+    else
+      fail "product-authority reception suite FAILED — controller regression"
+    fi
+  else
+    warn "product-authority reception suite skipped (node >= 22 required for TS type-stripping)"
+  fi
+fi
 
 # ─── Summary ─────────────────────────────────────────────────────────────────
 

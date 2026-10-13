@@ -12,7 +12,8 @@
  * Run: node scripts/test-product-authority.mjs
  */
 
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs"
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, appendFileSync } from "node:fs"
+import { createHash } from "node:crypto"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import plugin, {
@@ -159,6 +160,24 @@ console.log("B. policy state")
   r = c.authorizeProductDecision({ policy_id: "PA-1" }, mkProposal(), { project_key: PROJECT, reviewer: REVIEWER_OK() })
   eq(r.status, "HUMAN_REQUIRED", "B6 onboarding deferred (TTL active)")
   eq(r.reason, "onboarding_deferred", "B6 reason")
+
+  // Fail-closed dates: an unparsable expiry must never read as "never expires".
+  // Consistent state (registry + journal hash updated together, as the controller
+  // itself would) — the mutation surface refuses garbage dates outright (B8).
+  rmSync(REG, { force: true }); rmSync(JRN, { force: true })
+  setPolicy(c, "limited")
+  const rawB7 = JSON.parse(readFileSync(REG, "utf8"))
+  rawB7.projects["github.com/himuraxp/demo"].expires_at = "not-a-date"
+  writeRawRegistry(rawB7)
+  const b7Hash = createHash("sha256").update(readFileSync(REG, "utf8")).digest("hex")
+  appendFileSync(JRN, JSON.stringify({ type: "registry_mutation", action: "write", registry_hash: b7Hash, ts: NOW().toISOString() }) + "\n", "utf8")
+  r = c.authorizeProductDecision({ policy_id: "PA-1" }, mkProposal(), { project_key: PROJECT, reviewer: REVIEWER_OK() })
+  eq(r.status, "HUMAN_REQUIRED", "B7 unparsable expiry fail-closed (never fail-open)")
+  eq(r.reason, "policy_expired", "B7 reason")
+
+  const badDefer = c.mutatePolicy({ action: "defer", project_key: "github.com/himuraxp/demo", until: "garbage" }, "USER_ASSERTION")
+  eq(badDefer.ok, false, "B8 unparsable defer until refused")
+  eq(badDefer.error, "malformed_action", "B8 error")
 }
 
 // ─── C. Identity anti-spoofing (§4.3) ────────────────────────────────────────
@@ -450,6 +469,9 @@ console.log("K. verifyAuthorization policy state")
   const v1 = c.verifyAuthorization(auth.attestation.authorization_id, digest, ctx)
   eq(v1.valid, false, "K1 revoked at usage")
   eq(v1.reason, "policy_revoked", "K1 reason")
+  // Note: an out-of-band garbage expiry is unreachable in verify with an intact
+  // hash (the projectHash guard fires first → policy_revoked, also fail-closed);
+  // the unparsable-expiry read branch is covered on the authorize side (B7).
 
   // Replace policy (level change → different hash) → policy_revoked (explicit).
   rmSync(REG, { force: true }); rmSync(JRN, { force: true })

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import { existsSync, readFileSync, appendFileSync, writeFileSync, mkdirSync } from "node:fs"
+import { existsSync, readFileSync, appendFileSync, writeFileSync, mkdirSync, renameSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
 
@@ -244,7 +244,11 @@ export function createProductAuthorityController(opts: ControllerOptions = {}) {
 
   function writeRegistry(registry: Registry): void {
     mkdirSync(join(registryPath, ".."), { recursive: true })
-    writeFileSync(registryPath, JSON.stringify(registry, null, 2) + "\n", "utf8")
+    // Atomic write (standard §13 P1-9): temp file + rename on the same
+    // filesystem — a crash mid-write can never leave a truncated registry.
+    const tmpPath = `${registryPath}.tmp`
+    writeFileSync(tmpPath, JSON.stringify(registry, null, 2) + "\n", "utf8")
+    renameSync(tmpPath, registryPath)
     appendJournal({ type: "registry_mutation", action: "write", registry_hash: fileHash() })
   }
 
@@ -386,11 +390,16 @@ export function createProductAuthorityController(opts: ControllerOptions = {}) {
     if (entry.revoked === true) {
       return { status: "HUMAN_REQUIRED", reason: "policy_revoked", detail: "policy was revoked — history stays append-only, new foundations blocked" }
     }
-    if (new Date(entry.expires_at).getTime() <= now().getTime()) {
-      return { status: "HUMAN_REQUIRED", reason: "policy_expired", detail: `expired at ${entry.expires_at} — no auto-renewal (§4.1)` }
+    const expiresMs = new Date(entry.expires_at).getTime()
+    // Fail-closed: an unparsable date (NaN) must never read as "never expires".
+    if (Number.isNaN(expiresMs) || expiresMs <= now().getTime()) {
+      return { status: "HUMAN_REQUIRED", reason: "policy_expired", detail: `expired or unparsable at ${entry.expires_at} — no auto-renewal, fail-closed (§4.1)` }
     }
-    if (entry.deferred_until !== undefined && new Date(entry.deferred_until).getTime() > now().getTime()) {
-      return { status: "HUMAN_REQUIRED", reason: "onboarding_deferred", detail: `deferred until ${entry.deferred_until} — no re-solicitation during TTL` }
+    if (entry.deferred_until !== undefined) {
+      const deferredMs = new Date(entry.deferred_until).getTime()
+      if (Number.isNaN(deferredMs) || deferredMs > now().getTime()) {
+        return { status: "HUMAN_REQUIRED", reason: "onboarding_deferred", detail: `deferred or unparsable until ${entry.deferred_until} — no re-solicitation during TTL` }
+      }
     }
     if (entry.level === "consultative") {
       return { status: "PROPOSE_ONLY", reason: "consultative_mode" }
@@ -549,7 +558,7 @@ export function createProductAuthorityController(opts: ControllerOptions = {}) {
       // longer stands; covered by policy_revoked (explicit, §9.2 union).
       return { valid: false, reason: "policy_revoked" }
     }
-    if (new Date(entry.expires_at).getTime() <= now().getTime()) {
+    if (Number.isNaN(new Date(entry.expires_at).getTime()) || new Date(entry.expires_at).getTime() <= now().getTime()) {
       return { valid: false, reason: "policy_expired" }
     }
 
@@ -622,6 +631,9 @@ export function createProductAuthorityController(opts: ControllerOptions = {}) {
         return { ok: false, error: "invalid_level" }
       }
       const expires = action.expires_at ?? new Date(now().getTime() + 90 * 24 * 3600 * 1000).toISOString()
+      if (Number.isNaN(new Date(expires).getTime())) {
+        return { ok: false, error: "malformed_action" }
+      }
       const previous = registry.projects[action.project_key]
       registry.projects[action.project_key] = {
         type: "collaborative",
@@ -647,6 +659,9 @@ export function createProductAuthorityController(opts: ControllerOptions = {}) {
 
     if (action.action === "defer") {
       if (!isNonEmptyString(action.project_key) || !isNonEmptyString(action.until)) {
+        return { ok: false, error: "malformed_action" }
+      }
+      if (Number.isNaN(new Date(action.until).getTime())) {
         return { ok: false, error: "malformed_action" }
       }
       registry.projects[action.project_key] = registry.projects[action.project_key] ?? {
@@ -703,8 +718,24 @@ interface V2ToolDraft {
   }) => void
 }
 
-function requireOrchestrator(agent: string, toolName: string): void {
+function requireOrchestrator(
+  agent: string,
+  toolName: string,
+  context?: { sessionID?: string; messageID?: string },
+): void {
   if (!ORCHESTRATOR_AGENTS.has(agent)) {
+    // Audit line (same pattern as infomaniak-bridge): a gate bypass attempt on
+    // an authority tool is the alarm signal of a prompt injection — never silent.
+    console.log(JSON.stringify({
+      plugin: "product-authority",
+      ts: new Date().toISOString(),
+      sessionID: context?.sessionID,
+      messageID: context?.messageID,
+      agent,
+      tool: toolName,
+      result: "deny",
+      reason: "orchestrator_gate",
+    }))
     throw new Error(
       `${toolName} is restricted to the orchestrator (aurora). Current agent: '${agent}'. ` +
         `Product authority is brokered by aurora: request it in your task output instead of calling this tool.`,
@@ -744,7 +775,7 @@ Emits DELEGATED_APPROVED + attestation, HUMAN_REQUIRED, PROPOSE_ONLY or REFUSED.
         options: { codemode: false },
         async execute(rawArgs, context) {
           const args = (rawArgs ?? {}) as Record<string, unknown>
-          requireOrchestrator(String(context?.agent ?? ""), "authorizeProductDecision")
+          requireOrchestrator(String(context?.agent ?? ""), "authorizeProductDecision", context)
           const result = controller.authorizeProductDecision(
             { policy_id: String(args.policy_id ?? "") },
             args.proposal as DecisionProposal,
@@ -781,7 +812,7 @@ Returns the full frozen union: {valid,applicable} | {valid,applicable:false,reas
         options: { codemode: false },
         async execute(rawArgs, context) {
           const args = (rawArgs ?? {}) as Record<string, unknown>
-          requireOrchestrator(String(context?.agent ?? ""), "verifyAuthorization")
+          requireOrchestrator(String(context?.agent ?? ""), "verifyAuthorization", context)
           return asContent(
             controller.verifyAuthorization(
               String(args.authorization_id ?? ""),
@@ -815,7 +846,7 @@ Actions: show (integrity cross-check included), set (onboarding: level + identit
         options: { codemode: false },
         async execute(rawArgs, context) {
           const args = (rawArgs ?? {}) as Record<string, unknown>
-          requireOrchestrator(String(context?.agent ?? ""), "productAuthorityPolicy")
+          requireOrchestrator(String(context?.agent ?? ""), "productAuthorityPolicy", context)
           const action = String(args.action ?? "")
           if (action === "show") {
             return asContent(controller.mutatePolicy({ action: "show" }, String(args.provenance ?? "")))

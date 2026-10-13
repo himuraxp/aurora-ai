@@ -550,6 +550,28 @@ if [[ -f "$ROOT_DIR/skills/meeting/SKILL.md" ]]; then
     || fail "meeting skill missing Product Authority integration (profile product-owner / handoff decisions[])"
 fi
 
+# Product-authority reception suite — behavioral invariants the static greps
+# above cannot cover (gate, fail-closed, v2 return shape, lifecycle).
+if [[ -f "$ROOT_DIR/scripts/test-product-authority.mjs" ]]; then
+  NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
+  PA_FLAGS=""
+  if (( NODE_MAJOR >= 23 )); then
+    PA_FLAGS=""
+  elif (( NODE_MAJOR == 22 )); then
+    PA_FLAGS="--experimental-strip-types"
+  fi
+  if (( NODE_MAJOR >= 22 )); then
+    # shellcheck disable=SC2086
+    if node $PA_FLAGS "$ROOT_DIR/scripts/test-product-authority.mjs" >/dev/null 2>&1; then
+      ok "product-authority reception suite passed (behavioral invariants)"
+    else
+      fail "product-authority reception suite FAILED — controller regression"
+    fi
+  else
+    warn "product-authority reception suite skipped (node >= 22 required for TS type-stripping)"
+  fi
+fi
+
 # ─── Summary ─────────────────────────────────────────────────────────────────
 
 echo ""

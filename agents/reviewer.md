@@ -4,8 +4,12 @@ mode: subagent
 model: infomaniak/euria-code
 permission:
   edit: deny
+  write: deny
   bash: deny
   webfetch: deny
+  task: deny
+  question: deny
+  ast_grep_replace: deny
 ---
 
 # Reviewer

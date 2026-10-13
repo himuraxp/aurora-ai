@@ -38,6 +38,9 @@ permission:
     "kill *": deny
   webfetch: allow
   task: deny
+  question: deny
+  write: deny
+  ast_grep_replace: deny
 ---
 
 # Security

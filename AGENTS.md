@@ -8,10 +8,10 @@ This repo separates responsibilities into 5 layers:
 
 ```txt
 config/      OpenCode configuration (opencode.json, plugins, .env.example — no secrets)
-agents/      Specialized personalities (aurora, aurora-heavy, reviewer, tester, security, cybersec, architect, spark, vision, atlas, crawler, sage, scribe, pulse, echo, beacon, designer, mobile)
+agents/      Specialized personalities (aurora, aurora-heavy, reviewer, tester, security, cybersec, architect, spark, vision, atlas, crawler, sage, scribe, pulse, echo, beacon, designer, mobile, product-owner)
 standards/   Universal behaviors (workflow, communication, verification, memory, review, audit, anti-patterns, agent-output...)
 frameworks/  Per-stack technical rules (angular-20, nodejs, nestjs, astro)
-skills/      Reusable skills (accessibility, ai-cowork, allow-command, clonedeps, code-review, codemap, commit, create-mr, deepwork, deployment-changelog, figma-ds-sync, gitlab-ci, gitlab-feature-planner, gitlab-issues, gitlab-summary, goals, image-transparent-background, laravel-cruddy-by-design, loop-engineering, mr-review, mr-review-feedback, new-worktree, oh-my-opencode-slim, pre-mr-review, radio-tag-genres, readme, reflect, release-smoke-test, review-gap-analyzer, simplify, task-workflow, translate-doc, user-stories, verification-planning, worktrees)
+skills/      Reusable skills (accessibility, ai-cowork, allow-command, clonedeps, code-review, codemap, commit, council, create-mr, deepwork, deployment-changelog, figma-ds-sync, gitlab-ci, gitlab-feature-planner, gitlab-issues, gitlab-summary, goals, image-transparent-background, laravel-cruddy-by-design, loop-engineering, meeting, mr-review, mr-review-feedback, new-worktree, oh-my-opencode-slim, pre-mr-review, product-authority, radio-tag-genres, readme, reflect, release-smoke-test, review-gap-analyzer, simplify, task-workflow, translate-doc, user-stories, verification-planning, worktrees)
 ```
 
 The `explorer`, `fixer`, `librarian` and `oracle` agents are provided by the **oh-my-opencode-slim** plugin (defined in `config/oh-my-opencode-slim.json`), not as `agents/*.md` files.
@@ -276,6 +276,7 @@ A team specialized in UX/UI, Mobile, Security, Architecture, Testing, Execution,
 | "/council" — "convene the council" — "technical deliberation" | Aurora (skill `council` — read-only seats `council-*`, Decision Gate) |
 | "/meeting" — "réunion multi-métiers" — "sécuriser la tâche avant de commencer" | Aurora (skill `meeting` — profils métiers dynamiques sur agents read-only, Handoff Contract, verdict READY/CONDITIONAL/BLOCKED) |
 | "/task-workflow <url>" — "traite cette issue" — "développe cette carte Trello" — "cycle complet" | Aurora (skill `task-workflow` — acquisition Trello/GitLab → worktree → plan → dev → tests → QA navigateur → pre-mr-review → MR prête (jamais de merge), état persistant + reprise) |
+| "autorité produit" — "PO délégué" — "décision produit déléguée" | Aurora (skill `product-authority` — registre privé orchestrator-only, onboarding 1 question, HUMAN_REQUIRED par défaut, attestations vérifiées à chaque usage) |
 
 ### Technical Council
 
@@ -284,6 +285,10 @@ A team specialized in UX/UI, Mobile, Security, Architecture, Testing, Execution,
 ### Cross-Functional Meeting
 
 Pre-implementation multi-trade gate orchestrated by the `meeting` skill — lightweight trade profiles (`architecture`, `backend/api`, `frontend`, `ux`, `qa`, `security`, `mobile`, `product-analyst` non-decisional) are injected into the dispatch prompt. Read-only is **structural**: `frontend`/`ux`, `qa` and `mobile` profiles dispatch on dedicated read-only mirror agents (`meeting-designer`, `meeting-tester`, `meeting-mobile` — same system prompt, full runtime deny set, no `opencode.json` entry), while `architect`/`security`/`reviewer` carry pre-existing denies; the mandatory framing clause and post-meeting `git status` check remain as defense in depth. Cross-questions are routed and batched by recipient (`sessionID` resume); output = Meeting Record + `meeting-handoff.v1` with verdict `READY | CONDITIONAL | BLOCKED | UNDETERMINED` (plus internal `execution.status: COMPLETE | INCOMPLETE`; an incomplete meeting can never emit READY). No automatic repository writes; `/council` escalation is a proposal, never recursive. See `skills/meeting/SKILL.md`.
+
+### Product Authority (delegated product owner)
+
+Orchestrator-only protocol (`product-authority` skill + plugin) for delegated product decisions: a private registry (`~/.config/opencode/aurora-product-authority.json`) that never lives in repos; onboarding is one question (authority level + identity origin, USER_ASSERTION provenance, +90d expiry). Three tools: `authorizeProductDecision` (fail-closed authorization, blind re-classification before approval), `verifyAuthorization` (re-verified at EVERY consumption point — a textual `DELEGATED_APPROVED` without a controller-known authorization id is refused by construction), `productAuthorityPolicy` (show / set / revoke / defer / reconcile). The `product-owner` agent proposes Decision Proposals but never ratifies and never reads the policy. See `standards/product-authority.md` and `skills/product-authority/SKILL.md`.
 
 ### Trigger keywords (automatic detection)
 

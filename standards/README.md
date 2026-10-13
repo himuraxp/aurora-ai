@@ -44,6 +44,12 @@ Universal behaviors applied systematically by Aurora and all sub-agents. These s
 | `audit.md` | Read-only multi-axis audit (quality, architecture, dependencies, performance) |
 | `exploration-limits.md` | Investigation boundaries — no global scan without a precise objective |
 
+### Product authority
+
+| Standard | Description |
+|----------|-------------|
+| `product-authority.md` | Delegated product authority contract (v1.1) — E/A invariant, classification table, impact booleans, decision/attestation formats, controller contracts, refusal rules (source of truth for Step 3 implementation) |
+
 ### Artifacts & format
 
 | Standard | Description |

@@ -273,6 +273,11 @@ A team specialized in UX/UI, Mobile, Security, Architecture, Testing, Execution,
 | "Advise me on the approach" | Oracle |
 | "Where is service X defined?" | Explorer |
 | "How do I use X's API?" | Librarian |
+| "/council" — "convene the council" — "technical deliberation" | Aurora (skill `council` — read-only seats `council-*`, Decision Gate) |
+
+### Technical Council
+
+3 read-only deliberation seats (`council-architect`/euria-code, `council-skeptic`/Kimi-K2.6, `council-guardian`/Qwen3.5-397B) + 1 no-tools synthesizer (`council-synthesizer`), orchestrated by the `council` skill. Read-only enforced by runtime permissions; `DECISIONS.md` is only written on explicit user ratification. See `skills/council/SKILL.md`.
 
 ### Trigger keywords (automatic detection)
 

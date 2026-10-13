@@ -26,7 +26,7 @@ Les agents IA (OpenCode, Cursor, Claude...) ne savent pas quel standard utiliser
 **Ce que vous obtenez :**
 
 - **18 agents spécialisés + 4 agents plugin** — rôles ingénierie (reviewer, tester, security, architect, designer...) et équipe Search & Growth
-- **16 standards universels + 33 skills** — review adversariale, vérification, commits, et la suite accessibilité de 17 sous-skills
+- **17 standards universels + 38 skills** — review adversariale, vérification, commits, et la suite accessibilité de 17 sous-skills
 - **Mémoire projet persistante** — 7 documents `docs/ai/` lus automatiquement en début de session : les agents gardent le contexte entre les sessions
 - **14 modèles avec fallback automatique** — contexte 250k → 1M, assignation des agents par coût
 - **Cohérent entre machines** — même setup et même comportement partout, avec des exemples prêts à l'emploi (Angular, API Node.js, monorepo)
@@ -236,7 +236,10 @@ MCP ios-simulator ne lit pas `.env`) :
 ├── oh-my-opencode-slim.json   # Presets sous-agents
 ├── package.json               # Dépendances plugins
 ├── plugins/
-│   └── rtk.ts                 # Plugin RTK (token savings)
+│   ├── rtk.ts                 # Plugin RTK (token savings)
+│   ├── infomaniak-bridge.ts   # Pont d'écriture orchestrator-only (API Infomaniak)
+│   ├── product-authority.ts   # Contrôleur product-authority (3 tools, fail-closed)
+│   └── aurora-memory.ts       # Pont mémoire personnelle (orchestrator-only)
 ├── .env                       # Secrets (jamais versionné)
 └── .env.example               # Template des variables d'environnement
 ```
@@ -512,8 +515,11 @@ aurora-ai/
 │   ├── oh-my-opencode-slim.json  Presets sous-agents (euria-code)
 │   ├── package.json              Dépendance @opencode-ai/plugin
 │   ├── .env.example              Template des variables d'environnement
-│   └── plugins/
-│       └── rtk.ts                Plugin RTK (token savings via rtk rewrite)
+│   ├── plugins/
+│       ├── rtk.ts                Plugin RTK (token savings via rtk rewrite)
+│       ├── infomaniak-bridge.ts  Pont d'écriture orchestrator-only (API Infomaniak)
+│       ├── product-authority.ts  Contrôleur product-authority (3 tools, fail-closed)
+│       └── aurora-memory.ts      Pont mémoire personnelle (orchestrator-only)
 │
 ├── standards/               Comportements universels
 │   ├── workflow.md            Cycle Explorer→Planifier→Implémenter→[PARALLEL GATE]→Committer
@@ -528,12 +534,13 @@ aurora-ai/
 │   ├── memory-session-flow.md     Ordre de lecture automatique des docs/ai/ en début de session
 │   ├── memory-checklist.md        Checklist mémoire en fin de session
 │   ├── memory-auto-update.md      Standard de persistance mémoire
+│   ├── product-authority.md       Autorité produit déléguée (registre privé, fail-closed)
 │   ├── verification.md            Vérifications build/lint/test obligatoires
 │   ├── communication.md           Franchise, ownership, pushback
 │   ├── escalation.md              Gestion des blocages
 │   └── commits.md                 Format et règles de commit
 │
-├── agents/                  18 définitions d'agents — voir Comment personnaliser
+├── agents/                  19 définitions d'agents (+ 7 sièges runtime council/meeting)
 │
 ├── frameworks/                Règles par stack technique
 │   ├── angular-20.md          Conventions Angular 20+ stand-alone
@@ -575,6 +582,7 @@ aurora-ai/
 │   ├── code-review/           Review adversariale de code
 │   ├── codemap/               Cartes de code hiérarchiques pour repos inconnus
 │   ├── commit/                Messages de commit (conventions Infomaniak)
+│   ├── council/               Conseil technique — 3 sièges de délibération read-only + Decision Gate
 │   ├── create-mr/             Création de merge requests (scripts + tests)
 │   ├── deepwork/              Workflow orchestré multi-phases avec gates de review (chantiers lourds)
 │   ├── deployment-changelog/  Changelog de déploiement
@@ -583,20 +591,24 @@ aurora-ai/
 │   ├── gitlab-feature-planner/  Issues GitLab depuis un tableau d'estimation + suggestions de regroupement MR
 │   ├── gitlab-issues/         Gestion des issues GitLab (glab)
 │   ├── gitlab-summary/        Résumé d'activité GitLab
+│   ├── goals/                 Suivi d'objectifs personnels (aurora-memory, orchestrator-only)
 │   ├── image-transparent-background/  Suppression de fond blanc (ImageMagick)
 │   ├── laravel-cruddy-by-design/  Contrôleurs/routes Laravel RESTful stricts (max 7 méthodes)
 │   ├── loop-engineering/      Runtime Grill + Monitor pour boucles d'ingénierie
+│   ├── meeting/               Porte multi-métiers pré-implémentation (READY/CONDITIONAL/BLOCKED)
 │   ├── mr-review/             Review de MR avec commentaires inline
 │   ├── mr-review-feedback/    Application des retours de review MR
 │   ├── new-worktree/          Branche + worktree en une intention (jamais destructif)
 │   ├── oh-my-opencode-slim/   Configuration et tuning du plugin oh-my-opencode-slim
 │   ├── pre-mr-review/         Revue qualité pré-MR
+│   ├── product-authority/     Autorité produit déléguée (registre privé, autorisation fail-closed)
 │   ├── radio-tag-genres/      Tagging de genres musicaux pour playlists radio
 │   ├── readme/                 Génération de README
 │   ├── reflect/               Analyse des sessions passées → skills/config réutilisables
 │   ├── release-smoke-test/    Validation de release oh-my-opencode-slim
 │   ├── review-gap-analyzer/   Retours de revue → amélioration des règles AGENTS.md/pre-mr-review
 │   ├── simplify/              Simplification de code sans changement de comportement
+│   ├── task-workflow/         Cycle complet d'une tâche depuis une URL Trello/GitLab (worktree → dev → QA → review → MR)
 │   ├── translate-doc/         Traduction de documentation
 │   ├── user-stories/          Rédaction de user stories
 │   ├── verification-planning/ Plan de vérification avant changement de code non trivial

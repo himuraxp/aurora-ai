@@ -403,13 +403,14 @@ else
 fi
 
 # ─── 7. Cross-Functional Meeting skill ───────────────────────────────────────
-# /meeting réutilise les agents exécuteurs existants (pas d'agents dédiés),
-# maintenus read-only par la clause de framing obligatoire du skill (pas par
-# les permissions — certains exécuteurs ont edit: allow en usage normal).
-# Vérifier le skill, la présence des agents cibles du catalogue et l'ancrage
-# de la clause read-only dans le protocole.
+# /meeting dispatch sur des agents existants (architect, security, reviewer :
+# denies préexistants) et des variantes read-only dédiées (meeting-designer,
+# meeting-tester, meeting-mobile : miroirs des originaux, deny runtime complet
+# — protection structurelle) + clause de framing obligatoire (défense en
+# profondeur) + check git status (couche de détection).
+# Vérifier le skill, la présence des agents cibles, les variantes et l'anti-drift.
 
-MEETING_TARGETS=(architect designer tester security mobile reviewer)
+MEETING_TARGETS=(architect security reviewer meeting-designer meeting-tester meeting-mobile)
 if [[ -f "$ROOT_DIR/skills/meeting/SKILL.md" ]]; then
   if grep -q '^name: meeting' "$ROOT_DIR/skills/meeting/SKILL.md"; then
     ok "meeting skill present"
@@ -417,6 +418,10 @@ if [[ -f "$ROOT_DIR/skills/meeting/SKILL.md" ]]; then
       [[ -f "$ROOT_DIR/agents/${AG}.md" ]] \
         && ok "meeting target agent $AG present" \
         || fail "meeting target agent $AG missing (skills/meeting catalogue broken)"
+    done
+    for AG in designer tester mobile; do
+      [[ -f "$ROOT_DIR/agents/${AG}.md" ]] \
+        || fail "meeting mirror source agent $AG missing (anti-drift impossible for meeting-${AG})"
     done
     grep -q 'schema_version: meeting-handoff.v1' "$ROOT_DIR/skills/meeting/SKILL.md" \
       && ok "meeting handoff contract versioned (meeting-handoff.v1)" \
@@ -435,6 +440,39 @@ if [[ -f "$ROOT_DIR/skills/meeting/SKILL.md" ]]; then
 else
   fail "skills/meeting/SKILL.md missing"
 fi
+
+# Variantes read-only du meeting : miroirs de designer/tester/mobile.
+# Read-only STRUCTUREL — deny set complet dans le frontmatter, aucune entrée
+# dans la section agent de opencode.json (le frontmatter seul décide, pattern
+# council prouvé e2e). Anti-drift : les headings du corps du miroir doivent
+# rester identiques à ceux de l'original (toute évolution d'un original doit
+# être répercutée dans son miroir).
+for AG in designer tester mobile; do
+  MF="$ROOT_DIR/agents/meeting-${AG}.md"
+  OF="$ROOT_DIR/agents/${AG}.md"
+  if [[ ! -f "$MF" ]]; then
+    fail "meeting read-only variant meeting-${AG} missing (skills/meeting catalogue points to it)"
+    continue
+  fi
+  _VAR_FAIL=0
+  for KEY in edit write bash webfetch task question ast_grep_replace skill; do
+    if ! grep -Eq "^  ${KEY}: deny\$" "$MF"; then
+      fail "meeting variant meeting-${AG}: read-only invariant broken (${KEY}: deny missing)"
+      _VAR_FAIL=1
+    fi
+  done
+  if [[ -f "$OF" ]]; then
+    # Anti-drift STRICT : corps complet hors frontmatter (identité JSON de sortie
+    # exemptée — seule divergence contractuelle du miroir). Compteur frontmatter
+    # borné : un '---' thématique en corps ne tronque pas la collecte.
+    DIFF_OUT=$(diff <(awk 'c==2{print} /^---$/{if(c<2)c++}' "$OF" | grep -v '"agent":') <(awk 'c==2{print} /^---$/{if(c<2)c++}' "$MF" | grep -v '"agent":') || true)
+    if [[ -n "$DIFF_OUT" ]]; then
+      fail "meeting variant meeting-${AG}: anti-drift broken (body differs from agents/${AG}.md — resync the mirror)"
+      _VAR_FAIL=1
+    fi
+  fi
+  [[ $_VAR_FAIL -eq 0 ]] && ok "meeting variant meeting-${AG} present, deny set + anti-drift verified"
+done
 
 # ─── Summary ─────────────────────────────────────────────────────────────────
 

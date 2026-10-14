@@ -302,6 +302,19 @@ class TestCli(unittest.TestCase):
         elsewhere = tw_state.validate_state(state, path="/tmp/anything.json")
         self.assertEqual(elsewhere, [])
 
+    def test_design_contract_additive_optional(self):
+        # design-qa integration: additive optional field, never required —
+        # v1 states recorded BEFORE this field existed must stay valid.
+        legacy = valid_state()
+        self.assertNotIn("designContract", legacy)
+        self.assertEqual(tw_state.validate_state(legacy), [])
+        with_contract = valid_state(designContract="/x/task-workflows/tw-podcast-player--1a2b3c4d.design.json")
+        self.assertEqual(tw_state.validate_state(with_contract), [])
+        with_null = valid_state(designContract=None)
+        self.assertEqual(tw_state.validate_state(with_null), [])
+        bad = valid_state(designContract="")
+        self.assertTrue(any("designContract" in p for p in tw_state.validate_state(bad)))
+
 
 class TestCodeSignatureComputation(unittest.TestCase):
     def setUp(self):

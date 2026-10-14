@@ -277,7 +277,7 @@ A team specialized in UX/UI, Mobile, Security, Architecture, Testing, Execution,
 | "/meeting" — "réunion multi-métiers" — "sécuriser la tâche avant de commencer" | Aurora (skill `meeting` — profils métiers dynamiques sur agents read-only, Handoff Contract, verdict READY/CONDITIONAL/BLOCKED) |
 | "/task-workflow <url>" — "traite cette issue" — "développe cette carte Trello" — "cycle complet" | Aurora (skill `task-workflow` — acquisition Trello/GitLab → worktree → plan → dev → tests → QA navigateur → pre-mr-review → MR prête (jamais de merge), état persistant + reprise) |
 | "autorité produit" — "PO délégué" — "décision produit déléguée" | Aurora (skill `product-authority` — registre privé orchestrator-only, onboarding 1 question, HUMAN_REQUIRED par défaut, attestations vérifiées à chaque usage) |
-| "/design-qa" — "conformité design" — "écart Figma" — "compare avec la maquette" | Aurora (skill `design-qa` — Design Contract, comparaison sémantique/technique/visuelle, boucle de correction en mode Fix, gate anti-MR sur écarts bloquants) |
+| "/design-qa" — "conformité design" — "écart Figma" — "compare avec la maquette" | Aurora (skill `design-qa` — Design Contract, comparaison sémantique/technique/visuelle, boucle de convergence avec nouvel audit complet après chaque correction, vérification finale liée à la signature du code, gate anti-MR tant que la convergence n'est pas prouvée) |
 
 ### Technical Council
 

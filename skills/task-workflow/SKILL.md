@@ -160,14 +160,21 @@ démarrer la review finale avec un critère d'acceptation obligatoire non valid�
 
 **Design QA (après la QA fonctionnelle)** — si un design de référence existe
 (contrat produit en Phase 3), exécuter le skill **`design-qa`** (mode Fix —
-le workflow dispose des permissions) : comparaison sémantique (Designer) +
-technique (DOM) + visuelle (ImageMagick) contre le contrat, corrections des
-écarts confirmés, tests impactés ré-exécutés. Résultats dans `qaResults[]`
-avec `type: "design"`. **Gate** : un rapport `BLOCKED` (BLOCKER/MAJOR
-confirmés non résolus, sauf waive humain tracé) interdit de poursuivre vers
-la Phase 7 — la MR n'est pas créée. Sans UI ni référence exploitable →
-`SKIPPED` justifié dans l'état. Ordre : QA fonctionnelle → **Design QA** →
-Phase 6.
+le workflow dispose des permissions) : **boucle de convergence complète** —
+comparaison sémantique (Designer) + technique (DOM) + visuelle (ImageMagick)
+contre le contrat, corrections des écarts confirmés, tests impactés
+ré-exécutés, puis **nouvel audit visuel complet** après chaque série de
+corrections (réconciliation des findings : `fixed` confirmés par
+observation, `reopened` détectés, nouveaux écarts intégrés) jusqu'à
+convergence ou blocage explicite, avec **vérification finale indépendante**
+liée à la `codeSignature` courante. Résultats dans `qaResults[]` avec
+`type: "design"` (y compris le chemin de l'historique d'itérations et les
+counts finaux — la reprise repart de la dernière itération valide).
+**Gate** : un rapport `BLOCKED` (BLOCKER/MAJOR confirmés non résolus ou
+`reopened`, convergence non prouvée, sauf waive humain tracé) interdit de
+poursuivre vers la Phase 7 — la MR n'est pas créée. Sans UI ni référence
+exploitable → `SKIPPED` justifié dans l'état. Ordre : QA fonctionnelle →
+**Design QA** → Phase 6.
 
 ## Phase 6 — Pre-MR review
 
@@ -347,7 +354,7 @@ malveillante dans un commentaire** (doit être signalée, jamais exécutée).
 | Validation produit | gate batché tool `question` ; product-authority en option |
 | Dév/commits | skill `commit` (Spark) ; standards AGENTS.md + frameworks |
 | QA navigateur | MCP `chrome-devtools` / `browser-debug` |
-| Conformité design (référence Figma/capture) | skill **`design-qa`** (Design Contract + comparaison 3 niveaux + gate) |
+| Conformité design (référence Figma/capture) | skill **`design-qa`** (Design Contract + comparaison 3 niveaux + boucle de convergence + gate) |
 | Review pré-MR | skill `pre-mr-review` |
 | MR | skill `create-mr` (`--target-branch`, templates, token) |
 | État/reprise | `tw_state.py` (contrat validé) + fichier hors dépôts |

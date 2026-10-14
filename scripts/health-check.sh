@@ -617,6 +617,18 @@ if [[ -f "$ROOT_DIR/skills/design-qa/SKILL.md" ]]; then
     && grep -q 'figma-ds' "$ROOT_DIR/skills/design-qa/SKILL.md" \
     && ok "design-qa reuses task-workflow + angular-elements + figma-ds" \
     || fail "design-qa must reference the reused capabilities (task-workflow, angular-elements, figma-ds)"
+  # Convergence loop invariants (v2): no PASSED without a full visual audit
+  # of the final rendering; findings confirmed by observation, not code change.
+  grep -qi 'nouvel audit visuel complet\|nouvelle analyse.*complète' "$ROOT_DIR/skills/design-qa/SKILL.md" \
+    && ok "design-qa convergence: full re-audit after each fix round required" \
+    || fail "design-qa must require a new full visual audit after each correction round"
+  grep -qi 'nez frais\|biais de confirmation' "$ROOT_DIR/skills/design-qa/SKILL.md" \
+    && ok "design-qa convergence: fresh-eyes audit rule present (anti confirmation bias)" \
+    || fail "design-qa must mandate a fresh-eyes audit for re-audits"
+  grep -qi 'reopened' "$ROOT_DIR/skills/design-qa/SKILL.md" \
+    && grep -qi 'réconciliation\|reconcile' "$ROOT_DIR/skills/design-qa/SKILL.md" \
+    && ok "design-qa convergence: findings reconciliation + reopened status present" \
+    || fail "design-qa must document findings reconciliation and reopened regressions"
 fi
 
 if [[ -f "$ROOT_DIR/skills/design-qa/dq_contract.py" ]]; then
@@ -626,6 +638,21 @@ if [[ -f "$ROOT_DIR/skills/design-qa/dq_contract.py" ]]; then
   else
     fail "design-qa contract tests FAILED"
   fi
+  # Gate functional invariant: without iteration history + signature the
+  # verdict is BLOCKED (convergence unproven) — exit 3, never PASSED.
+  _dq_tmp="$(mktemp -d)"
+  printf '[{"id":"F-01","category":"component","severity":"MAJOR","component":"x","description":"d","expected":"e","actual":"a","evidence":"ev","confidence":"measured","recommendation":"r","status":"fixed","fixedAt":"2026-01-01T00:00:00Z"}]' > "$_dq_tmp/findings.json"
+  if python3 "$ROOT_DIR/skills/design-qa/dq_contract.py" gate "$_dq_tmp/findings.json" >/dev/null 2>&1; then
+    fail "design-qa gate must BLOCK (exit 3) without iteration history + signature"
+  else
+    _dq_rc=$?
+    if [[ "$_dq_rc" == "3" ]]; then
+      ok "design-qa gate fail-closed without convergence proof (exit 3)"
+    else
+      fail "design-qa gate without history exited $_dq_rc — expected 3 (BLOCKED)"
+    fi
+  fi
+  rm -rf "$_dq_tmp"
   # No new dependency allowed: the visual diff uses ImageMagick (system), not
   # a package.json addition (pixelmatch/playwright forbidden without review).
   if grep -q "pixelmatch\|playwright" "$ROOT_DIR/skills/design-qa/dq_contract.py" \

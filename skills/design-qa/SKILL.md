@@ -1,6 +1,6 @@
 ---
 name: design-qa
-description: Vérifie la conformité entre une interface web développée et son design de référence (frame Figma, capture d'écran, pièce jointe Trello/GitLab) — Design Contract, capture reproductible via chrome-devtools, comparaison sémantique (Designer) + technique (DOM) + visuelle (ImageMagick), findings classés BLOCKER/MAJOR/MINOR/INFO, boucle de correction automatique en mode Fix et gate anti-MR tant que des écarts bloquants restent. S'intègre dans task-workflow après la QA fonctionnelle. Trigger on "design-qa", "conformité design", "compare avec la maquette", "écart Figma", "design contract", "vérifie le rendu contre Figma", "design QA", "pixel check".
+description: Vérifie la conformité entre une interface web développée et son design de référence (frame Figma, capture d'écran, pièce jointe Trello/GitLab) — Design Contract, capture reproductible via chrome-devtools, comparaison sémantique (Designer) + technique (DOM) + visuelle (ImageMagick), findings classés BLOCKER/MAJOR/MINOR/INFO, boucle de convergence multi-itérations (nouvel audit visuel complet après chaque série de corrections, réconciliation des findings, détection de régressions), vérification finale indépendante liée à la signature du code et gate anti-MR tant que la convergence n'est pas prouvée. S'intègre dans task-workflow après la QA fonctionnelle. Trigger on "design-qa", "conformité design", "compare avec la maquette", "écart Figma", "design contract", "vérifie le rendu contre Figma", "design QA", "pixel check".
 ---
 
 # Design QA — conformité interface ↔ design de référence
@@ -9,6 +9,14 @@ Détecte qu'une interface **fonctionne techniquement mais ne correspond pas**
 à son design de référence, corrige les écarts confirmés (mode Fix) et
 **empêche la création d'une MR** tant que des écarts bloquants confirmés
 restent non résolus.
+
+**Convergence exigée** : un `PASSED` ne peut jamais reposer sur le fait que
+les findings précédents sont marqués `fixed` — il exige la preuve d'une
+**boucle de convergence** : après chaque série de corrections, un **nouvel
+audit visuel complet** (capture + analyse Designer de toute la page + DOM)
+réconcilie les findings, détecte les régressions et les nouveaux écarts,
+jusqu'à ce qu'un audit final **indépendant** du rendu final — à la signature
+du code exacte — ne trouve plus rien de bloquant.
 
 ```text
 /design-qa https://www.figma.com/design/<key>/<name>?node-id=<id> http://localhost:4200/page
@@ -22,10 +30,12 @@ restent non résolus.
   Trello/GitLab ou référence déjà acquise par `task-workflow`) + 1 URL
   d'application locale. `--fix` pour le mode correction.
 - **Sortie** : rapport final (`PASSED` / `FAILED` / `BLOCKED` / `SKIPPED`),
-  findings structurés, preuves (captures référence/réel/diff), Design
-  Contract. **Le verdict est calculé par `dq_contract.py`, jamais décidé
-  librement** — un orchestrateur ne peut pas déclarer `PASSED` sur un gate
-  bloqué.
+  findings structurés et **réconciliés**, **historique d'itérations**
+  (captures + snapshots de findings + diffs par itération), preuves
+  (référence/réel/diff), Design Contract. **Le verdict est calculé par
+  `dq_contract.py`, jamais décidé librement** — un orchestrateur ne peut pas
+  déclarer `PASSED` sur un gate bloqué, et le gate refuse tout `PASSED`
+  sans convergence prouvée.
 - **Sans référence exploitable** → `SKIPPED` justifié (la QA fonctionnelle
   reste la seule porte).
 
@@ -52,7 +62,17 @@ restent non résolus.
    obligatoire manquant reste bloquant à 99 % de pixels identiques.
 5. Aucun faux `PASSED` : le verdict sort du gate (`dq_contract.py gate`),
    les écarts à faible confiance sont confirmés (DOM) **avant** correction.
-6. Ne jamais publier de captures contenant des données sensibles.
+6. **Un finding ne devient jamais `fixed` parce qu'une modification de code
+   a été effectuée.** La résolution est confirmée par une **nouvelle
+   observation** : un audit complet post-correction (capture + Designer +
+   DOM), matérialisée par le snapshot de l'itération. Le gate
+   (`cross-check` snapshot ↔ findings) rejette toute divergence.
+7. **Aucun `PASSED` sans nouvel audit visuel complet du rendu final** :
+   la dernière itération de l'historique doit être un audit `full`
+   (Designer + DOM) dont la `codeSignature` égale celle du code courant —
+   sinon le verdict est `BLOCKED` (convergence non prouvée ou rendue
+   obsolète par une modification postérieure).
+8. Ne jamais publier de captures contenant des données sensibles.
 
 ## Étape 1 — Acquisition de la référence
 
@@ -123,11 +143,13 @@ développement ; il vit à côté de l'état
 ## Étape 3 — Capture de l'interface réelle
 
 MCP `chrome-devtools` (headless isolé) ; `browser-debug` si auth/session
-requise. Conditions **reproductibles** : `resize_page` au viewport du
-contrat, même thème/langue/zoom, polices et images chargées, animations
-stabilisées, données cohérentes (`emulate` pour device/thème si utile).
+requise. Conditions **reproductibles et identiques entre itérations** :
+`resize_page` au viewport du contrat, même thème/langue/zoom, même DPR,
+polices et images chargées, animations stabilisées, données cohérentes
+(`emulate` pour device/thème si utile), même état fonctionnel.
 
-- `take_screenshot` avec `filePath` vers le dossier de preuves (full page +
+- `take_screenshot` avec `filePath` vers le dossier de preuves — **une
+  capture par itération** (`actual-<n>.png`), jamais écrasée (full page +
   zones pertinentes).
 - `evaluate_script` → métriques réelles : `getBoundingClientRect`,
   styles calculés (padding, gap, font-size, colors, radius) des éléments
@@ -136,6 +158,13 @@ stabilisées, données cohérentes (`emulate` pour device/thème si utile).
   reproduire avec fixtures/mocks autorisés, sans altérer les données réelles.
 - **Ne pas confondre données différentes et défaut visuel** (catégorie
   `data`, jamais bloquant).
+- **La référence est immuable pendant toute l'exécution** : même frame
+  Figma, même version. Si la référence change en cours de route → nouveau
+  run (`new_run_id`), nouveau contrat, résultats antérieurs invalidés —
+  jamais comparés à l'ancienne référence. Les conditions non comparables
+  (viewport dérivé, thème différent, données manquantes) sont **signalées**
+  dans le rapport, jamais absorbées par un assouplissement silencieux des
+  seuils.
 
 ## Étape 4 — Comparaison multi-niveaux
 
@@ -164,10 +193,12 @@ Chaque écart = finding validé par `dq_contract.py validate-findings` :
 
 ```text
 id (F-01…) · category (structure|component|content|action|state|layout|
-typography|color|spacing|responsive|data) · severity · component ·
+typography|color|spacing|responsive|data|external) · severity · component ·
 description · expected · actual · evidence (sélecteur DOM, mesures, image) ·
 confidence (measured|estimated|uncertain) · recommendation ·
-status (open|fixed|waived|invalid)
+status (open|fixed|reopened|waived|invalid) ·
+origin (initial|new|reopened — optionnel) · confirmedIn (index de l'audit
+qui a confirmé la résolution — posé par reconcile)
 ```
 
 | Sévérité | Exemples |
@@ -178,81 +209,248 @@ status (open|fixed|waived|invalid)
 | **INFO** | Variation justifiée, différence de données, élément non vérifiable |
 
 `waived` exige une trace humaine explicite (`waivedBy: "HUMAN"` +
-`waivedReason`) ; `fixed` exige `fixedAt` (re-vérification tracée).
+`waivedReason`) ; **`invalid` exige la même barre** (`invalidBy: "HUMAN"` +
+`invalidReason` — un faux positif se déclare avec justification, sinon le
+gate refuse) ; `fixed` exige `fixedAt` **et** une confirmation par
+observation (`confirmedIn`, posé par la réconciliation — jamais à la main
+après coup) ; `reopened` exige `reopenedAt` (régression : un écart corrigé
+réobservé par un audit ultérieur). **Données gate-relevant immuables entre
+audits** : `severity`, `category`, `confidence` ne peuvent pas être
+modifiés entre le snapshot d'un audit et le gate — le cross-check rejette
+toute divergence (un downgrade post-audit BLOCKER→INFO est un contournement
+de faux PASSED). Les quatre dimensions de conformité sont
+évaluées à chaque audit : **sémantique** (présence, hiérarchie, contenu,
+actions, états), **géométrique** (dimensions, espacements, alignements),
+**stylistique** (typographie, couleurs, bordures, rayons, icônes),
+**fonctionnelle** (interactions, variantes, états réellement accessibles) —
+les limites externes (traductions, données API) sont tracées à part.
 
-## Étape 6 — Boucle de correction (mode Fix uniquement)
+## Étape 6 — Boucle de convergence (mode Fix uniquement)
+
+**Le principe** : le résultat final est démontré par répétition —
+`Capture → Audit visuel complet → Findings → Corrections → Tests →
+Nouvelle capture → NOUVEL audit complet` — jusqu'à convergence (plus rien
+d'observable) ou blocage explicite. L'analyse ne repart **jamais** des
+anciens findings : elle repart de la référence et de la nouvelle capture.
 
 ```text
-CAPTURE → ANALYSE → DIFF → CLASSIFICATION → CORRECTION → TESTS
-   ↑                                                        ↓
-   └────────────── NOUVELLE CAPTURE ← VALIDATION ←──────────┘
+ITERATION 0
+  Capture (actual-0.png) → Audit complet (Designer + DOM + diff) → Findings
+       |  → history-append (itération 0, snapshot findings-0.json)
+       v
+  Écarts bloquants ? ──non──→ PASSED possible (l'audit 0 est l'audit final)
+       | oui
+       v
+  Corrections ciblées → tests impactés
+       v
+ITERATION 1
+  NOUVELLE capture → NOUVEL audit complet (à nez frais) → observations
+       |  → reconcile (findings réconciliés) → history-append (itération 1)
+       v
+  Réconciliation : fixed confirmés / reopened / nouveaux écarts
+       v
+  Progrès mesurable ? ──non (×2)──→ BLOCKED (stalled)
+       | oui                        limite d'itérations atteinte avec écarts
+       v                            ouverts → BLOCKED (jamais un succès)
+  … jusqu'à convergence
 ```
 
-1. Prioriser BLOCKER, puis MAJOR ; regrouper par composant ; MINOR
-   clairement identifiés à risque faible également corrigés.
-2. Réutiliser les composants du DS (`ik-*` vérifiés via
-   `angular-elements`), ne modifier que les fichiers nécessaires.
-3. Exécuter les vérifications du projet (typecheck, lint, tests) après
-   chaque itération — les tests impactés **doivent** repasser.
-4. Relancer la comparaison : les écarts précédents doivent diminuer, aucune
-   régression ne doit apparaître (un nouvel écart = nouveau finding).
-5. Limite : après 2 itérations **sans progrès mesurable** → `BLOCKED`
-   documenté (règle des 2 corrections). Une décision métier suspend la
-   partie concernée → question PO précise (`poQuestions`), le reste continue.
+### 1. Nouvel audit complet après CHAQUE série de corrections (obligatoire)
+
+Après chaque série de corrections : nouvelle capture (`actual-<n>.png`),
+nouvel audit complet avec Designer, nouvelle comparaison à la référence,
+nouvelle inspection DOM/CSS des `criteria`, nouveau diff
+(`diff-<n>.png`), findings reflétant **l'état réel actuel** de toute la
+page — pas uniquement les écarts précédents.
+
+### 2. Audit à nez frais (anti-biais de confirmation)
+
+Le prompt du Designer chargé de l'audit d'itération N ≥ 1 contient la
+référence + la nouvelle capture et les attentes du contrat — **pas** les
+conclusions des itérations précédentes (pas de « corrections validées », pas
+de liste de findings censés être résolus). La réconciliation avec
+l'historique se fait **ensuite**, par `dq_contract.py reconcile` — les
+anciens findings servent à réconcilier l'historique, jamais à limiter le
+périmètre de l'analyse.
+
+### 3. Réconciliation déterministe (`reconcile`)
+
+```bash
+python3 "<skill_dir>/dq_contract.py" reconcile findings.json observations-N.json \
+  --iteration N --at <ISO8601> > findings.json    # notes d'audit sur stderr
+```
+
+| Observation de l'audit N | Ancien statut | Nouveau statut |
+|---|---|---|
+| réobservé | `open` | `open` |
+| réobservé | `fixed` | **`reopened`** (régression) |
+| absent | `open` | **`fixed`** — confirmé **par l'observation** (`confirmedIn: N`), jamais par la modification de code |
+| absent | `fixed` | `fixed` (confirmé, `confirmedIn: N`) |
+| id inconnu | — | ajouté, `origin: "new"` |
+| quelconque | `waived` / `invalid` | inchangé (décision humaine) |
+
+### 4. Historique d'itérations (`history-append`)
+
+```bash
+python3 "<skill_dir>/dq_contract.py" history-append findings.json \
+  --history history.json --signature <sha du worktree> \
+  --capture actual-N.png --diff diff-N.png \
+  --run-id dq-<hash8> --designer-analysis --dom-inspection \
+  --criteria c1,c2          # critères du contrat vérifiés par CET audit
+```
+
+Chaque itération enregistre : index, `codeSignature` du worktree, chemins
+capture/diff (doivent exister sur disque — vérifié) /snapshot de findings
+(créé par la commande, **append-only** — un snapshot existant n'est jamais
+écrasé), type d'audit (`full` exige `designerAnalysis` **et**
+`domInspection`), counts observés par sévérité, critères vérifiés, et les
+**notes de réconciliation** (`--notes`, trace de pourquoi chaque finding a
+été confirmé/réouvert — sortie `stderr` de `reconcile`). Les preuves
+s'accumulent : `actual-0.png, actual-1.png… findings-0.json,
+findings-1.json…` — une reprise relit l'historique et repart de la
+dernière itération valide.
+
+### 5. Garde-fous (protections, jamais des critères de succès)
+
+- **Maximum d'itérations** : 5 par défaut (`--max-iterations`) — atteint
+  alors que des écarts observables restent → `BLOCKED` (`max-iterations`),
+  jamais un succès au forfait.
+- **2 itérations consécutives sans progrès mesurable** → `BLOCKED`
+  (`stalled`). Progrès = moins d'écarts observés **et** aucune régression
+  BLOCKER/MAJOR — compté par sévérité, jamais un score global qui masquerait
+  une régression critique.
+- **Régression critique non résolue** → `BLOCKED` (un `reopened` BLOCKER/MAJOR
+  bloque le gate comme un `open`).
+- **Dépendance externe bloquante** (quota Figma, app down) → `FAILED`
+  process, reprise plus tard depuis l'historique.
+- **Décision PO nécessaire** → `WAITING_APPROVAL` côté `task-workflow`
+  (question précise dans `poQuestions`), le reste continue si indépendant.
+
+### 6. Corrections (inchangé)
+
+Prioriser BLOCKER puis MAJOR, regrouper par composant ; réutiliser les
+composants du DS (`ik-*` vérifiés via `angular-elements`), ne modifier que
+les fichiers nécessaires ; exécuter les vérifications du projet (typecheck,
+lint, tests) — les tests impactés **doivent** repasser avant l'itération
+suivante.
 
 ## Étape 7 — Gate et rapport final
 
 ```bash
-python3 "<skill_dir>/dq_contract.py" gate <findings.json>   # exit 0 = PASSED/SKIPPED,
-                                                            # exit 3 = BLOCKED, 1 = invalide
-python3 "<skill_dir>/dq_contract.py" report <summary.json>  # rapport
+python3 "<skill_dir>/dq_contract.py" gate findings.json \
+  --iterations history.json --signature <sha courant> \
+  [--contract contract.json]
+# exit 0 = PASSED/SKIPPED · exit 3 = BLOCKED · exit 1 = entrée invalide
+# (findings/historique non conformes, snapshot corrompu) · exit 2 = erreur
+# d'usage ou de lecture (fichier manquant, JSON illisible, --signature
+# absente, preuve capture/diff inexistante)
+python3 "<skill_dir>/dq_contract.py" report summary.json
 ```
 
-**Gate** : `BLOCKED` dès qu'un BLOCKER ou MAJOR **confirmé** reste `open` —
-sauf waive humain tracé. Les `uncertain` ouverts de sévérité BLOCKER/MAJOR
-bloquent aussi tant que non confirmés ; les `uncertain` MINOR/INFO restent
-listés (`needsConfirmation`) sans bloquer.
+Le gate est **convergence-aware** : `--iterations` (historique) et
+`--signature` (signature du code courant) sont requis pour tout `PASSED` —
+sans eux le verdict est `BLOCKED` (convergence non prouvée). Un audit final
+`dom-only` ou `visual-only` ne prouve rien : seul un audit `full` (Designer
++ DOM) de la dernière itération peut porter un `PASSED`. Avec
+`--contract`, le gate vérifie en plus que **tous les critères du contrat**
+ont été vérifiés par l'audit final (`criteriaVerified`).
 
-```text
-DESIGN QA — PASSED / FAILED / BLOCKED / SKIPPED
+**Règles de blocage** : `BLOCKED` dès qu'un BLOCKER ou MAJOR confirmé reste
+`open` **ou `reopened`** — sauf waive humain tracé ; dès que la convergence
+n'est pas prouvée (pas d'historique, audit final non-`full`, signature
+divergente = code modifié après l'audit final → invalidation, stall,
+limite d'itérations atteinte avec écarts restants, snapshot introuvable ou
+incohérent avec le fichier de findings) ; les `uncertain` ouverts de
+sévérité BLOCKER/MAJOR bloquent aussi tant que non confirmés.
 
-Reference / Application / Viewport / Components checked
-Findings: BLOCKER N · MAJOR N · MINOR N · INFO N
-Corrections: Applied N / Remaining N
-Iterations: N · Tests: passed/failed
-Evidence: reference.png · actual.png · diff.png
-Final result: PASSED / FAILED / BLOCKED / SKIPPED
-```
+## Étape 8 — Vérification finale indépendante
+
+La dernière itération **est** la vérification finale : relecture de la
+référence, recapture de l'interface réelle, nouvel audit Designer complet,
+comparaison structure/composants, vérification technique des `criteria`,
+verdict **indépendant des déclarations précédentes**. Le gate la lie à la
+version exacte du code : si le code change après l'audit final
+(`codeSignature` différente), le résultat est **invalide** — la Design QA
+est rejouée (`stale`, `BLOCKED`). Toute extension de périmètre (nouveau
+finding post-audit, statut modifié sans observation) est rejetée par le
+cross-check snapshot ↔ findings.
+
+## Rapport — lecture des conformités
+
+Le rapport distingue explicitement :
+
+- **Conformité visuelle réelle** : verdict du gate (convergence prouvée ou
+  non, écarts restants).
+- **Timeline des itérations** : counts par sévérité à chaque audit
+  (progression par critère et gravité, jamais un score global).
+- **Limitations externes visibles** : findings `data`/`external` ouverts —
+  un défaut visible hors périmètre dev est **signalé**, jamais déclaré
+  corrigé ni supprimé du rapport. Il ne bloque que s'il est de sévérité
+  BLOCKER/MAJOR (défaut visible majeur → décision humaine : waive tracé ou
+  correction) ; en MINOR/INFO il reste visible dans le rapport.
+- **Risques acceptés / décisions PO** : les `waived` avec leur raison.
+- **Conformité du code implémenté** : critères techniques vérifiés,
+  tests passés.
+
+⚠️ Traductions : un préfixe `!` ou une clé manquante est une **limitation
+externe** — ne jamais créer de clés de traduction ni contourner le mécanisme
+i18n sans autorisation et conventions projet ; le finding reste visible dans
+le rapport tant que le défaut l'est dans l'UI.
 
 **Preuves** dans `~/.config/opencode/design-qa/<id>/`
-(`id = dq-<hash8(ref|url)>` ou l'id du workflow intégré) : contrat, findings,
-captures référence/réel/diff, rapport. Reprise = relire les preuves,
-revalider contrat + findings, recapturer si l'état du worktree a changé.
+(`id = dq-<hash8(ref|url)>` ou l'id du workflow intégré) : contrat,
+`history.json` (historique d'itérations), snapshots `findings-<n>.json`,
+captures `actual-<n>.png` / diffs `diff-<n>.png` par itération, rapport.
+**Jamais écrasés** — une itération ajoute des preuves, elle ne remplace pas
+les précédentes. Reprise = relire `history.json` + findings réconciliés,
+revalider contrat + findings, recapturer si la signature du worktree a
+changé (nouvelle itération, pas un écrasement).
 
 ## Intégration `task-workflow`
 
 - **Phase 3 (plan)** : références UI détectées → acquisition + Design
   Contract (chemin dans l'état, champ optionnel `designContract`), critères
   UI ajoutés au plan.
-- **Phase 5 (QA)** : après la QA fonctionnelle → **Design QA** (mode Fix,
-  le workflow dispose des permissions). Résultats dans `qaResults[]` avec
-  `type: "design"`.
-- **Phase 7 (MR)** : précondition — rapport Design QA `PASSED` (ou waived
-  tracés) ; résumé des écarts restants dans la description de MR.
+- **Phase 5 (QA)** : après la QA fonctionnelle → **Design QA en boucle de
+  convergence complète** (mode Fix, le workflow dispose des permissions) :
+  itérations jusqu'à convergence, tests impactés passés, **vérification
+  finale indépendante** à la signature courante, gate `PASSED`. Résultats
+  dans `qaResults[]` avec `type: "design"` (y compris l'historique
+  d'itérations : chemin des preuves + counts finaux). La MR n'est jamais
+  créée avec un défaut bloquant non résolu.
+- **Phase 7 (MR)** : précondition — rapport Design QA `PASSED` (convergence
+  prouvée) ou waived tracés ; résumé des écarts restants (limites externes
+  visibles) dans la description de MR.
 - **Sans UI ni référence exploitable** → `SKIPPED` justifié dans l'état.
 - **Compatibilité** : intégration additive — champs optionnels,
-  `schemaVersion` 1 inchangée, aucun workflow existant cassé, reprise et
-  `codeSignature` inchangées.
+  `schemaVersion` 1 inchangée, aucun workflow existant cassé ; reprise,
+  idempotence, `codeSignature` et historique d'itérations conservés (les
+  données enregistrées permettent de reprendre depuis la dernière itération
+  valide).
 
 ## Anti-patterns
 
-- Déclarer `PASSED` sans passer par le gate, ou sur un score de pixels seul.
+- Déclarer `PASSED` sans passer par le gate, sur un score de pixels seul,
+  ou parce que les findings précédents sont marqués `fixed` — sans nouvel
+  audit visuel complet du rendu final (le gate le refuse : convergence non
+  prouvée).
+- Marquer un finding `fixed` après une simple modification de code/DOM,
+  sans confirmation par une nouvelle observation d'audit.
+- Audit d'itération N biaisé : donner au Designer les conclusions
+  précédentes comme acquises au lieu d'une analyse à nez frais.
+- Écraser les preuves d'une itération précédente (capture, diff, snapshot).
+- Continuer à itérer après 2 échecs sans progrès ou après la limite —
+  ou, à l'inverse, considérer la limite atteinte comme un succès.
 - Corriger un finding `uncertain` sans confirmation DOM.
-- Modifier la référence ou les fixtures pour faire disparaître un écart.
+- Modifier la référence (frame Figma changée en cours de run) ou les
+  fixtures pour faire disparaître un écart.
+- Faire disparaître une limitation externe du rapport, créer des clés
+  i18n ou contourner le mécanisme de traduction sans autorisation.
 - Inventer des valeurs Figma non mesurées ; coder un composant custom
   quand un `ik-*` équivalent existe.
 - Lancer le mode Fix sans permission explicite.
-- Comparer des captures à viewport/thème/langue différents.
+- Comparer des captures à viewport/thème/langue/DPR différents entre
+  itérations.
 
 ## Tests
 
@@ -262,12 +460,20 @@ bash scripts/health-check.sh                                # section design-qa
 ```
 
 Automatisé (fixtures, 0 réseau) : parsing URL Figma, validation contrat +
-findings, règles waived/fixed, gate (BLOCKER/MAJOR bloquants, waived
-exclu, MINOR/INFO non bloquants, uncertain flaggé, sans référence →
-SKIPPED), format du rapport (PASSED/BLOCKED/FAILED/SKIPPED), CLI.
+findings + historique, réconciliation (fixed confirmé par observation,
+reopened, nouveaux écarts, waived inchangés), cross-check anti-faux
+(snapshot ↔ findings), progression par sévérité (jamais un score global),
+garde-fous du gate (pas d'historique → BLOCKED, audit final dom-only /
+visual-only → BLOCKED, 2 itérations sans progrès → BLOCKED, limite
+d'itérations atteinte avec écarts → BLOCKED, convergence exactement à la
+limite → PASSED légitime, code changé après l'audit final → stale BLOCKED,
+signature absente → BLOCKED, critères de contrat non vérifiés → BLOCKED),
+limitation externe visible dans le rapport, waived en décisions PO, CLI
+(loop e2e : history-append → reconcile → gate), compatibilité task-workflow
+(v1 states valides, runId `tw-*` accepté).
 Comportementaux (pilotage réel documenté) : frame Figma accessible, capture
 Trello en référence, fallback browser-debug, structure HTML incorrecte,
-état responsive, correction réussie, régression, reprise après
+état responsive, boucle de convergence réelle sur une page, reprise après
 interruption, migration d'état task-workflow.
 
 ## Capacités réutilisées
@@ -292,3 +498,12 @@ interruption, migration d'état task-workflow.
   l'étape 3 obligatoires, sinon considérer le diff comme non fiable.
 - La comparaison dynamique (données métier réelles vs maquette) produit des
   findings `data` INFO, jamais bloquants.
+- **Frontière de confiance résiduelle** : `dq_contract.py` garantit la
+  cohérence mécanique de la boucle (statuts ↔ observations ↔ historique ↔
+  signature ↔ counts recalculés) mais ne peut pas prouver qu'une analyse
+  Designer a réellement lieu, ni que le `--signature` fourni correspond au
+  worktree réel (valeur *déclarée* par l'appelant — en mode intégré la
+  source de liaison est `tw_state.py compute_code_signature`, et
+  `--no-reference` reste une assertion de l'appelant). La règle d'audit à
+  nez frais (Étape 6.2) est une règle de process ; sa violation est un
+  anti-pattern détectable par la review, pas par le CLI.

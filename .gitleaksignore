@@ -7,3 +7,8 @@
 # copies stay public, same acceptance class as the GitLab registry exposure.
 13b470ced5f8d409a5a6f914eecf80747901097e:mcp/figma-ds/src/config.ts:generic-api-key:6
 13b470ced5f8d409a5a6f914eecf80747901097e:skills/figma-ds-sync/SKILL.md:generic-api-key:163
+
+# design-qa test fixtures — fake Figma fileKey values, no secret
+skills/design-qa/tests/test_contract.py:generic-api-key:26
+skills/design-qa/tests/test_contract.py:generic-api-key:71
+skills/design-qa/tests/test_contract.py:generic-api-key:75

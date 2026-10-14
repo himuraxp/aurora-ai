@@ -11,7 +11,7 @@ config/      OpenCode configuration (opencode.json, plugins, .env.example — no
 agents/      Specialized personalities (aurora, aurora-heavy, reviewer, tester, security, cybersec, architect, spark, vision, atlas, crawler, sage, scribe, pulse, echo, beacon, designer, mobile, product-owner)
 standards/   Universal behaviors (workflow, communication, verification, memory, review, audit, anti-patterns, agent-output...)
 frameworks/  Per-stack technical rules (angular-20, nodejs, nestjs, astro)
-skills/      Reusable skills (accessibility, ai-cowork, allow-command, clonedeps, code-review, codemap, commit, council, create-mr, deepwork, deployment-changelog, figma-ds-sync, gitlab-ci, gitlab-feature-planner, gitlab-issues, gitlab-summary, goals, image-transparent-background, laravel-cruddy-by-design, loop-engineering, meeting, mr-review, mr-review-feedback, new-worktree, oh-my-opencode-slim, pre-mr-review, product-authority, radio-tag-genres, readme, reflect, release-smoke-test, review-gap-analyzer, simplify, task-workflow, translate-doc, user-stories, verification-planning, worktrees)
+skills/      Reusable skills (accessibility, ai-cowork, allow-command, clonedeps, code-review, codemap, commit, council, create-mr, deepwork, deployment-changelog, design-qa, figma-ds-sync, gitlab-ci, gitlab-feature-planner, gitlab-issues, gitlab-summary, goals, image-transparent-background, laravel-cruddy-by-design, loop-engineering, meeting, mr-review, mr-review-feedback, new-worktree, oh-my-opencode-slim, pre-mr-review, product-authority, radio-tag-genres, readme, reflect, release-smoke-test, review-gap-analyzer, simplify, task-workflow, translate-doc, user-stories, verification-planning, worktrees)
 ```
 
 The `explorer`, `fixer`, `librarian` and `oracle` agents are provided by the **oh-my-opencode-slim** plugin (defined in `config/oh-my-opencode-slim.json`), not as `agents/*.md` files.
@@ -277,6 +277,7 @@ A team specialized in UX/UI, Mobile, Security, Architecture, Testing, Execution,
 | "/meeting" — "réunion multi-métiers" — "sécuriser la tâche avant de commencer" | Aurora (skill `meeting` — profils métiers dynamiques sur agents read-only, Handoff Contract, verdict READY/CONDITIONAL/BLOCKED) |
 | "/task-workflow <url>" — "traite cette issue" — "développe cette carte Trello" — "cycle complet" | Aurora (skill `task-workflow` — acquisition Trello/GitLab → worktree → plan → dev → tests → QA navigateur → pre-mr-review → MR prête (jamais de merge), état persistant + reprise) |
 | "autorité produit" — "PO délégué" — "décision produit déléguée" | Aurora (skill `product-authority` — registre privé orchestrator-only, onboarding 1 question, HUMAN_REQUIRED par défaut, attestations vérifiées à chaque usage) |
+| "/design-qa" — "conformité design" — "écart Figma" — "compare avec la maquette" | Aurora (skill `design-qa` — Design Contract, comparaison sémantique/technique/visuelle, boucle de correction en mode Fix, gate anti-MR sur écarts bloquants) |
 
 ### Technical Council
 

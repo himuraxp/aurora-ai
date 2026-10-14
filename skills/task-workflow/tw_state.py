@@ -160,6 +160,11 @@ def validate_state(state: Any, path: Optional[str] = None) -> List[str]:
     blockers = state.get("blockers", [])
     if not isinstance(blockers, list):
         problems.append("blockers must be a list")
+    # Additive optional fields (design-qa integration) — validated when
+    # present, never required: v1 states without them stay valid.
+    design_contract = state.get("designContract")
+    if design_contract is not None and (not isinstance(design_contract, str) or not design_contract.strip()):
+        problems.append("designContract must be a non-empty path string or null")
     return problems
 
 

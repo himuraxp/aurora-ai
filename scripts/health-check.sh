@@ -600,6 +600,42 @@ if [[ -f "$ROOT_DIR/skills/task-workflow/tw_state.py" ]]; then
   fi
 fi
 
+# ─── 12. Design-qa skill (conformité interface ↔ design de référence) ───────
+
+if [[ -f "$ROOT_DIR/skills/design-qa/SKILL.md" ]]; then
+  grep -q '^name: design-qa' "$ROOT_DIR/skills/design-qa/SKILL.md" \
+    && ok "design-qa skill present (frontmatter)" \
+    || fail "design-qa frontmatter name missing or renamed"
+  grep -qi 'jamais inventer une mesure figma\|jamais inventer des valeurs figma' "$ROOT_DIR/skills/design-qa/SKILL.md" \
+    && ok "design-qa no-invented-figma-measurements rule present" \
+    || fail "design-qa must forbid invented Figma measurements"
+  grep -qi "score.*similarité\|similarité.*preuve" "$ROOT_DIR/skills/design-qa/SKILL.md" \
+    && ok "design-qa pixel-score-is-not-proof rule present" \
+    || fail "design-qa must state that a similarity score is never sufficient proof"
+  grep -q 'tw_state\|task-workflow' "$ROOT_DIR/skills/design-qa/SKILL.md" \
+    && grep -q 'angular-elements' "$ROOT_DIR/skills/design-qa/SKILL.md" \
+    && grep -q 'figma-ds' "$ROOT_DIR/skills/design-qa/SKILL.md" \
+    && ok "design-qa reuses task-workflow + angular-elements + figma-ds" \
+    || fail "design-qa must reference the reused capabilities (task-workflow, angular-elements, figma-ds)"
+fi
+
+if [[ -f "$ROOT_DIR/skills/design-qa/dq_contract.py" ]]; then
+  ok "design-qa deterministic contract present (dq_contract.py)"
+  if python3 -m unittest discover -s "$ROOT_DIR/skills/design-qa/tests" >/dev/null 2>&1; then
+    ok "design-qa contract tests passed"
+  else
+    fail "design-qa contract tests FAILED"
+  fi
+  # No new dependency allowed: the visual diff uses ImageMagick (system), not
+  # a package.json addition (pixelmatch/playwright forbidden without review).
+  if grep -q "pixelmatch\|playwright" "$ROOT_DIR/skills/design-qa/dq_contract.py" \
+      "$ROOT_DIR/skills/design-qa/SKILL.md"; then
+    fail "design-qa must not depend on pixelmatch/playwright (ImageMagick compare is the sanctioned tool)"
+  else
+    ok "design-qa introduces no new visual-diff dependency (ImageMagick)"
+  fi
+fi
+
 # ─── Summary ─────────────────────────────────────────────────────────────────
 
 echo ""

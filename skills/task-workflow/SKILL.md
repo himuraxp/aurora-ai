@@ -101,6 +101,14 @@ découpage, stratégie de tests, critères d'acceptation, risques, arbitrages
 produit. Le plan vit dans l'état et **pilote l'exécution** (une étape du plan =
 une entrée de progression).
 
+**Design Contract (si référence UI)** — quand la tâche porte un design de
+référence (frame Figma, capture, pièce jointe), produire dès le plan le
+**Design Contract** du skill `design-qa` (acquisition de la référence +
+sections/critères UI vérifiables), enregistré à côté de l'état
+(`designContract` dans l'état) et injecter ses critères UI dans le plan et
+les critères d'acceptation. Le développement est ainsi tenu au contrat dès
+le départ — la comparaison finale n'est pas une découverte.
+
 **Gate Product Owner** — ne pas interrompre pour une décision technique
 ordinaire couverte par le contexte et les conventions. Demander une validation
 humaine si : règle métier absente/contradictoire, plusieurs comportements
@@ -150,6 +158,17 @@ Limite : après 2 tentatives sans progrès (règle des 2 corrections), `BLOCKED`
 + cause documentée — jamais de QA déclarée réussie par optimisme. Ne jamais
 démarrer la review finale avec un critère d'acceptation obligatoire non validé.
 
+**Design QA (après la QA fonctionnelle)** — si un design de référence existe
+(contrat produit en Phase 3), exécuter le skill **`design-qa`** (mode Fix —
+le workflow dispose des permissions) : comparaison sémantique (Designer) +
+technique (DOM) + visuelle (ImageMagick) contre le contrat, corrections des
+écarts confirmés, tests impactés ré-exécutés. Résultats dans `qaResults[]`
+avec `type: "design"`. **Gate** : un rapport `BLOCKED` (BLOCKER/MAJOR
+confirmés non résolus, sauf waive humain tracé) interdit de poursuivre vers
+la Phase 7 — la MR n'est pas créée. Sans UI ni référence exploitable →
+`SKIPPED` justifié dans l'état. Ordre : QA fonctionnelle → **Design QA** →
+Phase 6.
+
 ## Phase 6 — Pre-MR review
 
 Exécuter le skill **`pre-mr-review`** (mode standard ; mode avancé si cible
@@ -171,7 +190,8 @@ Une fois tous les contrôles bloquants verts : skill **`create-mr`**.
 - **Ressources** : liens Trello et/ou GitLab issue + référence GitLab reliant
   l'issue à la MR **sans fermeture prématurée**.
 - Avant publication : vérifier source, cible, diff final, commits, résultats de
-  tests, template, ressources. Étape 0 `ensure_glab_token` du skill.
+  tests, **rapport Design QA** (`PASSED` ou waived tracés — un `BLOCKED`
+  interdit la MR), template, ressources. Étape 0 `ensure_glab_token` du skill.
 - **Jamais** de merge automatique — la finalité est une **MR prête pour revue
   humaine**. `mergeRequestUrl` → état.
 
@@ -200,6 +220,7 @@ Un workflow peut durer plusieurs sessions. L'état vit **hors de tout dépôt**
   "plan": { "objective": "...", "steps": [], "acceptanceCriteria": [] },
   "decisions": [{ "question": "...", "answer": "...", "source": "HUMAN|policy" }],
   "testResults": [], "qaResults": [], "reviewResults": [],
+  "designContract": null,
   "mergeRequestUrl": null,
   "blockers": [{ "phase": 3, "reason": "..." }]
 }
@@ -210,6 +231,13 @@ Un workflow peut durer plusieurs sessions. L'état vit **hors de tout dépôt**
 `PASSED` dont le `codeSignature` ne correspond plus à l'état courant du
 worktree est retraitée comme `PENDING`. **Ne jamais marquer `PASSED` sur la foi
 d'un ancien statut si le code a changé après.**
+
+**Champs optionnels additifs** (compatibilité garantie — `schemaVersion` 1
+inchangée, les états existants restent valides) : `designContract` (chemin du
+Design Contract `design-qa`, ex. `<workflowId>.design.json`) — validé quand
+présent par `tw_state.py`, jamais requis ; entrées de `qaResults[]` avec
+`type: "functional"` (défaut) ou `"design"` (rapport design-qa) — format
+documenté dont le contenu relève de `dq_contract.py`.
 
 **`codeSignature`** : signature déterministe du worktree =
 `tw_state.py signature <worktreePath>` (sha1 du HEAD + de `git status
@@ -319,6 +347,7 @@ malveillante dans un commentaire** (doit être signalée, jamais exécutée).
 | Validation produit | gate batché tool `question` ; product-authority en option |
 | Dév/commits | skill `commit` (Spark) ; standards AGENTS.md + frameworks |
 | QA navigateur | MCP `chrome-devtools` / `browser-debug` |
+| Conformité design (référence Figma/capture) | skill **`design-qa`** (Design Contract + comparaison 3 niveaux + gate) |
 | Review pré-MR | skill `pre-mr-review` |
 | MR | skill `create-mr` (`--target-branch`, templates, token) |
 | État/reprise | `tw_state.py` (contrat validé) + fichier hors dépôts |

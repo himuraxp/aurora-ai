@@ -15,6 +15,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import unittest.mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import tw_orca  # noqa: E402
@@ -89,6 +90,19 @@ class TestRuntimeReady(OrcaEnv):
             result = tw_orca._run(["slow", "status"], timeout=1)
         self.assertFalse(result["ok"])
         self.assertIn("timed out", result["why"])
+
+    def test_json_error_is_extracted_not_truncated(self):
+        # Real-world failure (2026-10-15): a multi-line JSON error rendered
+        # why="}" — the message must be extracted, never the closing brace.
+        with unittest.mock.patch("subprocess.run") as run:
+            run.return_value = unittest.mock.Mock(
+                returncode=1, stdout='{\n  "ok": false,\n  "error": {\n'
+                                    '    "code": "terminal_create_failed",\n'
+                                    '    "message": "runtime busy"\n  }\n}',
+                stderr="")
+            result = tw_orca._run(["terminal", "create"])
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["why"], "runtime busy")
 
 
 class TestWorktreeSelector(OrcaEnv):

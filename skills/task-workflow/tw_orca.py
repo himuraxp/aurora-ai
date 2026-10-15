@@ -38,6 +38,25 @@ def _orca_bin() -> str:
     return os.environ.get("TW_ORCA_BIN", "orca")
 
 
+def _why_from_output(output: str, rc: int) -> str:
+    """Human-readable cause — orca prints JSON errors, the last line alone
+    ("}") is useless for diagnosis (learned 2026-10-15, handoff failed '}' )."""
+    text = (output or "").strip()
+    if not text:
+        return f"exit code {rc}"
+    if text.startswith("{"):
+        try:
+            data = json.loads(text)
+            error = data.get("error")
+            if isinstance(error, dict):
+                return str(error.get("message") or error.get("code") or text)[:200]
+            if error is not None:
+                return str(error)[:200]
+        except ValueError:
+            pass
+    return text.splitlines()[-1][:200]
+
+
 def _run(args: list, timeout: int = DEFAULT_TIMEOUT) -> dict:
     if shutil.which(_orca_bin()) is None:
         return {"ok": False, "why": f"orca CLI not found ({_orca_bin()})"}
@@ -49,9 +68,8 @@ def _run(args: list, timeout: int = DEFAULT_TIMEOUT) -> dict:
     except OSError as error:
         return {"ok": False, "why": f"orca spawn failed: {error}"}
     if proc.returncode != 0:
-        output = (proc.stderr or proc.stdout or "").strip()
-        why = output.splitlines()[-1][:200] if output else f"exit code {proc.returncode}"
-        return {"ok": False, "rc": proc.returncode, "why": why}
+        return {"ok": False, "rc": proc.returncode,
+                "why": _why_from_output(proc.stderr or proc.stdout, proc.returncode)}
     return {"ok": True, "rc": 0, "stdout": proc.stdout, "why": None}
 
 

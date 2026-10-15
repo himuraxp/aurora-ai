@@ -207,6 +207,28 @@ Une fois tous les contrôles bloquants verts : skill **`create-mr`**.
 Un workflow peut durer plusieurs sessions. L'état vit **hors de tout dépôt**
 (jamais commité), au même titre que le registre product-authority.
 
+**Emplacement canonique (obligatoire)** :
+`~/.config/opencode/task-workflows/<workflowId>.json`. Les commandes d'écriture
+(`mark`, `invalidate`, `log`) **refusent tout chemin hors de ce dossier**
+(override de test/pilote : `TW_STATE_STATE_DIR`). Le `workflowId` hache
+l'identité **normalisée** de la tâche (Trello → id de carte ; GitLab →
+`groupe/projet#num`) : toutes les formes d'URL d'une même tâche produisent le
+même id. Retrouver un état depuis n'importe quelle forme d'URL — y compris les
+ids créés avant normalisation — : `tw_state.py resolve <taskUrl> <repo>`
+(ambiguïté = erreur explicite, décision humaine).
+
+**Journal d'exécution (chronique)** :
+`~/.config/opencode/task-workflows/<workflowId>/events.jsonl`, append-only.
+L'état est la **seule source de vérité transactionnelle** : le journal est
+écrit **après** le commit de l'état, n'est **pas** une transaction atomique,
+et ne doit jamais bloquer la transition. Une divergence est détectée
+(`validate` → `JOURNAL-WARNING` : transition sans événement, ligne corrompue,
+seq cassée) et le rapport l'affiche « non enregistré » — l'état prime, le gap
+est visible, la reprise reste fiable. `mark`/`invalidate` journalisent la
+transition automatiquement ; incidents (401/429, replis browser-debug),
+commandes et reprises se journalisent via `log`. Jamais de secrets ni de logs
+volumineux — référencer les preuves, ne pas les embarquer.
+
 ```json
 {
   "schemaVersion": 1,
@@ -246,6 +268,15 @@ présent par `tw_state.py`, jamais requis ; entrées de `qaResults[]` avec
 `type: "functional"` (défaut) ou `"design"` (rapport design-qa) — format
 documenté dont le contenu relève de `dq_contract.py`.
 
+**Résultats de contrôle structurés** (additif) : une entrée de `testResults[]`
+/ `qaResults[]` / `reviewResults[]` peut porter
+`{name, status: pass|fail|skipped|not-run, exitCode, baseline?, note?}` —
+un `pass` **exige** `exitCode: 0` (le contrat refuse le mensonge) ; un contrôle
+**ignoré** (`skipped`/`not-run`) n'est jamais présenté comme réussi ;
+`baseline` porte le résultat mesuré sur la branche de base — préexistant ≠
+régression : la régression est un **delta mesuré**, jamais un ressenti. Les
+entrées v1 libres (texte) restent valides.
+
 **`codeSignature`** : signature déterministe du worktree =
 `tw_state.py signature <worktreePath>` (sha1 du HEAD + de `git status
 --porcelain`). Un arbre **sale** produit une signature différente — des
@@ -258,22 +289,32 @@ contrat, validée par le script (toute écriture passe par le CLI — l'édition
 manuelle du JSON est un contournement interdit) :
 
 ```bash
-# validation d'un fichier d'état (exit 1 + raisons si invalide)
+# validation d'un fichier d'état (exit 1 + raisons si invalide ; JOURNAL-WARNING informatifs)
 python3 "<skill_dir>/tw_state.py" validate  <state.json>
 # signature courante du worktree (HEAD + arbre)
 python3 "<skill_dir>/tw_state.py" signature <worktreePath>
 # plan de reprise : phases à (re)exécuter vs réalité mesurée
 python3 "<skill_dir>/tw_state.py" resume    <state.json> --signature <sha> [--worktree-missing]
-# transition légale (refuse et n'écrit PAS si l'état résultant est invalide)
-python3 "<skill_dir>/tw_state.py" mark <state.json> <phase> <status> [--signature <sha>]
-# seule sortie légale de PASSED (phase STALE retraitée)
+# transition légale (refuse et n'écrit PAS si l'état résultant est invalide ; journalise)
+python3 "<skill_dir>/tw_state.py" mark <state.json> <phase> <status> [--signature <sha>] [--actor <qui>]
+# seule sortie légale de PASSED (phase STALE retraitée ; journalise)
 python3 "<skill_dir>/tw_state.py" invalidate <state.json> <phase>
-# id du workflow (déterministe)
-python3 "<skill_dir>/tw_state.py" id <taskUrl> <repository>
+# id du workflow (déterministe, URL normalisée) + résolution compatible legacy
+python3 "<skill_dir>/tw_state.py" id      <taskUrl> <repository>
+python3 "<skill_dir>/tw_state.py" resolve <taskUrl> <repository>
+# journal d'exécution : incidents, commandes, reprises (la transition est déjà journalisée par mark)
+python3 "<skill_dir>/tw_state.py" log <state.json> --type command --phase 4 \
+        --actor spark --status pass --summary "yarn test: 121 passed" --exit-code 0
+# scan du dossier canonique : états invalides ou mal nommés (avant toute reprise)
+python3 "<skill_dir>/tw_state.py" validate-all
+# rapports Phase 9 (voir ci-dessous)
+python3 "<skill_dir>/tw_report.py" <state.json> [--kind operational|detailed|meetup]
 ```
 
 **Reprise** (après interruption ou `resume`) :
-1. relire l'état et le valider (`tw_state.py validate`) ;
+1. relire l'état et le valider (`tw_state.py validate` — les
+   `JOURNAL-WARNING` sont informatifs : l'état prime, les gaps sont signalés
+   « non enregistré » dans le rapport) ;
 2. vérifier la réalité : worktree existant, branche existante, `baseCommit`
    atteignable, divergences remote (`git fetch --prune`, statuts GitLab),
    signature courante (`tw_state.py signature`) ;
@@ -292,24 +333,53 @@ python3 "<skill_dir>/tw_state.py" id <taskUrl> <repository>
 
 ## Phase 9 — Rapport final
 
-```text
-TASK WORKFLOW — COMPLETED | BLOCKED | FAILED
+Deux artefacts rendus depuis l'état + `events.jsonl` par `tw_report.py`
+(déterministe, idempotent — mêmes entrées = mêmes octets ; **0 donnée
+conversationnelle**, ce qui n'a pas été enregistré est affiché « non
+enregistré ») :
 
-Task:         <titre>
-Sources:      <Trello> <GitLab issue>
-Repository:   <repo>
-Worktree:     <chemin>
-Branch:       <featureBranch> → <baseBranch>
-Development:  Completed | Partial
-Tests:        Passed | Failed
-Browser QA:   Passed | Not applicable | Failed
-Pre-MR Review: Passed | Failed
-Merge Request: <url | —>
-Blockers:     <liste ou aucun>
+```bash
+# 1. COMPACT — affiché en fin d'exécution (≤ 15 lignes) ET persisté
+python3 "<skill_dir>/tw_report.py" <state.json>
+# 2. DÉTAILLÉ — écrit sur disque, JAMAIS imprimé en entier dans la conversation
+python3 "<skill_dir>/tw_report.py" <state.json> --kind detailed
 ```
 
-Les étapes non réalisées gardent leur statut réel (`SKIPPED` justifié,
-`BLOCKED` avec cause, `FAILED` avec diagnostic) — rien n'est masqué.
+Fichiers : `~/.config/opencode/task-workflows/<workflowId>/report-operational.md`
+et `report-detailed.md` — **un seul de chaque**, réécrits à chaque génération
+(pas de versioning : la chronique vit dans `events.jsonl`). Un `--kind meetup`
+(étude de cas pédagogique) est prévu par l'architecture mais pas encore
+implémenté (refus explicite, exit 2).
+
+**Format compact** — cible ≤ 15 lignes, noms courts de phases (Contexte,
+Worktree, Analyse, Code, QA, Review, MR, Finalisation), phases réussies
+regroupées, `SKIPPED`/`FAILED`/`BLOCKED` **toujours** visibles :
+
+```markdown
+# ✅ <titre> — MR !N prête (<baseBranch>)
+<objectif sur une ligne>
+**Contrôles** : <tests ✅/❌ avec exit codes> · baseline <résultat sur la base> · blockers N
+**Phases** : 1-4 ✅ · 5 ⏭️ QA (raison) · 6-7 ✅ · 8-9 —
+**Décisions** : N (HUMAN:n, policy:n) · **Vigilance** : <phases non passées>
+**MR** : [!N](url) → `base` · `feature` · commit `sha` · N fichiers
+**Prochaine action** : revue humaine de MR !N (jamais de merge automatique)
+📄 Détail par phase : `~/.config/opencode/task-workflows/<workflowId>/report-detailed.md`
+```
+
+Règles : une MR ouverte = tâche **prête pour revue** — jamais rapportée comme
+mergée ou déployée ; les étapes non réalisées gardent leur statut réel
+(`SKIPPED` justifié, `BLOCKED` avec cause, `FAILED` avec diagnostic) — rien
+n'est masqué ; le détaillé reste **synthétique** — pas de sections vides ni de
+remplissage formatique, seules les preuves et décisions utiles y figurent
+(objectif, actions, décisions, validations, incidents, résultat par phase +
+synthèse transversale : autonomie réelle, interventions humaines, difficultés).
+
+### Mémoire projet cible (`docs/ai/`)
+
+Les 7 fichiers de session du **dépôt cible** (`docs/ai/`) restent tenus dans le
+worktree pendant l'exécution (gitignorés — jamais commités) ; le **rapport
+persisté** est l'artefact de restitution durable et vit hors dépôt. Ne jamais
+committer rapports ni journal dans le dépôt cible.
 
 ## Anti-patterns
 
@@ -319,7 +389,10 @@ Les étapes non réalisées gardent leur statut réel (`SKIPPED` justifié,
 - Marquer `PASSED` une phase dont le code a changé depuis (signature obsolète).
 - Créer la MR avant une review concluante ; merger/déployer automatiquement.
 - Cocher une validation non réalisée ; présenter une hypothèse comme un accord PO.
-- Inventer un contenu de carte/issue inaccessible.
+- Écrire l'état hors du dossier canonique ou éditer le JSON d'état à la main.
+- Présenter un contrôle ignoré comme réussi (`pass` sans `exitCode: 0`).
+- Inventer un contenu de carte/issue inaccessible — ou une donnée de rapport
+  non enregistrée dans l'état ou le journal.
 - Coupler ce workflow à une exécution immédiate sur une tâche réelle non demandée.
 
 ## Tests
@@ -334,8 +407,15 @@ légales/illégales, calcul de `codeSignature` (e2e git temporaire : arbre propr
 stable, arbre sale = signature différente), détection STALE, plans de reprise
 (reprise mi-workflow, worktree manquant, MR existante ± code changé ensuite,
 phase BLOCKED ré-évaluée, forme triée du plan), persistance fail-closed via
-CLI (mark hors ordre refusé, fichier inchangé), id déterministe — **sans
-réseau ni MR réelles**.
+CLI (mark hors ordre refusé, fichier inchangé), **id normalisé** (toutes les
+formes d'URL d'une même tâche → même id), **résolution compatible legacy**
+(`resolve`, ambiguïté refusée), **garde du dossier canonique** (écriture hors
+dossier refusée), **journal JSONL** (seq, gaps détectés, lignes corrompues,
+transition journalisée par `mark`), **résultats structurés** (pass ⇒ exitCode 0,
+ignoré ≠ réussi, v1 libre accepté), **format signature sha1 contraint**,
+**validate-all** (placeholders détectés), **renderer** (compact ≤ 15 lignes,
+regroupement des phases passées, SKIPPED/FAILED/BLOCKED visibles, idempotence,
+meetup refusé, aucune donnée inventée) — **sans réseau ni MR réelles**.
 Scénarios de validation comportementaux (pilotage manuel/fixtures Trello et
 GitLab, documentés) : carte riche, issue avec discussions, repli browser-debug,
 arbitrage multi-repos, gate PO, échec tests, échec QA, review bloquante,
@@ -357,4 +437,5 @@ malveillante dans un commentaire** (doit être signalée, jamais exécutée).
 | Conformité design (référence Figma/capture) | skill **`design-qa`** (Design Contract + comparaison 3 niveaux + boucle de convergence + gate) |
 | Review pré-MR | skill `pre-mr-review` |
 | MR | skill `create-mr` (`--target-branch`, templates, token) |
-| État/reprise | `tw_state.py` (contrat validé) + fichier hors dépôts |
+| État/reprise | `tw_state.py` (contrat validé, dossier canonique, journal JSONL) |
+| Rapports finaux | `tw_report.py` (compact affiché + détaillé persisté, idempotents) |

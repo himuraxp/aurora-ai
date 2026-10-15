@@ -594,9 +594,22 @@ fi
 if [[ -f "$ROOT_DIR/skills/task-workflow/tw_state.py" ]]; then
   ok "task-workflow state contract present (tw_state.py)"
   if python3 -m unittest discover -s "$ROOT_DIR/skills/task-workflow/tests" >/dev/null 2>&1; then
-    ok "task-workflow state contract tests passed"
+    ok "task-workflow contract tests passed (state + report)"
   else
-    fail "task-workflow state contract tests FAILED"
+    fail "task-workflow contract tests FAILED"
+  fi
+  # Canonical-state + journal invariants (v2): one canonical dir, JSONL
+  # chronicle (state = transactional truth, journal never blocks it).
+  grep -q 'task-workflows/<workflowId>' "$ROOT_DIR/skills/task-workflow/SKILL.md" \
+    && grep -q 'events.jsonl' "$ROOT_DIR/skills/task-workflow/SKILL.md" \
+    && ok "task-workflow canonical state dir + JSONL journal documented" \
+    || fail "task-workflow must document the canonical state dir and events.jsonl journal"
+  if [[ -f "$ROOT_DIR/skills/task-workflow/tw_report.py" ]] \
+    && grep -q 'non enregistré' "$ROOT_DIR/skills/task-workflow/tw_report.py" \
+    && grep -q 'JAMAIS imprimé' "$ROOT_DIR/skills/task-workflow/SKILL.md"; then
+    ok "task-workflow renderer present (compact ≤15 lines, detailed persisted, never invents)"
+  else
+    fail "task-workflow renderer (tw_report.py) missing or violates the never-invent rule"
   fi
 fi
 

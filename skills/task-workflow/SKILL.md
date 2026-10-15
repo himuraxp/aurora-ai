@@ -146,6 +146,28 @@ Applicable si le développement expose une interface/parcours réellement
 testable (sinon `SKIPPED` justifié dans l'état). MCP **chrome-devtools**
 prioritaire ; **browser-debug** si auth/session nécessaire.
 
+### Accès authentifié (manager) — un login requis n'est JAMAIS un motif de SKIPPED
+
+Un panneau derrière l'authentification du manager est un scénario **normal** de
+QA, pas une impossibilité. Procédure obligatoire avant tout `SKIPPED` :
+
+1. vérifier puis démarrer **browser-debug** si besoin (navigateur avec
+   `--remote-debugging-port=9222 --user-data-dir=~/.config/opencode/brave-debug-profile`) ;
+2. naviguer vers la page cible du worktree ; si redirection vers le login :
+   **demander à l'utilisateur de se connecter** dans cette fenêtre
+   (gate `question`/`wait_for_user`) — son consentement suffit, aucune
+   manipulation de credentials par l'agent ;
+3. reprendre la QA sur la session ouverte (scénarios, captures, comparaison).
+
+`SKIPPED` **légitime seulement si** : aucune UI exposée ; environnement
+impossible (dev server ne démarre pas) ; ou **assistance refusée/indisponible**
+— et la cause porte alors la mention explicite *« testable avec assistance
+humaine, assistance non disponible »* : **non testable ≠ assistance refusée**.
+Un `SKIPPED` pour auth sans **aucune tentative browser-debug tracée dans le
+journal** (`events.jsonl`) est un écart de process — signalé dans le rapport.
+Chaque exécution doit trancher sur pièce, jamais « par précédent » (un skip
+antérieur n'est pas une justification).
+
 - Préparation : démarrage selon la config locale du projet, page cible
   accessible, environnements existants réutilisés.
 - Scénarios construits **depuis les critères d'acceptation** : nominal, cas

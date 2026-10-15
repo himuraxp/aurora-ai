@@ -189,9 +189,9 @@ def _source_fr(source: Any) -> str:
     return SOURCE_FR.get(str(source), str(source))
 
 
-def _decisions_line(state: dict) -> str:
+def _decisions_line(state: dict, state_path: Optional[str] = None) -> str:
     decisions = state.get("decisions") or []
-    vigilance = _vigilance(state)
+    vigilance = _vigilance(state, state_path)
     if not decisions:
         return f"**Décisions** : aucune · **Vigilance** : {vigilance}"
     first = decisions[0]
@@ -207,13 +207,38 @@ def _undecided(state: dict) -> List[int]:
             if _status_of(state, phase) in ("SKIPPED", "BLOCKED", "FAILED", "WAITING_APPROVAL")]
 
 
-def _vigilance(state: dict) -> str:
+AUTH_HINTS = ("auth", "connexion", "login", "manager")
+ASSISTANCE_HINTS = ("browser-debug", "9222", "login", "connexion", "navigateur")
+
+
+def _skip_gap_warning(state: dict, phase: int, state_path: Optional[str]) -> str:
+    """Chronicle-informed honesty: a SKIPPED justified by authentication with
+    NO recorded browser-debug attempt anywhere in the journal is a process
+    deviation — surfaced, never silently accepted. States without a journal
+    (v1) cannot be judged and are left alone."""
+    if not state_path:
+        return ""
+    journal = tw_state.journal_path_for(state_path)
+    if not os.path.isfile(journal):
+        return ""
+    reason = _skip_reason(state, phase).lower()
+    if not any(hint in reason for hint in AUTH_HINTS):
+        return ""
+    chronicle = json.dumps(tw_state.read_events(state_path), ensure_ascii=False).lower()
+    if any(hint in chronicle for hint in ASSISTANCE_HINTS):
+        return ""
+    return " ⚠️ aucune tentative browser-debug tracée (écart de process)"
+
+
+def _vigilance(state: dict, state_path: Optional[str] = None) -> str:
     parts = []
     for phase in _undecided(state):
         status = _status_of(state, phase)
         label = STATUS_FR.get(status, f"statut non reconnu ({status})")
         reason = _skip_reason(state, phase)
         suffix = f" — {_truncate(reason, 48)}" if reason else ""
+        if status == "SKIPPED":
+            suffix += _skip_gap_warning(state, phase, state_path)
         parts.append(f"{PHASE_NAMES[phase]} : {label}{suffix}")
     return " · ".join(parts) if parts else "aucun"
 
@@ -260,7 +285,7 @@ def render_operational(state: dict, events: List[dict], context: Optional[dict] 
     lines.append("")
     lines.append(_controls_line(state))
     lines.append(_phases_line(state))
-    lines.append(_decisions_line(state))
+    lines.append(_decisions_line(state, context.get("state_path")))
     if state.get("mergeRequestUrl"):
         mr = f"**MR** : [!{_mr_number(state['mergeRequestUrl'])}]({state['mergeRequestUrl']}) → `{state.get('baseBranch', '?')}` · `{state.get('featureBranch', '?')}`"
         if context.get("head_commit"):

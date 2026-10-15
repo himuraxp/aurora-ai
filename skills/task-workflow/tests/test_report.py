@@ -222,6 +222,51 @@ class TestDetailed(unittest.TestCase):
         self.assertEqual(first, second)
 
 
+class TestAuthSkipProcessDeviation(unittest.TestCase):
+    """Phase 5 corrective: a SKIPPED for auth is legitimate only if a
+    browser-debug attempt is traceable — otherwise the report flags it."""
+
+    def _auth_skipped_state(self):
+        state = rich_state()
+        state["qaResults"] = [{"phase": 5, "status": "skipped", "name": "QA navigateur",
+                               "reason": "panneau derrière auth manager"}]
+        return state
+
+    def _write_journal(self, tmp, summaries):
+        artifacts = os.path.join(tmp, "tw-site-manager--98e87142")
+        os.makedirs(artifacts, exist_ok=True)
+        with open(os.path.join(artifacts, "events.jsonl"), "w", encoding="utf-8") as handle:
+            for seq, summary in enumerate(summaries, start=1):
+                handle.write(json.dumps({"seq": seq, "type": "command", "phase": 5,
+                                         "actor": "aurora", "at": TS,
+                                         "summary": summary}, ensure_ascii=False) + "\n")
+
+    def test_auth_skip_without_traced_attempt_is_flagged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "tw-site-manager--98e87142.json")
+            with open(path, "w", encoding="utf-8") as handle:
+                json.dump(self._auth_skipped_state(), handle)
+            self._write_journal(tmp, ["yarn test: 121 passed"])
+            context = {**CONTEXT, "state_path": os.path.abspath(path)}
+            out = tw_report.render_operational(self._auth_skipped_state(), [], context)
+            self.assertIn("⚠️ aucune tentative browser-debug tracée (écart de process)", out)
+
+    def test_auth_skip_with_recorded_attempt_not_flagged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "tw-site-manager--98e87142.json")
+            with open(path, "w", encoding="utf-8") as handle:
+                json.dump(self._auth_skipped_state(), handle)
+            self._write_journal(tmp, ["browser-debug : navigation vers la page cible"])
+            context = {**CONTEXT, "state_path": os.path.abspath(path)}
+            out = tw_report.render_operational(self._auth_skipped_state(), [], context)
+            self.assertNotIn("écart de process", out)
+
+    def test_v1_without_journal_not_judged(self):
+        # No chronicle → no deduction, no false accusation.
+        out = tw_report.render_operational(self._auth_skipped_state(), [], CONTEXT)
+        self.assertNotIn("écart de process", out)
+
+
 class TestSkipReasonFallback(unittest.TestCase):
     def _state_skipped(self, skip_phases, with_phase_key):
         state = rich_state(mergeRequestUrl=None)

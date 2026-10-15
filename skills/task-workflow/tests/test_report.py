@@ -67,20 +67,72 @@ class TestOperational(unittest.TestCase):
         out = tw_report.render_operational(rich_state(), [], CONTEXT)
         self.assertLessEqual(len([l for l in out.splitlines() if l.strip()]), 15)
 
-    def test_passed_runs_are_grouped(self):
+    def test_passed_runs_are_grouped_with_short_names(self):
         out = tw_report.render_operational(rich_state(), [], CONTEXT)
-        self.assertIn("1-4 ✅", out)
-        self.assertIn("6-9 ✅", out)
+        self.assertIn("Contexte·Worktree·Analyse·Code ✅", out)
+        self.assertIn("Review·MR·Finalisation·Rapport ✅", out)
+        self.assertNotIn("1-4 ✅", out)
+
+    def test_pending_phases_distinct_label_never_dash(self):
+        # Rule 5: an unreached phase is "○ à venir", never an ambiguous "—".
+        state = rich_state()
+        state["phaseStatuses"].pop("9")
+        state["phaseStatuses"]["8"] = {"status": "PENDING", "at": TS}
+        out = tw_report.render_operational(state, [], CONTEXT)
+        self.assertIn("Finalisation·Rapport ○ à venir", out)
+
+    def test_unknown_status_flagged_never_dash(self):
+        # Rule 5: a status outside the contract is flagged "❔ non reconnu".
+        state = rich_state()
+        state["phaseStatuses"]["7"] = {"status": "WEIRD", "at": TS}
+        out = tw_report.render_operational(state, [], CONTEXT)
+        self.assertIn("❔ statut non reconnu (WEIRD)", out)
 
     def test_skipped_is_visible_with_short_name_and_reason(self):
         out = tw_report.render_operational(rich_state(), [], CONTEXT)
-        self.assertIn("⏭️ QA", out)
+        self.assertIn("QA ⏭️ non exécutée", out)
         self.assertIn("auth manager", out)
+
+    def test_decisions_rendered_as_readable_french_summary(self):
+        # Rule 3: the decision itself, not "HUMAN:1" counters.
+        out = tw_report.render_operational(rich_state(), [], CONTEXT)
+        self.assertIn("«Réordonner seulement» (validé humain)", out)
+        self.assertNotIn("HUMAN:", out)
+
+    def test_policy_source_in_french_and_multiple_decisions_compact(self):
+        state = rich_state()
+        state["decisions"] = [
+            {"question": "q1", "answer": "Première réponse", "source": "policy"},
+            {"question": "q2", "answer": "Deuxième", "source": "HUMAN"},
+        ]
+        out = tw_report.render_operational(state, [], CONTEXT)
+        self.assertIn("«Première réponse» (politique produit)", out)
+        self.assertIn("+1 autres (voir état)", out)
+
+    def test_vigilance_describes_concrete_points(self):
+        # Rule 4: what is at stake, not a bare phase number.
+        out = tw_report.render_operational(rich_state(), [], CONTEXT)
+        self.assertIn("QA : non exécutée — auth manager", out)
+        self.assertNotIn("phase 5 QA", out)
+
+    def test_all_labels_french(self):
+        # Rule 2: no English labels left in the compact report.
+        out = tw_report.render_operational(rich_state(), [], CONTEXT)
+        self.assertIn("Objectif : ", out)
+        self.assertIn("bloqueurs : 0", out)
+        self.assertNotIn("blockers", out)
+
+    def test_no_recorded_checks_says_so_never_fakes_pass(self):
+        # Real-world 055b9041: empty testResults must read as unrecorded,
+        # never as a bare "bloqueurs : 0" that looks like all checks passed.
+        state = rich_state(testResults=[], qaResults=[], reviewResults=[])
+        out = tw_report.render_operational(state, [], CONTEXT)
+        self.assertIn("contrôles non enregistrés", out)
 
     def test_mr_ready_status_and_next_action(self):
         out = tw_report.render_operational(rich_state(), [], CONTEXT)
         self.assertIn("MR !570 prête", out)
-        self.assertIn("revue humaine de MR !570", out)
+        self.assertIn("revue humaine de la MR !570", out)
 
     def test_blocked_status_and_blocker_next_action(self):
         state = rich_state()
@@ -88,7 +140,7 @@ class TestOperational(unittest.TestCase):
         state["blockers"] = [{"phase": 4, "note": "PO arbitrage requis sur le défaut"}]
         out = tw_report.render_operational(state, [], CONTEXT)
         self.assertIn("⛔", out)
-        self.assertIn("lever le blocker", out)
+        self.assertIn("lever le bloqueur", out)
         self.assertIn("PO arbitrage", out)
 
     def test_no_mr_omits_mr_line_and_asks_resume(self):
@@ -126,8 +178,7 @@ class TestOperational(unittest.TestCase):
 
     def test_baseline_surfaced(self):
         out = tw_report.render_operational(rich_state(), [], CONTEXT)
-        self.assertIn("baseline", out)
-        self.assertIn("69 erreurs", out)
+        self.assertIn("base develop : 69 erreurs", out)
 
     def test_deterministic_idempotent(self):
         first = tw_report.render_operational(rich_state(), [], CONTEXT)
@@ -186,7 +237,7 @@ class TestSkipReasonFallback(unittest.TestCase):
         # v1 fallback (fix H): un-attributed reason attaches only when the
         # phase is the single SKIPPED phase — no guessing.
         out = tw_report.render_operational(self._state_skipped([5], with_phase_key=False), [], CONTEXT)
-        self.assertIn("⏭️ QA (auth manager requise)", out)
+        self.assertIn("QA ⏭️ non exécutée — auth manager requise", out)
 
     def test_orphan_reason_not_attached_when_ambiguous(self):
         # Two SKIPPED phases + un-attributed reason → honest omission, no guess.

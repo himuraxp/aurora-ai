@@ -31,7 +31,10 @@ PHASE_NAMES = {
     6: "Review", 7: "MR", 8: "Finalisation", 9: "Rapport",
 }
 ICONS = {"PASSED": "✅", "SKIPPED": "⏭️", "FAILED": "❌", "BLOCKED": "⛔",
-         "WAITING_APPROVAL": "⏸️", "RUNNING": "🔄", "PENDING": "—"}
+         "WAITING_APPROVAL": "⏸️", "RUNNING": "🔄", "PENDING": "○"}
+STATUS_FR = {"SKIPPED": "non exécutée", "BLOCKED": "bloquée", "FAILED": "échec",
+             "WAITING_APPROVAL": "attente validation PO", "RUNNING": "en cours"}
+SOURCE_FR = {"HUMAN": "validé humain", "policy": "politique produit"}
 CHECK_ICONS = {"pass": "✅", "fail": "❌", "skipped": "⏭️", "not-run": "⏭️",
                "PASSED": "✅", "FAILED": "❌", "SKIPPED": "⏭️", "BLOCKED": "⛔",
                "WAITING_APPROVAL": "⏸️", "RUNNING": "🔄", "PENDING": "—"}
@@ -107,7 +110,8 @@ def _skip_reason(state: dict, phase: int) -> str:
     return ""
 
 
-def _check_line(entry: dict, default_label: str = "contrôle") -> Optional[str]:
+def _check_line(entry: dict, default_label: str = "contrôle",
+                include_baseline: bool = True) -> Optional[str]:
     """One rendered check line — structured status wins over free-form result."""
     label = ""
     for key in ("name", "suites", "tsc", "lint"):
@@ -129,7 +133,8 @@ def _check_line(entry: dict, default_label: str = "contrôle") -> Optional[str]:
             label = f"phase {entry['phase']}" if entry.get("phase") else default_label
         suffix = f" (exit {entry['exitCode']})" if "exitCode" in entry else ""
         note = f" — {_truncate(entry['note'], 48)}" if entry.get("note") else ""
-        baseline = f" · baseline: {_truncate(entry['baseline'], 60)}" if entry.get("baseline") else ""
+        baseline = (f" · baseline: {_truncate(entry['baseline'], 60)}"
+                    if entry.get("baseline") and include_baseline else "")
         return f"{_truncate(label, 40)} {CHECK_ICONS.get(str(status), '•')}{suffix}{note}{baseline}"
     value = entry.get("result") or entry.get("detail") or entry.get("reason")
     if value and label:
@@ -143,16 +148,21 @@ def _controls_line(state: dict) -> str:
     for key in ("testResults", "reviewResults", "qaResults"):
         for entry in state.get(key, []):
             if isinstance(entry, dict):
-                line = _check_line(entry, defaults[key])
+                line = _check_line(entry, defaults[key], include_baseline=False)
                 if line:
                     items.append(line)
     if len(items) > 3:
         items = items[:3] + [f"+{len(items) - 3} autres (voir état)"]
     blockers = state.get("blockers") or []
-    items.append(f"blockers {len(blockers)}")
+    if not items:
+        # No recorded check at all — say it, never let a bare "bloqueurs : 0"
+        # read as if checks had been run and passed.
+        items.append(f"contrôles non enregistrés (voir journal) · bloqueurs : {len(blockers)}")
+    else:
+        items.append(f"bloqueurs : {len(blockers)}")
     for entry in state.get("testResults", []):
         if isinstance(entry, dict) and entry.get("baseline"):
-            items.append(f"baseline: {_truncate(entry['baseline'], 60)}")
+            items.append(f"base {state.get('baseBranch', '?')} : {_truncate(entry['baseline'], 60)}")
             break
     return "**Contrôles** : " + (" · ".join(items) if items else "non enregistré")
 
@@ -160,26 +170,36 @@ def _controls_line(state: dict) -> str:
 def _phases_line(state: dict) -> str:
     parts = []
     for start, end, status in _segments(state):
-        label = f"{start}-{end}" if end > start else f"{start}"
-        if status in ("PASSED", "PENDING"):
-            parts.append(f"{label} {ICONS[status]}")
+        names = "·".join(PHASE_NAMES[phase] for phase in range(start, end + 1))
+        if status == "PASSED":
+            parts.append(f"{names} ✅")
+        elif status == "PENDING":
+            parts.append(f"{names} ○ à venir")
+        elif status not in tw_state.STATUSES or status is None:
+            raw = "inconnu" if status is None else _truncate(str(status), 20)
+            parts.append(f"{names} ❔ statut non reconnu ({raw})")
         else:
             reason = _skip_reason(state, start)
-            suffix = f" ({reason})" if reason else ""
-            parts.append(f"{label} {ICONS[status]} {PHASE_NAMES[start]}{suffix}")
+            suffix = f" — {_truncate(reason, 42)}" if reason else ""
+            parts.append(f"{names} {ICONS[status]} {STATUS_FR[status]}{suffix}")
     return "**Phases** : " + " · ".join(parts)
+
+
+def _source_fr(source: Any) -> str:
+    return SOURCE_FR.get(str(source), str(source))
 
 
 def _decisions_line(state: dict) -> str:
     decisions = state.get("decisions") or []
+    vigilance = _vigilance(state)
     if not decisions:
-        return "**Décisions** : 0 · **Vigilance** : " + _vigilance(state)
-    sources: Dict[str, int] = {}
-    for decision in decisions:
-        source = str(decision.get("source", "?"))
-        sources[source] = sources.get(source, 0) + 1
-    breakdown = ", ".join(f"{key}:{value}" for key, value in sorted(sources.items()))
-    return f"**Décisions** : {len(decisions)} ({breakdown}) · **Vigilance** : " + _vigilance(state)
+        return f"**Décisions** : aucune · **Vigilance** : {vigilance}"
+    first = decisions[0]
+    answer = _truncate(str(first.get("answer", "?")), 60)
+    rendered = f"«{answer}» ({_source_fr(first.get('source', '?'))})"
+    if len(decisions) > 1:
+        rendered += f" +{len(decisions) - 1} autres (voir état)"
+    return f"**Décisions** : {rendered} · **Vigilance** : {vigilance}"
 
 
 def _undecided(state: dict) -> List[int]:
@@ -188,24 +208,30 @@ def _undecided(state: dict) -> List[int]:
 
 
 def _vigilance(state: dict) -> str:
-    parts = [f"phase {phase} {PHASE_NAMES[phase]}" for phase in _undecided(state)]
-    return " · ".join(parts) if parts else "aucune"
+    parts = []
+    for phase in _undecided(state):
+        status = _status_of(state, phase)
+        label = STATUS_FR.get(status, f"statut non reconnu ({status})")
+        reason = _skip_reason(state, phase)
+        suffix = f" — {_truncate(reason, 48)}" if reason else ""
+        parts.append(f"{PHASE_NAMES[phase]} : {label}{suffix}")
+    return " · ".join(parts) if parts else "aucun"
 
 
 def _global_status(state: dict) -> str:
     blocked = [p for p in tw_state.PHASES if _status_of(state, p) == "BLOCKED"]
     failed = [p for p in tw_state.PHASES if _status_of(state, p) == "FAILED"]
     if blocked:
-        return f"⛔ bloqué (phase {blocked[0]} {PHASE_NAMES[blocked[0]]})"
+        return f"⛔ bloqué (phase {PHASE_NAMES[blocked[0]]})"
     if failed:
-        return f"❌ échec phase {failed[0]} {PHASE_NAMES[failed[0]]} (reprise possible)"
+        return f"❌ échec (phase {PHASE_NAMES[failed[0]]}, reprise possible)"
     if state.get("mergeRequestUrl"):
         return f"✅ MR !{_mr_number(state['mergeRequestUrl'])} prête"
     waiting = [p for p in tw_state.PHASES if _status_of(state, p) == "WAITING_APPROVAL"]
     if waiting:
-        return f"⏸️ attente validation (phase {waiting[0]} {PHASE_NAMES[waiting[0]]})"
+        return f"⏸️ attente validation PO (phase {PHASE_NAMES[waiting[0]]})"
     current = state.get("currentPhase", 1)
-    return f"🔄 en cours (phase {current} {PHASE_NAMES.get(int(current), '?')})"
+    return f"🔄 en cours (phase {PHASE_NAMES.get(int(current), '?')})"
 
 
 def _next_action(state: dict) -> str:
@@ -213,11 +239,12 @@ def _next_action(state: dict) -> str:
     if any(_status_of(state, p) == "BLOCKED" for p in tw_state.PHASES) and blockers:
         first = blockers[0]
         detail = first.get("note") or first.get("reason") if isinstance(first, dict) else str(first)
-        return "lever le blocker — " + _truncate(detail or "voir état", 70)
+        return "lever le bloqueur — " + _truncate(detail or "voir état", 70)
     if state.get("mergeRequestUrl"):
-        return f"revue humaine de MR !{_mr_number(state['mergeRequestUrl'])} (jamais de merge automatique)"
+        return f"revue humaine de la MR !{_mr_number(state['mergeRequestUrl'])} (jamais de merge automatique)"
     current = state.get("currentPhase", 1)
-    return f"reprendre à la phase {current} (`tw_state.py resume {state.get('workflowId')}`)"
+    return (f"reprendre à la phase {PHASE_NAMES.get(int(current), '?')} ({current})"
+            f" — `tw_state.py resume {state.get('workflowId')}`")
 
 
 def render_operational(state: dict, events: List[dict], context: Optional[dict] = None) -> str:
@@ -229,7 +256,7 @@ def render_operational(state: dict, events: List[dict], context: Optional[dict] 
     ]
     plan = state.get("plan")
     objective = plan.get("objective") if isinstance(plan, dict) else None
-    lines.append(_truncate(objective, 150) if objective else "Objectif : non enregistré")
+    lines.append("Objectif : " + (_truncate(objective, 145) if objective else "non enregistré"))
     lines.append("")
     lines.append(_controls_line(state))
     lines.append(_phases_line(state))
@@ -239,7 +266,7 @@ def render_operational(state: dict, events: List[dict], context: Optional[dict] 
         if context.get("head_commit"):
             mr += f" · commit `{context['head_commit']}`"
         if context.get("files_changed") is not None:
-            mr += f" · {context['files_changed']} fichiers"
+            mr += f" · {context['files_changed']} fichiers modifiés"
         lines.append(mr)
     lines.append(f"**Prochaine action** : {_next_action(state)}")
     if context.get("detail_path"):

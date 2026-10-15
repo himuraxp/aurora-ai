@@ -99,7 +99,9 @@ flux métier, tests existants, conventions, réutilisations possibles
 complexe). Plan = objectif, état actuel, modifications, fichiers concernés,
 découpage, stratégie de tests, critères d'acceptation, risques, arbitrages
 produit. Le plan vit dans l'état et **pilote l'exécution** (une étape du plan =
-une entrée de progression).
+une entrée de progression). **En français** : l'`objective` du plan, les
+`decisions[]` (question/answer) et les raisons de skip/blocage sont rédigés en
+français — ce sont les données que le rapport final affiche tel quel.
 
 **Design Contract (si référence UI)** — quand la tâche porte un design de
 référence (frame Figma, capture, pièce jointe), produire dès le plan le
@@ -351,23 +353,29 @@ et `report-detailed.md` — **un seul de chaque**, réécrits à chaque généra
 (étude de cas pédagogique) est prévu par l'architecture mais pas encore
 implémenté (refus explicite, exit 2).
 
-**Format compact** — cible ≤ 15 lignes, noms courts de phases (Contexte,
-Worktree, Analyse, Code, QA, Review, MR, Finalisation), phases réussies
-regroupées, `SKIPPED`/`FAILED`/`BLOCKED` **toujours** visibles :
+**Format compact** — cible ≤ 15 lignes, entièrement en français (libellés et
+statuts explicites : `○ à venir` pour une phase non atteinte, `❔ statut non
+reconnu` pour toute valeur hors contrat — jamais un `—` ambigu), noms courts
+de phases (Contexte, Worktree, Analyse, Code, QA, Review, MR, Finalisation),
+phases réussies regroupées, `SKIPPED`/`FAILED`/`BLOCKED` **toujours** visibles
+avec leur cause concrète :
 
 ```markdown
 # ✅ <titre> — MR !N prête (<baseBranch>)
-<objectif sur une ligne>
-**Contrôles** : <tests ✅/❌ avec exit codes> · baseline <résultat sur la base> · blockers N
-**Phases** : 1-4 ✅ · 5 ⏭️ QA (raison) · 6-7 ✅ · 8-9 —
-**Décisions** : N (HUMAN:n, policy:n) · **Vigilance** : <phases non passées>
-**MR** : [!N](url) → `base` · `feature` · commit `sha` · N fichiers
-**Prochaine action** : revue humaine de MR !N (jamais de merge automatique)
+Objectif : <résumé fonctionnel sur une ligne — enregistré en français en Phase 3>
+**Contrôles** : <tests ✅/❌ avec exit codes> · base <branch> : <baseline> · bloqueurs : N
+**Phases** : Contexte·Worktree·Analyse·Code ✅ · QA ⏭️ non exécutée (raison) · Review·MR ○ à venir
+**Décisions** : «<réponse>» (validé humain) · **Vigilance** : QA : non exécutée — <raison>
+**MR** : [!N](url) → `base` · `feature` · commit `sha` · N fichiers modifiés
+**Prochaine action** : revue humaine de la MR !N (jamais de merge automatique)
 📄 Détail par phase : `~/.config/opencode/task-workflows/<workflowId>/report-detailed.md`
 ```
 
-Règles : une MR ouverte = tâche **prête pour revue** — jamais rapportée comme
-mergée ou déployée ; les étapes non réalisées gardent leur statut réel
+Règles : le renderer n'affiche que des **libellés** français — les **données**
+enregistrées (objectif, raisons, réponses) restent telles quelles : le
+workflow les enregistre **en français** (objectif de plan, décisions, raisons
+de skip) ; une MR ouverte = tâche **prête pour revue** — jamais rapportée
+comme mergée ou déployée ; les étapes non réalisées gardent leur statut réel
 (`SKIPPED` justifié, `BLOCKED` avec cause, `FAILED` avec diagnostic) — rien
 n'est masqué ; le détaillé reste **synthétique** — pas de sections vides ni de
 remplissage formatique, seules les preuves et décisions utiles y figurent

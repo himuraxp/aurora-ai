@@ -33,6 +33,10 @@ RESULT_STATUSES = ("pass", "fail", "skipped", "not-run")  # structured check res
 RESULT_STATUS_ALIASES = ("PASSED", "passed", "FAILED", "failed", "SKIPPED",
                          "BLOCKED", "WAITING_APPROVAL", "RUNNING", "PENDING")
 EVENT_TYPES = ("phase", "command", "decision", "incident", "recovery", "note")
+# Handoff takeover (Orca integration, strategy A): the state tracks the
+# transfer of execution from the originating session to the session running
+# inside the new worktree. State = the only truth about WHO owns the mandate.
+HANDOFF_STATUSES = ("pending", "accepted", "failed", "uncertain")
 DEFAULT_STATE_DIR = os.path.expanduser("~/.config/opencode/task-workflows")
 
 
@@ -282,6 +286,18 @@ def validate_state(state: Any, path: Optional[str] = None) -> List[str]:
                 problems.append(f"{key}[{index}].exitCode must be an integer when present")
             if status in ("pass", "passed", "PASSED") and isinstance(exit_code, int) and exit_code != 0:
                 problems.append(f"{key}[{index}]: exitCode {exit_code} cannot be reported as pass")
+    # Handoff tracking (additive): a handoff block must be coherent — an
+    # "accepted" takeover without a claimed session is an unverifiable mandate.
+    handoff = state.get("handoff")
+    if handoff is not None:
+        if not isinstance(handoff, dict):
+            problems.append("handoff must be an object")
+        else:
+            status = handoff.get("status")
+            if status not in HANDOFF_STATUSES:
+                problems.append(f"handoff.status must be one of {list(HANDOFF_STATUSES)}")
+            elif status == "accepted" and not handoff.get("session"):
+                problems.append("handoff.status=accepted requires the claimed session")
     return problems
 
 
@@ -444,6 +460,61 @@ def compute_stale(state: dict, current_signature: str) -> List[int]:
     return sorted(stale)
 
 
+def set_handoff(state: dict, status: str, *, terminal_handle: Optional[str] = None,
+                worktree_path: Optional[str] = None,
+                source_session: Optional[str] = None) -> dict:
+    """Record a handoff lifecycle step on the state (pending → accepted, or
+    failed/uncertain when the Orca launch could not be trusted).
+
+    `pending` = a takeover has been prepared (handle present) or is being
+    prepared (handle absent). `accepted` is only ever written by claim().
+    """
+    if status not in HANDOFF_STATUSES:
+        raise ValueError(f"handoff status must be one of {list(HANDOFF_STATUSES)}")
+    if status == "accepted":
+        # Acceptance only flows through claim_handoff (session is mandatory there).
+        raise ValueError("use claim_handoff() to record an accepted takeover")
+    state["handoff"] = {
+        "status": status,
+        "at": _now_iso(),
+        "terminalHandle": terminal_handle,
+        "worktreePath": worktree_path,
+        "session": source_session,
+    }
+    state["updatedAt"] = state["handoff"]["at"]
+    return state
+
+
+def claim_handoff(state: dict, session: str, force: bool = False) -> str:
+    """The taking-over session records itself as the mandate owner.
+
+    - pending → accepted: the normal takeover (the originating session stopped
+      driving the workflow when it marked pending).
+    - accepted + same session: idempotent re-claim (harmless).
+    - accepted + different session: refused unless --force — a concurrent
+      takeover must be a conscious recovery, never a silent race.
+    """
+    if not session or not str(session).strip():
+        raise ValueError("claim requires a session label (e.g. pane:$ORCA_AGENT_PANE)")
+    handoff = state.get("handoff") or {}
+    status = handoff.get("status")
+    if status == "accepted" and handoff.get("session") == session:
+        return "already claimed (idempotent)"
+    if status == "accepted" and handoff.get("session") and not force:
+        raise ValueError(
+            f"handoff already claimed by {handoff['session']!r} — pass --force for a "
+            f"conscious recovery (journaled), never for a concurrent duplicate")
+    if status not in ("pending", "accepted"):
+        raise ValueError(f"no claimable handoff (status: {status or 'none'})")
+    was = status
+    handoff["status"] = "accepted"
+    handoff["session"] = session
+    handoff["claimedAt"] = _now_iso()
+    state["handoff"] = handoff
+    state["updatedAt"] = handoff["claimedAt"]
+    return "claimed" if was == "pending" else "recovered (forced)"
+
+
 def resume_plan(state: dict, current_signature: str, worktree_exists: bool = True) -> Dict[str, Any]:
     """Deterministic resume plan from persisted state vs measured reality.
 
@@ -511,18 +582,37 @@ def cmd_validate(argv: List[str]) -> int:
 def cmd_resume(argv: List[str]) -> int:
     path, signature, worktree_missing = argv[0], "", False
     rest = argv[1:]
+    session: Optional[str] = None
     while rest:
         flag = rest.pop(0)
         if flag == "--signature":
             signature = rest.pop(0)
         elif flag == "--worktree-missing":
             worktree_missing = True
+        elif flag == "--session":
+            session = rest.pop(0)
+        else:
+            print(f"ERROR: unknown flag {flag}")
+            return 2
     state = load_state(path)
     problems = validate_state(state, path)
     if problems:
         for problem in problems:
             print(f"INVALID: {problem}")
         return 1
+    # Handoff awareness on stdout only for the plan; warnings go to stderr so
+    # the machine-readable plan (stdout) stays parseable by tooling.
+    handoff = state.get("handoff") or {}
+    status = handoff.get("status")
+    if status == "pending":
+        print("HANDOFF-WARNING: takeover pending — the session prepared for this "
+              "worktree never confirmed (claim first if you are the target)",
+              file=sys.stderr)
+    elif status == "accepted" and session and handoff.get("session") \
+            and session != handoff["session"]:
+        print(f"CONCURRENCY-WARNING: handoff claimed by {handoff['session']!r} — "
+              "this resume may be concurrent; recovery is journaled via claim --force",
+              file=sys.stderr)
     print(json.dumps(resume_plan(state, signature, worktree_exists=not worktree_missing), indent=2))
     return 0
 
@@ -624,6 +714,93 @@ def cmd_invalidate(argv: List[str]) -> int:
                             "note": "invalidated (STALE or rework)"})
     except (OSError, ValueError) as error:
         print(f"JOURNAL-WARNING: transition event not recorded ({error})")
+    return 0
+
+
+def cmd_handoff(argv: List[str]) -> int:
+    path, status = argv[0], argv[1]
+    rest = argv[2:]
+    handle = wpath = None
+    while rest:
+        flag = rest.pop(0)
+        if flag == "--handle":
+            handle = rest.pop(0)
+        elif flag == "--path":
+            wpath = rest.pop(0)
+        else:
+            print(f"ERROR: unknown flag {flag}")
+            return 2
+    guard = _canonical_write_guard(path)
+    if guard:
+        print(guard)
+        return 1
+    state = load_state(path)
+    try:
+        set_handoff(state, status, terminal_handle=handle, worktree_path=wpath)
+    except ValueError as error:
+        print(f"ILLEGAL: {error}")
+        return 1
+    problems = validate_state(state, path)
+    if problems:
+        for problem in problems:
+            print(f"INVALID: {problem}")
+        print("state NOT saved")
+        return 1
+    save_state(path, state)
+    detail = f" (terminal {handle})" if handle else ""
+    print(f"handoff -> {status}{detail}")
+    # Chronicle after the commit (same rule as mark): informative, never blocking.
+    try:
+        append_event(path, {"type": "command", "phase": 2, "actor": "orchestrator",
+                            "at": state["handoff"]["at"],
+                            "summary": f"handoff {status}{detail}"})
+    except (OSError, ValueError) as error:
+        print(f"JOURNAL-WARNING: handoff event not recorded ({error})")
+    return 0
+
+
+def cmd_claim(argv: List[str]) -> int:
+    path = argv[0]
+    rest = argv[1:]
+    session: Optional[str] = None
+    force = False
+    while rest:
+        flag = rest.pop(0)
+        if flag == "--session":
+            session = rest.pop(0)
+        elif flag == "--force":
+            force = True
+        else:
+            print(f"ERROR: unknown flag {flag}")
+            return 2
+    if not session:
+        print("ERROR: --session <label> required (e.g. pane:$ORCA_AGENT_PANE)")
+        return 2
+    guard = _canonical_write_guard(path)
+    if guard:
+        print(guard)
+        return 1
+    state = load_state(path)
+    try:
+        outcome = claim_handoff(state, session, force=force)
+    except ValueError as error:
+        print(f"ILLEGAL: {error}")
+        return 1
+    problems = validate_state(state, path)
+    if problems:
+        for problem in problems:
+            print(f"INVALID: {problem}")
+        print("state NOT saved")
+        return 1
+    save_state(path, state)
+    print(f"handoff {outcome} by {session}")
+    try:
+        append_event(path, {"type": "command", "phase": 2, "actor": session,
+                            "at": state["handoff"]["claimedAt"],
+                            "summary": f"handoff {outcome}",
+                            **({"note": "concurrent-takeover recovery"} if "recovered" in outcome else {})})
+    except (OSError, ValueError) as error:
+        print(f"JOURNAL-WARNING: claim event not recorded ({error})")
     return 0
 
 
@@ -729,14 +906,14 @@ def cmd_validate_all(argv: List[str]) -> int:
 def main(argv: List[str]) -> int:
     if not argv:
         print("usage: tw_state.py validate|resume|mark|invalidate|signature|id"
-              "|resolve|log|validate-all ...", file=sys.stderr)
+              "|resolve|log|validate-all|handoff|claim ...", file=sys.stderr)
         return 2
     command = argv[0]
     if command == "validate-all":  # optional argument — canonical dir by default
         return cmd_validate_all(argv[1:])
     if len(argv) < 2:
         print("usage: tw_state.py validate|resume|mark|invalidate|signature|id"
-              "|resolve|log|validate-all ...", file=sys.stderr)
+              "|resolve|log|validate-all|handoff|claim ...", file=sys.stderr)
         return 2
     if command == "validate":
         return cmd_validate(argv[1:])
@@ -754,6 +931,10 @@ def main(argv: List[str]) -> int:
         return cmd_resolve(argv[1:])
     if command == "log":
         return cmd_log(argv[1:])
+    if command == "handoff":
+        return cmd_handoff(argv[1:])
+    if command == "claim":
+        return cmd_claim(argv[1:])
     print(f"unknown command: {command}", file=sys.stderr)
     return 2
 

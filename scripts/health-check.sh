@@ -615,6 +615,11 @@ if [[ -f "$ROOT_DIR/skills/task-workflow/tw_state.py" ]]; then
     && grep -q "assistance non disponible" "$ROOT_DIR/skills/task-workflow/SKILL.md" \
     && ok "task-workflow Phase 5 authenticated-access procedure documented (login ≠ SKIPPED)" \
     || fail "task-workflow Phase 5 must document the browser-debug + human login procedure"
+  [[ -f "$ROOT_DIR/skills/task-workflow/tw_orca.py" ]] \
+    && grep -q "Handoff Orca" "$ROOT_DIR/skills/task-workflow/SKILL.md" \
+    && grep -q "def cmd_claim" "$ROOT_DIR/skills/task-workflow/tw_state.py" \
+    && ok "task-workflow Orca handoff: adapter + claim protocol documented" \
+    || fail "task-workflow Orca handoff integration incomplete (tw_orca.py / claim / SKILL.md)"
 fi
 
 # ─── 12. Design-qa skill (conformité interface ↔ design de référence) ───────

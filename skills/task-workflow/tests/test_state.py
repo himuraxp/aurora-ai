@@ -229,6 +229,143 @@ class TestResumePlan(unittest.TestCase):
         self.assertEqual(sorted(plan["skip"]), [1, 2, 3])
 
 
+class TestHandoff(unittest.TestCase):
+    """Handoff takeover (strategy A): the state tracks WHO owns the mandate.
+    Never two pilots; recovery only through conscious --force."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.path = os.path.join(self.tmp.name, "tw-podcast-player--1a2b3c4d.json")
+        with open(self.path, "w", encoding="utf-8") as handle:
+            json.dump(valid_state(), handle)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _run(self, *args):
+        script = os.path.join(os.path.dirname(__file__), "..", "tw_state.py")
+        return subprocess.run(
+            [sys.executable, script, *args], capture_output=True, text=True, check=False,
+            env={**os.environ, "TW_STATE_STATE_DIR": self.tmp.name})
+
+    # — unit level
+
+    def test_pending_then_claim_accepts(self):
+        state = valid_state()
+        tw_state.set_handoff(state, "pending", worktree_path="/tmp/wt")
+        self.assertEqual(tw_state.validate_state(state), [])
+        self.assertEqual(tw_state.claim_handoff(state, "pane:t1"), "claimed")
+        self.assertEqual(state["handoff"]["status"], "accepted")
+        self.assertEqual(state["handoff"]["session"], "pane:t1")
+        self.assertEqual(tw_state.validate_state(state), [])
+
+    def test_claim_idempotent_for_same_session(self):
+        state = valid_state()
+        tw_state.set_handoff(state, "pending")
+        tw_state.claim_handoff(state, "pane:t1")
+        self.assertIn("idempotent", tw_state.claim_handoff(state, "pane:t1"))
+
+    def test_concurrent_claim_refused(self):
+        state = valid_state()
+        tw_state.set_handoff(state, "pending")
+        tw_state.claim_handoff(state, "pane:t1")
+        with self.assertRaises(ValueError):
+            tw_state.claim_handoff(state, "pane:t2")
+
+    def test_force_recovery_is_explicit(self):
+        state = valid_state()
+        tw_state.set_handoff(state, "pending")
+        tw_state.claim_handoff(state, "pane:t1")
+        self.assertIn("recovered", tw_state.claim_handoff(state, "pane:t2", force=True))
+
+    def test_claim_requires_a_session_label(self):
+        state = valid_state()
+        tw_state.set_handoff(state, "pending")
+        with self.assertRaises(ValueError):
+            tw_state.claim_handoff(state, "")
+        with self.assertRaises(ValueError):
+            tw_state.claim_handoff(state, "   ")
+
+    def test_set_handoff_contract(self):
+        state = valid_state()
+        with self.assertRaises(ValueError):
+            tw_state.set_handoff(state, "accepted")  # acceptance only via claim
+        with self.assertRaises(ValueError):
+            tw_state.set_handoff(state, "maybe")
+        for status in ("failed", "uncertain", "pending"):
+            tw_state.set_handoff(state, status)
+            self.assertEqual(tw_state.validate_state(state), [])
+
+    # — validate contract
+
+    def test_validate_accepted_without_session_is_invalid(self):
+        state = valid_state()
+        state["handoff"] = {"status": "accepted", "at": TS}
+        self.assertIn("handoff.status=accepted requires the claimed session",
+                      tw_state.validate_state(state))
+
+    def test_validate_unknown_handoff_status_is_invalid(self):
+        state = valid_state()
+        state["handoff"] = {"status": "maybe", "at": TS}
+        self.assertTrue(any("handoff.status must be one of" in p
+                            for p in tw_state.validate_state(state)))
+
+    # — CLI lifecycle
+
+    def test_cli_full_lifecycle_with_concurrency_refusal(self):
+        self.assertEqual(self._run("handoff", self.path, "pending",
+                                   "--path", "/tmp/wt").returncode, 0)
+        result = self._run("claim", self.path, "--session", "pane:t1")
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("handoff claimed by pane:t1", result.stdout)
+        # Concurrent claim refused, conscious recovery allowed and journaled.
+        refused = self._run("claim", self.path, "--session", "pane:t2")
+        self.assertEqual(refused.returncode, 1)
+        self.assertIn("ILLEGAL", refused.stdout)
+        forced = self._run("claim", self.path, "--session", "pane:t2", "--force")
+        self.assertEqual(forced.returncode, 0)
+        self.assertIn("recovered", forced.stdout)
+
+    def test_cli_claim_without_session_is_usage_error(self):
+        result = self._run("claim", self.path)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("--session", result.stdout)
+
+    def test_cli_resume_warnings_go_to_stderr_and_json_stays_parseable(self):
+        self._run("handoff", self.path, "pending", "--handle", "term_1")
+        warned = self._run("resume", self.path, "--session", "pane:t9")
+        self.assertEqual(warned.returncode, 0)
+        self.assertIn("HANDOFF-WARNING", warned.stderr)
+        self.assertEqual(json.loads(warned.stdout)["resumeAt"], 1)
+        self._run("claim", self.path, "--session", "pane:t1")
+        concurrent = self._run("resume", self.path, "--session", "pane:t9")
+        self.assertIn("CONCURRENCY-WARNING", concurrent.stderr)
+        quiet = self._run("resume", self.path)
+        self.assertNotIn("CONCURRENCY-WARNING", quiet.stderr)
+        self.assertNotIn("HANDOFF-WARNING", quiet.stderr)
+
+    def test_journal_distinguishes_the_two_actors(self):
+        self._run("handoff", self.path, "pending", "--path", "/tmp/wt")
+        self._run("claim", self.path, "--session", "pane:t1")
+        events = tw_state.read_events(self.path)
+        summaries = [event.get("summary", "") for event in events]
+        self.assertTrue(any(s.startswith("handoff pending") for s in summaries))
+        self.assertTrue(any(s.startswith("handoff claimed") for s in summaries))
+        actors = {event.get("actor") for event in events}
+        self.assertIn("orchestrator", actors)
+        self.assertIn("pane:t1", actors)
+
+
+class TestNoOrcaFallback(unittest.TestCase):
+    """Fallback contract: without Orca the workflow keeps its historical path —
+    no handoff block, state stays valid, resume stays quiet."""
+
+    def test_state_without_handoff_is_the_norm(self):
+        state = valid_state()
+        self.assertEqual(tw_state.validate_state(state), [])
+        self.assertIsNone(state.get("handoff"))
+
+
 class TestCli(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

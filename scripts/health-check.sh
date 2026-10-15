@@ -611,6 +611,10 @@ if [[ -f "$ROOT_DIR/skills/task-workflow/tw_state.py" ]]; then
   else
     fail "task-workflow renderer (tw_report.py) missing or violates the never-invent rule"
   fi
+  grep -q "JAMAIS un motif de SKIPPED" "$ROOT_DIR/skills/task-workflow/SKILL.md" \
+    && grep -q "assistance non disponible" "$ROOT_DIR/skills/task-workflow/SKILL.md" \
+    && ok "task-workflow Phase 5 authenticated-access procedure documented (login ≠ SKIPPED)" \
+    || fail "task-workflow Phase 5 must document the browser-debug + human login procedure"
 fi
 
 # ─── 12. Design-qa skill (conformité interface ↔ design de référence) ───────

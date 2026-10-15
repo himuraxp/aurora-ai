@@ -310,6 +310,29 @@ class TestHandoff(unittest.TestCase):
         self.assertTrue(any("handoff.status must be one of" in p
                             for p in tw_state.validate_state(state)))
 
+    def test_validate_skipped_without_why_is_invalid(self):
+        state = valid_state()
+        state["handoff"] = {"status": "skipped", "at": TS}
+        self.assertTrue(any("skipped requires a why" in p
+                            for p in tw_state.validate_state(state)))
+
+    def test_skipped_with_reason_is_valid_and_never_claimable(self):
+        state = valid_state()
+        tw_state.set_handoff(state, "skipped", why="hors Orca")
+        self.assertEqual(tw_state.validate_state(state), [])
+        with self.assertRaises(ValueError):
+            tw_state.claim_handoff(state, "pane:t1")
+
+    def test_uncertain_is_claimable_conscious_recovery(self):
+        # SKILL.md Phase 2: the uncertain recovery is claim + resume from the
+        # worktree session — the claim MUST be accepted on uncertain.
+        state = valid_state()
+        tw_state.set_handoff(state, "uncertain", why="terminal créé, handle absent")
+        self.assertEqual(tw_state.claim_handoff(state, "pane:t1"), "claimed")
+        self.assertEqual(state["handoff"]["status"], "accepted")
+        self.assertEqual(state["handoff"]["session"], "pane:t1")
+        self.assertEqual(tw_state.validate_state(state), [])
+
     # — CLI lifecycle
 
     def test_cli_full_lifecycle_with_concurrency_refusal(self):

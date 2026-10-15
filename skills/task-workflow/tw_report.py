@@ -38,6 +38,42 @@ SOURCE_FR = {"HUMAN": "validé humain", "policy": "politique produit"}
 CHECK_ICONS = {"pass": "✅", "fail": "❌", "skipped": "⏭️", "not-run": "⏭️",
                "PASSED": "✅", "FAILED": "❌", "SKIPPED": "⏭️", "BLOCKED": "⛔",
                "WAITING_APPROVAL": "⏸️", "RUNNING": "🔄", "PENDING": "—"}
+HANDOFF_FR = {
+    "pending": "⏳ transférée au worktree — claim requis dans la session de reprise",
+    "accepted": "✅ reprise confirmée",
+    "failed": "❌ échec — suite dans la session courante",
+    "uncertain": "❔ terminal créé mais handle absent — vérifier manuellement",
+    "skipped": "⏭️ non applicable",
+}
+
+
+def _handoff_fate(state: dict) -> Optional[str]:
+    """Fate of the Orca takeover (no prefix) — None when no handoff was recorded.
+
+    A handoff is never silent: every attempted handoff leaves a status in the
+    state (pending/accepted/failed/uncertain/skipped) and shows up here.
+    A pending WITHOUT a recorded terminal handle is a crashed preparation,
+    rendered as such — never as a healthy transfer.
+    """
+    handoff = state.get("handoff")
+    if not isinstance(handoff, dict) or not handoff.get("status"):
+        return None
+    status = str(handoff["status"])
+    if status == "pending" and not handoff.get("terminalHandle"):
+        return "⏳ préparation interrompue (aucun terminal créé) — relancer " \
+               "`tw_orca.py handoff` ou claim conscient"
+    fate = HANDOFF_FR.get(status, f"❔ statut non reconnu ({status})")
+    if status == "accepted" and handoff.get("session"):
+        fate += f" ({handoff['session']})"
+    why = handoff.get("why")
+    if why and status != "accepted":
+        fate += f" — {_truncate(why, 64)}"
+    return fate
+
+
+def _handoff_line(state: dict) -> Optional[str]:
+    fate = _handoff_fate(state)
+    return f"**Bascule Orca** : {fate}" if fate else None
 
 
 def _truncate(text: str, limit: int) -> str:
@@ -285,6 +321,9 @@ def render_operational(state: dict, events: List[dict], context: Optional[dict] 
     lines.append("")
     lines.append(_controls_line(state))
     lines.append(_phases_line(state))
+    handoff_line = _handoff_line(state)
+    if handoff_line:
+        lines.append(handoff_line)
     lines.append(_decisions_line(state, context.get("state_path")))
     if state.get("mergeRequestUrl"):
         mr = f"**MR** : [!{_mr_number(state['mergeRequestUrl'])}]({state['mergeRequestUrl']}) → `{state.get('baseBranch', '?')}` · `{state.get('featureBranch', '?')}`"
@@ -376,6 +415,9 @@ def render_detailed(state: dict, events: List[dict], context: Optional[dict] = N
         lines.append(f"- Journal : {len(events)} événement(s){gap_note}")
     else:
         lines.append("- Journal : non enregistré (v1)")
+    fate = _handoff_fate(state)
+    if fate:
+        lines.append(f"- Bascule Orca : {fate}")
     return "\n".join(lines) + "\n"
 
 

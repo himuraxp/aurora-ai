@@ -333,5 +333,56 @@ class TestCli(unittest.TestCase):
         self.assertEqual(self._run(self.path, "--kind", "podium").returncode, 2)
 
 
+class TestHandoffLine(unittest.TestCase):
+    """A recorded handoff is never silent — the reports show its real fate."""
+
+    def test_no_handoff_stays_absent(self):
+        self.assertIsNone(tw_report._handoff_line(rich_state()))
+        self.assertNotIn("Bascule Orca", tw_report.render_operational(rich_state(), [], CONTEXT))
+
+    def test_every_handoff_status_is_rendered(self):
+        fates = {"accepted": "reprise confirmée", "failed": "échec",
+                 "uncertain": "handle absent", "skipped": "non applicable"}
+        for status, needle in fates.items():
+            state = rich_state(handoff={"status": status, "at": TS})
+            out = tw_report.render_operational(state, [], CONTEXT)
+            self.assertIn("Bascule Orca", out, status)
+            self.assertIn(needle, out, status)
+        # pending renders per its handle: healthy transfer vs interrupted prep.
+        healthy = rich_state(handoff={"status": "pending", "at": TS,
+                                      "terminalHandle": "term_1"})
+        self.assertIn("claim requis", tw_report.render_operational(healthy, [], CONTEXT))
+
+    def test_skipped_shows_its_reason(self):
+        state = rich_state(handoff={"status": "skipped", "at": TS,
+                                    "why": "session non hébergée par Orca"})
+        out = tw_report.render_operational(state, [], CONTEXT)
+        self.assertIn("session non hébergée par Orca", out)
+
+    def test_accepted_shows_session_in_detailed(self):
+        state = rich_state(handoff={"status": "accepted", "at": TS, "session": "pane:t1"})
+        out = tw_report.render_detailed(state, [], CONTEXT)
+        self.assertIn("- Bascule Orca : ✅ reprise confirmée (pane:t1)", out)
+
+    def test_unknown_handoff_status_is_flagged_never_dash(self):
+        state = rich_state(handoff={"status": "maybe", "at": TS})
+        out = tw_report.render_operational(state, [], CONTEXT)
+        self.assertIn("statut non reconnu (maybe)", out)
+
+    def test_pending_without_handle_is_interrupted_never_healthy(self):
+        interrupted = rich_state(handoff={"status": "pending", "at": TS})
+        out = tw_report.render_operational(interrupted, [], CONTEXT)
+        self.assertIn("préparation interrompue", out)
+        self.assertNotIn("claim requis", out)
+        healthy = rich_state(handoff={"status": "pending", "at": TS,
+                                      "terminalHandle": "term_1"})
+        self.assertIn("claim requis", tw_report.render_operational(healthy, [], CONTEXT))
+
+    def test_compact_stays_within_budget_with_handoff(self):
+        state = rich_state(handoff={"status": "skipped", "at": TS, "why": "hors Orca"})
+        out = tw_report.render_operational(state, [], CONTEXT)
+        self.assertLessEqual(len([l for l in out.splitlines() if l.strip()]), 15)
+
+
 if __name__ == "__main__":
     unittest.main()

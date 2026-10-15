@@ -11,12 +11,14 @@ import importlib
 import json
 import os
 import stat
+import subprocess
 import sys
 import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import tw_orca  # noqa: E402
+import tw_state  # noqa: E402
 
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
 
@@ -140,6 +142,210 @@ class TestHandoffTerminal(OrcaEnv):
     def test_close_is_clean(self):
         result = tw_orca.close_terminal("term_fake_1")
         self.assertTrue(result["ok"])
+
+
+def handoff_state():
+    return {
+        "schemaVersion": 1,
+        "workflowId": "tw-fake--1a2b3c4d",
+        "taskUrls": [{"source": "trello", "url": "https://trello.com/c/abc123"}],
+        "repository": "/tmp/repo",
+        "baseBranch": "develop",
+        "baseCommit": "88c12ba",
+        "featureBranch": "feat/trello-abc--do-something",
+        "worktreePath": WORKTREE_PATH,
+        "currentPhase": 1,
+        "phaseStatuses": {},
+        "createdAt": "2026-10-15T10:00:00Z",
+        "updatedAt": "2026-10-15T10:00:00Z",
+    }
+
+
+class TestHandoffRun(OrcaEnv):
+    """The single deterministic Phase 2 entry: every outcome is recorded in
+    the state (never silent) and the verdict is one JSON-able dict."""
+
+    def setUp(self):
+        super().setUp()
+        self.saved = {key: os.environ.get(key)
+                      for key in ("TW_STATE_STATE_DIR", "ORCA_WORKTREE_ID")}
+        self.state_dir = tempfile.mkdtemp()
+        os.environ["TW_STATE_STATE_DIR"] = self.state_dir
+        os.environ.pop("ORCA_WORKTREE_ID", None)
+        self.state_path = os.path.join(self.state_dir, "tw-fake--1a2b3c4d.json")
+        tw_state.save_state(self.state_path, handoff_state())
+
+    def tearDown(self):
+        for key, value in self.saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        super().tearDown()
+
+    def saved_handoff(self):
+        return tw_state.load_state(self.state_path).get("handoff") or {}
+
+    def _state_bytes(self):
+        with open(self.state_path, "r", encoding="utf-8") as handle:
+            return handle.read()
+
+    def test_outside_orca_records_skipped(self):
+        result = tw_orca.handoff_run(self.state_path, WORKTREE_PATH)
+        self.assertFalse(result["ok"])
+        self.assertTrue(result["skipped"])
+        self.assertEqual(self.saved_handoff()["status"], "skipped")
+        self.assertIn("why", self.saved_handoff())
+
+    def test_runtime_down_records_skipped(self):
+        os.environ["ORCA_WORKTREE_ID"] = "wt1"
+        open(os.path.join(self.tmp, "runtime-down"), "w").close()
+        result = tw_orca.handoff_run(self.state_path, WORKTREE_PATH)
+        self.assertFalse(result["ok"])
+        self.assertTrue(result["skipped"])
+        self.assertIn("runtime", self.saved_handoff()["why"])
+
+    def test_success_records_pending_with_handle(self):
+        os.environ["ORCA_WORKTREE_ID"] = "wt1"
+        with open(os.path.join(self.tmp, "worktrees.json"), "w") as handle:
+            handle.write(WT_JSON)
+        result = tw_orca.handoff_run(self.state_path, WORKTREE_PATH)
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["status"], "pending")
+        self.assertEqual(result["handle"], "term_fake_1")
+        handoff = self.saved_handoff()
+        self.assertEqual(handoff["status"], "pending")
+        self.assertEqual(handoff["terminalHandle"], "term_fake_1")
+        logged = self.args_log()[-1]
+        self.assertIn("--focus", logged)
+        self.assertIn("claim", logged)  # resume prompt carries the claim step
+
+    def test_unknown_worktree_records_failed(self):
+        os.environ["ORCA_WORKTREE_ID"] = "wt1"
+        result = tw_orca.handoff_run(self.state_path, "/tmp/repo.worktrees/other--task")
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["status"], "failed")
+        self.assertIn("not indexed", self.saved_handoff()["why"])
+
+    def test_uncertain_create_records_uncertain(self):
+        os.environ["ORCA_WORKTREE_ID"] = "wt1"
+        with open(os.path.join(self.tmp, "worktrees.json"), "w") as handle:
+            handle.write(WT_JSON)
+        open(os.path.join(self.tmp, "uncertain-create"), "w").close()
+        result = tw_orca.handoff_run(self.state_path, WORKTREE_PATH)
+        self.assertFalse(result["ok"])
+        self.assertTrue(result["uncertain"])
+        self.assertEqual(self.saved_handoff()["status"], "uncertain")
+
+    def test_relaunch_refused_on_pending(self):
+        os.environ["ORCA_WORKTREE_ID"] = "wt1"
+        with open(os.path.join(self.tmp, "worktrees.json"), "w") as handle:
+            handle.write(WT_JSON)
+        self.assertTrue(tw_orca.handoff_run(self.state_path, WORKTREE_PATH)["ok"])
+        before = self._state_bytes()
+        result = tw_orca.handoff_run(self.state_path, WORKTREE_PATH)
+        self.assertFalse(result["ok"])
+        self.assertTrue(result["idempotent"])
+        self.assertEqual(self._state_bytes(), before)
+
+    def test_relaunch_refused_on_accepted(self):
+        state = tw_state.load_state(self.state_path)
+        tw_state.set_handoff(state, "pending")
+        tw_state.claim_handoff(state, "pane:t1")
+        tw_state.save_state(self.state_path, state)
+        before = self._state_bytes()
+        result = tw_orca.handoff_run(self.state_path, WORKTREE_PATH)
+        self.assertFalse(result["ok"])
+        self.assertTrue(result["idempotent"])
+        self.assertEqual(self._state_bytes(), before)
+
+    def test_guard_refuses_outside_canonical_dir(self):
+        os.environ.pop("TW_STATE_STATE_DIR", None)
+        outside = os.path.join(tempfile.mkdtemp(), "tw-fake--1a2b3c4d.json")
+        tw_state.save_state(outside, handoff_state())
+        result = tw_orca.handoff_run(outside, WORKTREE_PATH)
+        self.assertFalse(result["ok"])
+        self.assertIn("canonical", result["why"])
+
+    def test_every_outcome_is_journaled(self):
+        result = tw_orca.handoff_run(self.state_path, WORKTREE_PATH)
+        events = tw_state.read_events(self.state_path)
+        self.assertEqual(result["status"], "skipped")
+        self.assertTrue(any("handoff skipped" in event.get("summary", "")
+                            for event in events))
+
+    def test_cmd_handoff_exit_codes(self):
+        # Outside Orca → skipped → exit 1, JSON verdict on stdout, clean stderr.
+        result = self._cli("handoff", self.state_path,
+                           "--worktree-path", WORKTREE_PATH)
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(json.loads(result.stdout)["status"], "skipped")
+        self.assertEqual(result.stderr, "")  # verdict on stdout, never a traceback
+
+    def test_cmd_handoff_uncertain_verdict(self):
+        os.environ["ORCA_WORKTREE_ID"] = "wt1"
+        with open(os.path.join(self.tmp, "worktrees.json"), "w") as handle:
+            handle.write(WT_JSON)
+        open(os.path.join(self.tmp, "uncertain-create"), "w").close()
+        result = self._cli("handoff", self.state_path,
+                           "--worktree-path", WORKTREE_PATH)
+        self.assertEqual(result.returncode, 1)
+        verdict = json.loads(result.stdout)
+        self.assertEqual(verdict["status"], "uncertain")
+        self.assertTrue(verdict["uncertain"])
+        self.assertTrue(verdict["written"])
+
+    def test_cmd_handoff_usage_exit_2(self):
+        self.assertEqual(self._cli("handoff").returncode, 2)
+        self.assertEqual(self._cli("handoff", self.state_path).returncode, 2)  # no path
+
+    def test_custom_command_and_no_focus_passthrough(self):
+        os.environ["ORCA_WORKTREE_ID"] = "wt1"
+        with open(os.path.join(self.tmp, "worktrees.json"), "w") as handle:
+            handle.write(WT_JSON)
+        result = tw_orca.handoff_run(self.state_path, WORKTREE_PATH,
+                                     command="echo custom", focus=False)
+        self.assertTrue(result["ok"])
+        logged = self.args_log()[-1]
+        self.assertNotIn("--focus", logged)
+        self.assertIn("echo custom", logged)
+
+    def test_default_resume_command_embeds_current_signature(self):
+        repo = tempfile.mkdtemp()
+        subprocess.run(["git", "init", "-q", repo], check=True, capture_output=True)
+        subprocess.run(["git", "-C", repo, "-c", "user.email=t@t", "-c", "user.name=t",
+                        "commit", "--allow-empty", "-q", "-m", "init"],
+                       check=True, capture_output=True)
+        cmd = tw_orca.default_resume_command(handoff_state(), self.state_path,
+                                             worktree_path=repo)
+        self.assertIn(f"--signature {tw_state.compute_code_signature(repo)}", cmd)
+        self.assertIn("claim", cmd)
+
+    def test_default_resume_command_degrades_without_signature_source(self):
+        cmd = tw_orca.default_resume_command(handoff_state(), self.state_path)
+        self.assertNotIn("--signature", cmd)  # unmeasurable → omitted, never invented
+        self.assertIn("claim", cmd)
+
+    def test_relaunch_allowed_on_pending_without_handle(self):
+        state = tw_state.load_state(self.state_path)
+        tw_state.set_handoff(state, "pending", worktree_path=WORKTREE_PATH,
+                             why="preparing takeover terminal")
+        tw_state.save_state(self.state_path, state)
+        os.environ["ORCA_WORKTREE_ID"] = "wt1"
+        with open(os.path.join(self.tmp, "worktrees.json"), "w") as handle:
+            handle.write(WT_JSON)
+        result = tw_orca.handoff_run(self.state_path, WORKTREE_PATH)
+        self.assertTrue(result["ok"], "crashed preparation must be relaunchable")
+        self.assertEqual(self.saved_handoff()["terminalHandle"], "term_fake_1")
+
+    def _cli(self, *args):
+        return subprocess.run(
+            [sys.executable, os.path.join(os.path.dirname(os.path.dirname(
+                os.path.abspath(__file__))), "tw_orca.py"), *args],
+            capture_output=True, text=True, check=False,
+            env={**os.environ, "TW_ORCA_BIN": os.environ["TW_ORCA_BIN"],
+                 "TW_FAKE_DIR": self.tmp,
+                 "TW_STATE_STATE_DIR": self.state_dir})
 
 
 if __name__ == "__main__":

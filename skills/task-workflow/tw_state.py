@@ -36,7 +36,9 @@ EVENT_TYPES = ("phase", "command", "decision", "incident", "recovery", "note")
 # Handoff takeover (Orca integration, strategy A): the state tracks the
 # transfer of execution from the originating session to the session running
 # inside the new worktree. State = the only truth about WHO owns the mandate.
-HANDOFF_STATUSES = ("pending", "accepted", "failed", "uncertain")
+# skipped = handoff evaluated and not applicable (not an Orca session, runtime
+# down) — recorded, never silent; requires a "why" for the report.
+HANDOFF_STATUSES = ("pending", "accepted", "failed", "uncertain", "skipped")
 DEFAULT_STATE_DIR = os.path.expanduser("~/.config/opencode/task-workflows")
 
 
@@ -298,6 +300,8 @@ def validate_state(state: Any, path: Optional[str] = None) -> List[str]:
                 problems.append(f"handoff.status must be one of {list(HANDOFF_STATUSES)}")
             elif status == "accepted" and not handoff.get("session"):
                 problems.append("handoff.status=accepted requires the claimed session")
+            elif status == "skipped" and not handoff.get("why"):
+                problems.append("handoff.status=skipped requires a why (reason)")
     return problems
 
 
@@ -462,9 +466,11 @@ def compute_stale(state: dict, current_signature: str) -> List[int]:
 
 def set_handoff(state: dict, status: str, *, terminal_handle: Optional[str] = None,
                 worktree_path: Optional[str] = None,
-                source_session: Optional[str] = None) -> dict:
+                source_session: Optional[str] = None,
+                why: Optional[str] = None) -> dict:
     """Record a handoff lifecycle step on the state (pending → accepted, or
-    failed/uncertain when the Orca launch could not be trusted).
+    failed/uncertain when the Orca launch could not be trusted, or skipped
+    when the handoff is not applicable — always with its reason).
 
     `pending` = a takeover has been prepared (handle present) or is being
     prepared (handle absent). `accepted` is only ever written by claim().
@@ -474,13 +480,16 @@ def set_handoff(state: dict, status: str, *, terminal_handle: Optional[str] = No
     if status == "accepted":
         # Acceptance only flows through claim_handoff (session is mandatory there).
         raise ValueError("use claim_handoff() to record an accepted takeover")
-    state["handoff"] = {
+    block = {
         "status": status,
         "at": _now_iso(),
         "terminalHandle": terminal_handle,
         "worktreePath": worktree_path,
         "session": source_session,
     }
+    if why:
+        block["why"] = why
+    state["handoff"] = block
     state["updatedAt"] = state["handoff"]["at"]
     return state
 
@@ -490,6 +499,9 @@ def claim_handoff(state: dict, session: str, force: bool = False) -> str:
 
     - pending → accepted: the normal takeover (the originating session stopped
       driving the workflow when it marked pending).
+    - uncertain → accepted: conscious recovery of an unverified mandate (the
+      terminal was created but its handle was never recorded — SKILL.md Phase 2
+      prescribes claim + resume from the worktree session in that case).
     - accepted + same session: idempotent re-claim (harmless).
     - accepted + different session: refused unless --force — a concurrent
       takeover must be a conscious recovery, never a silent race.
@@ -504,7 +516,7 @@ def claim_handoff(state: dict, session: str, force: bool = False) -> str:
         raise ValueError(
             f"handoff already claimed by {handoff['session']!r} — pass --force for a "
             f"conscious recovery (journaled), never for a concurrent duplicate")
-    if status not in ("pending", "accepted"):
+    if status not in ("pending", "accepted", "uncertain"):
         raise ValueError(f"no claimable handoff (status: {status or 'none'})")
     was = status
     handoff["status"] = "accepted"
@@ -512,7 +524,7 @@ def claim_handoff(state: dict, session: str, force: bool = False) -> str:
     handoff["claimedAt"] = _now_iso()
     state["handoff"] = handoff
     state["updatedAt"] = handoff["claimedAt"]
-    return "claimed" if was == "pending" else "recovered (forced)"
+    return "claimed" if was in ("pending", "uncertain") else "recovered (forced)"
 
 
 def resume_plan(state: dict, current_signature: str, worktree_exists: bool = True) -> Dict[str, Any]:
@@ -604,9 +616,9 @@ def cmd_resume(argv: List[str]) -> int:
     # the machine-readable plan (stdout) stays parseable by tooling.
     handoff = state.get("handoff") or {}
     status = handoff.get("status")
-    if status == "pending":
-        print("HANDOFF-WARNING: takeover pending — the session prepared for this "
-              "worktree never confirmed (claim first if you are the target)",
+    if status in ("pending", "uncertain"):
+        print("HANDOFF-WARNING: takeover not confirmed "
+              f"(status: {status}) — claim first if you are the target",
               file=sys.stderr)
     elif status == "accepted" and session and handoff.get("session") \
             and session != handoff["session"]:
@@ -720,13 +732,15 @@ def cmd_invalidate(argv: List[str]) -> int:
 def cmd_handoff(argv: List[str]) -> int:
     path, status = argv[0], argv[1]
     rest = argv[2:]
-    handle = wpath = None
+    handle = wpath = why = None
     while rest:
         flag = rest.pop(0)
         if flag == "--handle":
             handle = rest.pop(0)
         elif flag == "--path":
             wpath = rest.pop(0)
+        elif flag == "--why":
+            why = rest.pop(0)
         else:
             print(f"ERROR: unknown flag {flag}")
             return 2
@@ -736,7 +750,7 @@ def cmd_handoff(argv: List[str]) -> int:
         return 1
     state = load_state(path)
     try:
-        set_handoff(state, status, terminal_handle=handle, worktree_path=wpath)
+        set_handoff(state, status, terminal_handle=handle, worktree_path=wpath, why=why)
     except ValueError as error:
         print(f"ILLEGAL: {error}")
         return 1
@@ -795,10 +809,14 @@ def cmd_claim(argv: List[str]) -> int:
     save_state(path, state)
     print(f"handoff {outcome} by {session}")
     try:
-        append_event(path, {"type": "command", "phase": 2, "actor": session,
+        # A forced recovery is an incident-class chronicle entry (type
+        # "recovery"), the normal claim stays a plain command.
+        forced = "recovered" in outcome
+        append_event(path, {"type": "recovery" if forced else "command", "phase": 2,
+                            "actor": session,
                             "at": state["handoff"]["claimedAt"],
                             "summary": f"handoff {outcome}",
-                            **({"note": "concurrent-takeover recovery"} if "recovered" in outcome else {})})
+                            **({"note": "concurrent-takeover recovery"} if forced else {})})
     except (OSError, ValueError) as error:
         print(f"JOURNAL-WARNING: claim event not recorded ({error})")
     return 0

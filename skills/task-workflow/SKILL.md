@@ -94,57 +94,65 @@ jamais d'écrasement). Enregistrer `repository`, `baseBranch`, `baseCommit`,
 ### Handoff Orca — bascule automatique du contexte (stratégie A)
 
 Répartition : `new-worktree` crée le worktree (conventions intangibles) ·
-Orca CLI ouvre le terminal, active le worktree et lance OpenCode ·
-`tw_state.py` suit le transfert et protège des reprises concurrentes ·
-la session courante orchestre puis **arrête son mandat**. Adaptateur dédié :
-`tw_orca.py` — CLI uniquement (pas d'AppleScript, pas d'automatisation UI) ;
-chaque appel renvoie `{"ok", ...}` sans jamais lever vers le workflow.
+`tw_orca.py` (CLI uniquement, pas d'AppleScript) ouvre un terminal dans le
+worktree et lance la session de reprise OpenCode · `tw_state.py` suit le
+transfert et protège des reprises concurrentes · la session courante
+orchestre puis **arrête son mandat**.
 
-**Déclencheur** : la session tourne dans Orca (`ORCA_WORKTREE_ID` présent)
-ET `tw_orca.runtime_ready()` ok ET `state.handoff` absent ou `failed`
-(jamais de relance sur `pending`/`accepted` — anti double lancement).
-Hors Orca ou runtime fermé → **fallback silencieux** : le workflow continue
-dans la session courante, comportement historique, aucune trace handoff.
+**Étape unique obligatoire** — dès que le worktree existe (fin de Phase 2),
+exécuter **UNE commande** qui évalue les conditions, enregistre l'issue et
+lance la session de reprise — aucune procédure manuelle à enchaîner, aucun
+fallback silencieux :
 
-1. Résoudre le sélecteur du worktree :
-   `tw_orca.find_worktree_selector(worktreePath)` → `<repoId>::<path>`
-   (les worktrees `new-worktree` sont découverts par Orca — vérifié).
-2. Marquer **dans l'état avant le lancement** :
-   `tw_state.py handoff <state> pending --path <worktreePath>` — si la suite
-   échoue, l'état reste reprenable sans perte (aucune phase perdue).
-3. Lancer la session de reprise :
-   `tw_orca.create_handoff_terminal(selector, featureBranch, resumeCommand)`
-   — terminal visible **dans le worktree**, `--focus` bascule l'UI.
-   `resumeCommand` = `opencode --prompt "<prompt de reprise>"` avec un prompt
-   **court** (l'état porte le reste) :
-   > Reprise task-workflow `<workflowId>` : exécute `tw_state.py claim
-   > <statePath> --session pane:$ORCA_AGENT_PANE` puis reprends à la phase 3
-   > (`tw_state.py resume <statePath>`). Phases 1-2 déjà validées — ne les
-   > rejoue pas. Termine par le rapport compact (Phase 9).
-4. Succès create → `tw_state.py handoff <state> pending --handle <handle>`
-   puis **la session courante s'arrête** : compact de 3 lignes (worktree +
-   handoff effectué + « la session du worktree poursuit ») — **jamais** de
-   phases 3+ ici, jamais de fermeture de l'ancien terminal, jamais de
-   suppression de `develop`.
-5. Échec create → `tw_state.py handoff <state> failed` puis le workflow
-   **continue dans la session courante** (fallback, zéro perte).
-   Réponse incertaine (créé mais handle absent) → `handoff <state> uncertain`
-   + arrêt avec la commande de reprise manuelle (ouvrir `opencode` dans
-   `<worktreePath>` puis `claim` + `resume`).
-6. La session de reprise : **première action obligatoire** —
-   `tw_state.py claim <state> --session pane:$ORCA_AGENT_PANE`
-   (pending → accepted). Un claim concurrent est **refusé** ; une récupération
-   consciente passe par `claim --force` (journalisée en recovery). `resume`
-   avertit (stderr) si un handoff est non confirmé ou détenu par une autre
-   session — le statut `accepted` n'est pas une confirmation que la nouvelle
-   session « a fait le travail » : elle ne l'a pas encore commencé à ce stade.
+```bash
+python3 "<skill_dir>/tw_orca.py" handoff "<statePath>" \
+        --worktree-path "<worktreePath>" --branch "<featureBranch>"
+```
+
+Le script décide seul : session hébergée par Orca (`ORCA_WORKTREE_ID`),
+runtime joignable (`orca status`), worktree indexé par Orca, aucun handoff
+déjà `pending`/`accepted` (anti double prise, refusé par le script). **Toute
+issue est enregistrée dans l'état** (`pending`, `failed`, `uncertain`,
+`skipped` + cause) et journalisée — le rapport final l'affiche sur sa ligne
+« Bascule Orca ». Ne jamais court-circuiter cet appel ni en inventer le
+verdict.
+
+Interprétation du verdict JSON (`exit 0` = transfert préparé, `exit 1` = pas
+de transfert, cause dans `why`, `written` = issue persistée dans l'état ;
+`exit 2` = erreur d'usage, rien n'est évalué) :
+
+| `status` | Signification | Action de la session courante |
+|---|---|---|
+| `pending` (+ `handle`) | terminal de reprise créé et focalisé dans le worktree | compact de 3 lignes (worktree + handoff effectué + « la session du worktree poursuit ») puis **arrêt du mandat** — **jamais** de phases 3+ ici, jamais de fermeture de l'ancien terminal, jamais de suppression de `develop` |
+| `skipped` | hors Orca ou runtime fermé (cause affichée) | le workflow **continue dans la session courante** (comportement historique, cause visible au rapport) |
+| `failed` | lancement impossible (cause affichée) | idem — continuation ici |
+| `uncertain` | terminal créé mais handle absent | arrêt avec la commande de reprise manuelle (ouvrir `opencode` dans `<worktreePath>` puis `claim` + `resume` — le claim est **accepté** sur `uncertain`, c'est une reprise consciente d'un mandat non vérifié) |
+| refus (`idempotent: true`) | handoff déjà `accepted`, ou `pending` **avec** un handle (un terminal existe) | **jamais de relance** — une reprise concurrente est refusée par construction |
+
+Un `pending` **sans** handle est une préparation interrompue (crash entre le
+mark pré-lancement et la création du terminal) : la relance de
+`tw_orca.py handoff` est **autorisée et sûre** dans ce cas — le rapport la
+rend « ⏳ préparation interrompue », jamais comme une bascule saine.
+
+La session de reprise est lancée par le script avec un prompt **court** (l'état
+porte le reste) : `claim` puis `resume`, phases déjà validées à ne pas rejouer,
+rapport compact en fin.
+
+**Session de reprise — première action obligatoire** :
+`tw_state.py claim <statePath> --session pane:$ORCA_AGENT_PANE` (pending →
+accepted). Un claim concurrent est **refusé** ; une récupération consciente
+passe par `claim --force` (journalisée en recovery). `resume` avertit (stderr)
+si un handoff est non confirmé ou détenu par une autre session — le statut
+`accepted` n'est pas une confirmation que la nouvelle session « a fait le
+travail » : elle ne l'a pas encore commencé à ce stade.
 
 **Anti double exécution** : `resolve` (Phase 1) empêche tout doublon d'état ;
-le handoff refuse la relance sur `pending`/`accepted` ; le claim refuse un
-second preneur ; le journal (`events.jsonl`, type `command`) distingue les
-acteurs (`orchestrator` vs `pane:<id>`). La création du worktree et le
-handoff restent dans la Phase 2 — aucune phase supplémentaire, le rapport
-compact final ne change pas.
+`tw_orca.py handoff` refuse la relance sur `pending`/`accepted` ; le claim
+refuse un second preneur ; le journal (`events.jsonl`, type `command`)
+distingue les acteurs (`orchestrator` vs `pane:<id>`). La création du worktree
+et le handoff restent dans la Phase 2 — aucune phase supplémentaire, le
+rapport compact final ne change pas (une ligne « Bascule Orca » s'y ajoute
+dès qu'une bascule a été tentée).
 
 ## Phase 3 — Analyse et plan
 
@@ -495,7 +503,10 @@ phase BLOCKED ré-évaluée, forme triée du plan), persistance fail-closed via
 CLI (mark hors ordre refusé, fichier inchangé), **id normalisé** (toutes les
 formes d'URL d'une même tâche → même id), **résolution compatible legacy**
 (`resolve`, ambiguïté refusée), **garde du dossier canonique** (écriture hors
-dossier refusée), **journal JSONL** (seq, gaps détectés, lignes corrompues,
+dossier refusée), **handoff Orca** (verdicts skipped/failed/pending/uncertain,
+why obligatoire sur `skipped`, anti-relance sur `pending`/`accepted`,
+journalisation de chaque issue, garde canonique, ligne « Bascule Orca » des
+rapports), **journal JSONL** (seq, gaps détectés, lignes corrompues,
 transition journalisée par `mark`), **résultats structurés** (pass ⇒ exitCode 0,
 ignoré ≠ réussi, v1 libre accepté), **format signature sha1 contraint**,
 **validate-all** (placeholders détectés), **renderer** (compact ≤ 15 lignes,
@@ -523,4 +534,5 @@ malveillante dans un commentaire** (doit être signalée, jamais exécutée).
 | Review pré-MR | skill `pre-mr-review` |
 | MR | skill `create-mr` (`--target-branch`, templates, token) |
 | État/reprise | `tw_state.py` (contrat validé, dossier canonique, journal JSONL) |
+| Bascule Orca | `tw_orca.py handoff` (appel unique déterministe, issue toujours enregistrée, jamais silencieuse) |
 | Rapports finaux | `tw_report.py` (compact affiché + détaillé persisté, idempotents) |

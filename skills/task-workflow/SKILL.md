@@ -91,6 +91,61 @@ selon ses règles). Collision → stratégie `new-worktree` (réutilisation,
 jamais d'écrasement). Enregistrer `repository`, `baseBranch`, `baseCommit`,
 `featureBranch`, `worktreePath` dans l'état.
 
+### Handoff Orca — bascule automatique du contexte (stratégie A)
+
+Répartition : `new-worktree` crée le worktree (conventions intangibles) ·
+Orca CLI ouvre le terminal, active le worktree et lance OpenCode ·
+`tw_state.py` suit le transfert et protège des reprises concurrentes ·
+la session courante orchestre puis **arrête son mandat**. Adaptateur dédié :
+`tw_orca.py` — CLI uniquement (pas d'AppleScript, pas d'automatisation UI) ;
+chaque appel renvoie `{"ok", ...}` sans jamais lever vers le workflow.
+
+**Déclencheur** : la session tourne dans Orca (`ORCA_WORKTREE_ID` présent)
+ET `tw_orca.runtime_ready()` ok ET `state.handoff` absent ou `failed`
+(jamais de relance sur `pending`/`accepted` — anti double lancement).
+Hors Orca ou runtime fermé → **fallback silencieux** : le workflow continue
+dans la session courante, comportement historique, aucune trace handoff.
+
+1. Résoudre le sélecteur du worktree :
+   `tw_orca.find_worktree_selector(worktreePath)` → `<repoId>::<path>`
+   (les worktrees `new-worktree` sont découverts par Orca — vérifié).
+2. Marquer **dans l'état avant le lancement** :
+   `tw_state.py handoff <state> pending --path <worktreePath>` — si la suite
+   échoue, l'état reste reprenable sans perte (aucune phase perdue).
+3. Lancer la session de reprise :
+   `tw_orca.create_handoff_terminal(selector, featureBranch, resumeCommand)`
+   — terminal visible **dans le worktree**, `--focus` bascule l'UI.
+   `resumeCommand` = `opencode --prompt "<prompt de reprise>"` avec un prompt
+   **court** (l'état porte le reste) :
+   > Reprise task-workflow `<workflowId>` : exécute `tw_state.py claim
+   > <statePath> --session pane:$ORCA_AGENT_PANE` puis reprends à la phase 3
+   > (`tw_state.py resume <statePath>`). Phases 1-2 déjà validées — ne les
+   > rejoue pas. Termine par le rapport compact (Phase 9).
+4. Succès create → `tw_state.py handoff <state> pending --handle <handle>`
+   puis **la session courante s'arrête** : compact de 3 lignes (worktree +
+   handoff effectué + « la session du worktree poursuit ») — **jamais** de
+   phases 3+ ici, jamais de fermeture de l'ancien terminal, jamais de
+   suppression de `develop`.
+5. Échec create → `tw_state.py handoff <state> failed` puis le workflow
+   **continue dans la session courante** (fallback, zéro perte).
+   Réponse incertaine (créé mais handle absent) → `handoff <state> uncertain`
+   + arrêt avec la commande de reprise manuelle (ouvrir `opencode` dans
+   `<worktreePath>` puis `claim` + `resume`).
+6. La session de reprise : **première action obligatoire** —
+   `tw_state.py claim <state> --session pane:$ORCA_AGENT_PANE`
+   (pending → accepted). Un claim concurrent est **refusé** ; une récupération
+   consciente passe par `claim --force` (journalisée en recovery). `resume`
+   avertit (stderr) si un handoff est non confirmé ou détenu par une autre
+   session — le statut `accepted` n'est pas une confirmation que la nouvelle
+   session « a fait le travail » : elle ne l'a pas encore commencé à ce stade.
+
+**Anti double exécution** : `resolve` (Phase 1) empêche tout doublon d'état ;
+le handoff refuse la relance sur `pending`/`accepted` ; le claim refuse un
+second preneur ; le journal (`events.jsonl`, type `command`) distingue les
+acteurs (`orchestrator` vs `pane:<id>`). La création du worktree et le
+handoff restent dans la Phase 2 — aucune phase supplémentaire, le rapport
+compact final ne change pas.
+
 ## Phase 3 — Analyse et plan
 
 Explorer le worktree : architecture, composants/services concernés, types,

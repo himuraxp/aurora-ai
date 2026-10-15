@@ -24,6 +24,26 @@ STATUSES = ("PENDING", "RUNNING", "WAITING_APPROVAL", "BLOCKED", "FAILED", "PASS
 PHASES = tuple(range(1, 10))  # 1..9 — Phase 8 = état/reprise (see SKILL.md)
 WORKFLOW_ID_RE = re.compile(r"^tw-[a-z0-9][a-z0-9-]{0,78}[a-z0-9]$")
 ISO_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
+SHA1_RE = re.compile(r"^[0-9a-f]{40}$")  # git sha1 — codeSignature format
+RESULT_STATUSES = ("pass", "fail", "skipped", "not-run")  # structured check results
+# v1 states and the design-qa integration already wrote phase-style or
+# participle values in free-form result entries — accepted as aliases for
+# backward compatibility, never required. "pass"/"passed"/"PASSED" all carry
+# the same hard rule: exitCode must be 0.
+RESULT_STATUS_ALIASES = ("PASSED", "passed", "FAILED", "failed", "SKIPPED",
+                         "BLOCKED", "WAITING_APPROVAL", "RUNNING", "PENDING")
+EVENT_TYPES = ("phase", "command", "decision", "incident", "recovery", "note")
+DEFAULT_STATE_DIR = os.path.expanduser("~/.config/opencode/task-workflows")
+
+
+def state_dir() -> str:
+    """Canonical state directory.
+
+    Overridable for tests and pilots via TW_STATE_STATE_DIR; production
+    default is ~/.config/opencode/task-workflows/ (write commands refuse any
+    path outside it).
+    """
+    return os.environ.get("TW_STATE_STATE_DIR") or DEFAULT_STATE_DIR
 
 REQUIRED_TOP = (
     "schemaVersion", "workflowId", "taskUrls", "repository", "baseBranch",
@@ -42,11 +62,84 @@ TRANSITIONS = {
 }
 
 
+def canonical_task_key(task_url: str) -> str:
+    """Stable task identity extracted from any URL form of the same task.
+
+    Trello:  trello.com/c/<id> or trello.com/c/<id>/<slug>  -> trello:<id>
+    GitLab:  .../<group>/<project>/-/issues/<n> or /-/work_items/<n>
+             -> gitlab:<group>/<project>#<n>
+    Fallback: the URL as given (unknown sources keep their previous identity).
+    """
+    url = task_url.strip().rstrip("/")
+    match = re.search(r"trello\.com/c/([A-Za-z0-9]+)", url)
+    if match:
+        return f"trello:{match.group(1)}"
+    match = re.search(r"gitlab[^/]*/(.+?)/-/(?:issues|work_items)/(\d+)", url)
+    if match:
+        return f"gitlab:{match.group(1)}#{match.group(2)}"
+    return url
+
+
 def new_workflow_id(task_url: str, repository: str) -> str:
-    """Deterministic id: tw-<repo-slug>--<hash8 of task url>."""
+    """Deterministic id: tw-<repo-slug>--<hash8 of canonical task key>.
+
+    The hash covers the normalized task identity (Trello card id, GitLab
+    project+num), NOT the raw URL — every URL form of the same task yields
+    the same workflow id (T-01). Unknown sources fall back to the raw URL,
+    preserving the pre-normalization identity.
+    """
     slug = re.sub(r"[^a-z0-9]+", "-", repository.rstrip("/").split("/")[-1].lower()).strip("-") or "repo"
-    digest = hashlib.sha1(task_url.encode("utf-8")).hexdigest()[:8]
+    digest = hashlib.sha1(canonical_task_key(task_url).encode("utf-8")).hexdigest()[:8]
     return f"tw-{slug[:40]}--{digest}"
+
+
+def resolve_state(task_url: str, repository: str, directory: Optional[str] = None) -> Optional[str]:
+    """Find the state file of a task from ANY of its URL forms (T-01/T-A1).
+
+    1. exact: canonical dir holds <new_workflow_id>.json;
+    2. legacy: scan states whose taskUrls normalize to the same task key
+       (pre-normalization ids like tw-site-manager--98e87142 stay resolvable);
+    3. multiple matches → ValueError (duplicate states for one task, human
+       decision required); none → None.
+    """
+    directory = directory or state_dir()
+    if not os.path.isdir(directory):
+        return None
+    target = canonical_task_key(task_url)
+    exact = os.path.join(directory, f"{new_workflow_id(task_url, repository)}.json")
+    if os.path.isfile(exact):
+        try:
+            state = load_state(exact)
+            urls = state.get("taskUrls")
+            if isinstance(urls, list) and any(
+                    isinstance(entry, dict)
+                    and canonical_task_key(str(entry.get("url", ""))) == target
+                    for entry in urls):
+                return exact
+        except (OSError, ValueError):
+            pass  # unreadable exact hit → fall through to the legacy scan
+    matches: List[str] = []
+    for name in sorted(os.listdir(directory)):
+        if not name.endswith(".json"):
+            continue
+        path = os.path.join(directory, name)
+        try:
+            state = load_state(path)
+            urls = state.get("taskUrls")
+            if not isinstance(urls, list):
+                continue
+            for entry in urls:
+                if isinstance(entry, dict) and canonical_task_key(str(entry.get("url", ""))) == target:
+                    matches.append(path)
+                    break
+        except (OSError, ValueError):
+            continue  # unreadable/corrupt state files are validate-all's job
+    if len(matches) > 1:
+        raise ValueError(
+            f"ambiguous task identity: {len(matches)} states match this task "
+            f"({', '.join(os.path.basename(m) for m in matches)}) — resolve manually"
+        )
+    return matches[0] if matches else None
 
 
 def compute_code_signature(worktree_path: str) -> str:
@@ -97,9 +190,10 @@ def validate_state(state: Any, path: Optional[str] = None) -> List[str]:
         problems.append(f"schemaVersion must be {SCHEMA_VERSION}")
     if not WORKFLOW_ID_RE.match(str(state["workflowId"])):
         problems.append("workflowId must match tw-<slug>--<hash8> pattern")
-    elif path is not None and "task-workflows" in os.path.abspath(path):
+    elif path is not None and os.path.dirname(os.path.abspath(path)) == os.path.abspath(state_dir()):
         # File identity: the state file must be named <workflowId>.json where
         # it lives in the canonical directory (fail-closed on resume mix-ups).
+        # Same predicate as the write guard — no substring false positives.
         if os.path.basename(path) != f"{state['workflowId']}.json":
             problems.append("file name must be <workflowId>.json in task-workflows/")
 
@@ -140,8 +234,10 @@ def validate_state(state: Any, path: Optional[str] = None) -> List[str]:
                 if isinstance(entry.get("at"), str) and not _is_iso(entry["at"]):
                     problems.append(f"phaseStatuses[{key}].at is not ISO-8601")
                 signature = entry.get("codeSignature")
-                if signature is not None and (not isinstance(signature, str) or not signature.strip()):
-                    problems.append(f"phaseStatuses[{key}].codeSignature must be a non-empty string when present")
+                if signature is not None and (
+                        not isinstance(signature, str) or not SHA1_RE.match(signature)):
+                    problems.append(
+                        f"phaseStatuses[{key}].codeSignature must be a 40-char git sha1 when present")
         # Coherence: phases strictly before currentPhase must be decided
         # (PASSED/SKIPPED/FAILED/BLOCKED/WAITING_APPROVAL) — never idle.
         if type(phase) is int:
@@ -165,6 +261,27 @@ def validate_state(state: Any, path: Optional[str] = None) -> List[str]:
     design_contract = state.get("designContract")
     if design_contract is not None and (not isinstance(design_contract, str) or not design_contract.strip()):
         problems.append("designContract must be a non-empty path string or null")
+    # Structured check results (additive, B1): when a check entry carries a
+    # machine status, it must be honest — a "pass" with a non-zero exitCode is
+    # a lie the contract refuses. Entries without these fields stay valid
+    # (v1 free-form results).
+    for key in ("testResults", "qaResults", "reviewResults"):
+        entries = state.get(key, [])
+        if not isinstance(entries, list):
+            problems.append(f"{key} must be a list")
+            continue
+        for index, entry in enumerate(entries):
+            if not isinstance(entry, dict):
+                continue
+            status = entry.get("status")
+            if status is not None and status not in RESULT_STATUSES + RESULT_STATUS_ALIASES:
+                problems.append(f"{key}[{index}].status must be one of {list(RESULT_STATUSES)}"
+                                " (phase-style and participle aliases accepted)")
+            exit_code = entry.get("exitCode")
+            if exit_code is not None and type(exit_code) is not int:
+                problems.append(f"{key}[{index}].exitCode must be an integer when present")
+            if status in ("pass", "passed", "PASSED") and isinstance(exit_code, int) and exit_code != 0:
+                problems.append(f"{key}[{index}]: exitCode {exit_code} cannot be reported as pass")
     return problems
 
 
@@ -177,6 +294,103 @@ def save_state(path: str, state: dict) -> None:
     with open(path, "w", encoding="utf-8") as handle:
         json.dump(state, handle, indent=2, sort_keys=True)
         handle.write("\n")
+
+
+def artifacts_dir_for(state_path: str) -> str:
+    """Per-workflow artifacts dir: <canonical dir>/<workflowId>/ (reports, journal)."""
+    return os.path.join(os.path.dirname(os.path.abspath(state_path)),
+                        os.path.basename(state_path)[:-len(".json")] if state_path.endswith(".json")
+                        else os.path.basename(state_path))
+
+
+def journal_path_for(state_path: str) -> str:
+    return os.path.join(artifacts_dir_for(state_path), "events.jsonl")
+
+
+def append_event(state_path: str, event: dict) -> dict:
+    """Append one event to the workflow journal (append-only JSONL).
+
+    The journal is a CHRONICLE, never the transaction: the state file stays
+    the single source of truth (mark/invalidate commit the state first, the
+    event is appended after). seq is the 1-based line number. No secrets, no
+    bulky logs — reference evidence instead of embedding it.
+    """
+    if event.get("type") not in EVENT_TYPES:
+        raise ValueError(f"event type must be one of {list(EVENT_TYPES)}")
+    path = journal_path_for(state_path)
+    seq = 0
+    if os.path.isfile(path):
+        with open(path, "r", encoding="utf-8") as handle:
+            seq = sum(1 for line in handle if line.strip())
+    event = {"seq": seq + 1, "at": event.get("at") or _now_iso(),
+             **{key: value for key, value in event.items() if key not in ("seq", "at")}}
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n")
+    return event
+
+
+def read_events(state_path: str) -> List[dict]:
+    """Tolerant journal reader: corrupt lines are skipped (journal_problems
+    reports them; a broken chronicle line must never take the report hostage)."""
+    path = journal_path_for(state_path)
+    if not os.path.isfile(path):
+        return []
+    events: List[dict] = []
+    with open(path, "r", encoding="utf-8") as handle:
+        for line in handle:
+            if not line.strip():
+                continue
+            try:
+                event = json.loads(line)
+            except ValueError:
+                continue  # corrupt line — surfaced by journal_problems
+            if not isinstance(event, dict):
+                continue  # valid JSON but not an object — same treatment
+            events.append(event)
+    return events
+
+
+def journal_problems(state: dict, state_path: str) -> List[str]:
+    """Detect chronicle/state divergence (state is the truth, journal informative).
+
+    Returns problems for: corrupt lines, broken seq ordering, and any decided
+    phase transition that has NO corresponding journal event (gap — typically
+    a v1 state recorded before the journal existed, or a lost append).
+    """
+    problems: List[str] = []
+    path = journal_path_for(state_path)
+    if not os.path.isfile(path):
+        return problems  # v1 states legitimately have no journal
+    events: List[dict] = []
+    with open(path, "r", encoding="utf-8") as handle:
+        for number, line in enumerate(handle, start=1):
+            if not line.strip():
+                continue
+            try:
+                event = json.loads(line)
+            except ValueError:
+                problems.append(f"journal line {number} is not valid JSON")
+                continue
+            if not isinstance(event, dict):
+                problems.append(f"journal line {number} is not a JSON object")
+                continue
+            events.append(event)
+    for index, event in enumerate(events, start=1):
+        if event.get("seq") != index:
+            problems.append(f"journal seq broken at line {index}")
+            break
+    recorded = {(event.get("phase"), event.get("status"), event.get("at"))
+                for event in events}
+    for key, entry in (state.get("phaseStatuses") or {}).items():
+        if not isinstance(entry, dict) or not entry.get("at"):
+            continue
+        marker = (int(key) if str(key).isdigit() else key,
+                  entry.get("status"), entry["at"])
+        if marker not in recorded:
+            problems.append(
+                f"phase {key} transition ({entry.get('status')} at {entry['at']}) has no journal event")
+    return problems
 
 
 def mark_phase(state: dict, phase: int, status: str, code_signature: Optional[str] = None,
@@ -285,6 +499,11 @@ def cmd_validate(argv: List[str]) -> int:
     problems = validate_state(state, path)
     for problem in problems:
         print(f"INVALID: {problem}")
+    if not problems:
+        # Chronicle divergence is a WARNING, never a validation failure:
+        # the state file is the transactional truth (see journal_problems).
+        for problem in journal_problems(state, path):
+            print(f"JOURNAL-WARNING: {problem}")
     print("state valid" if not problems else f"{len(problems)} problem(s)")
     return 1 if problems else 0
 
@@ -308,14 +527,46 @@ def cmd_resume(argv: List[str]) -> int:
     return 0
 
 
+def _int_arg(value: str, label: str) -> int:
+    try:
+        return int(value)
+    except ValueError:
+        raise ValueError(f"{label} must be an integer (got {value!r})") from None
+
+
+def _canonical_write_guard(path: str) -> Optional[str]:
+    """Write commands only persist inside the canonical state dir (T-02).
+
+    Three real executions created three different directories because no
+    path was enforced; this guard makes the divergence impossible.
+    """
+    parent = os.path.dirname(os.path.abspath(path))
+    if os.path.abspath(parent) != os.path.abspath(state_dir()):
+        return (f"ERROR: state file must live in the canonical dir {state_dir()} "
+                f"(got {parent}) — set TW_STATE_STATE_DIR to override for tests/pilots")
+    return None
+
+
 def cmd_mark(argv: List[str]) -> int:
-    path, phase, status = argv[0], int(argv[1]), argv[2]
+    try:
+        phase = _int_arg(argv[1], "phase")
+    except ValueError as error:
+        print(f"ERROR: {error}")
+        return 2
+    path, status = argv[0], argv[2]
     rest = argv[3:]
     signature: Optional[str] = None
+    actor = "orchestrator"
     while rest:
         flag = rest.pop(0)
         if flag == "--signature":
             signature = rest.pop(0)
+        elif flag == "--actor":
+            actor = rest.pop(0)
+    guard = _canonical_write_guard(path)
+    if guard:
+        print(guard)
+        return 1
     state = load_state(path)
     try:
         mark_phase(state, phase, status, code_signature=signature)
@@ -332,11 +583,27 @@ def cmd_mark(argv: List[str]) -> int:
         return 1
     save_state(path, state)
     print(f"phase {phase} -> {status}")
+    # Chronicle: append AFTER the state commit — the journal never blocks the
+    # transaction and a lost append is surfaced by `validate` as a warning.
+    try:
+        append_event(path, {"type": "phase", "phase": phase, "status": status,
+                            "actor": actor, "at": state["phaseStatuses"][str(phase)]["at"]})
+    except (OSError, ValueError) as error:
+        print(f"JOURNAL-WARNING: transition event not recorded ({error})")
     return 0
 
 
 def cmd_invalidate(argv: List[str]) -> int:
-    path, phase = argv[0], int(argv[1])
+    try:
+        phase = _int_arg(argv[1], "phase")
+    except ValueError as error:
+        print(f"ERROR: {error}")
+        return 2
+    path = argv[0]
+    guard = _canonical_write_guard(path)
+    if guard:
+        print(guard)
+        return 1
     state = load_state(path)
     try:
         invalidate_phase(state, phase)
@@ -351,6 +618,12 @@ def cmd_invalidate(argv: List[str]) -> int:
         return 1
     save_state(path, state)
     print(f"phase {phase} invalidated -> PENDING")
+    try:
+        append_event(path, {"type": "phase", "phase": phase, "status": "PENDING",
+                            "actor": "orchestrator", "at": state["phaseStatuses"][str(phase)]["at"],
+                            "note": "invalidated (STALE or rework)"})
+    except (OSError, ValueError) as error:
+        print(f"JOURNAL-WARNING: transition event not recorded ({error})")
     return 0
 
 
@@ -368,11 +641,103 @@ def cmd_id(argv: List[str]) -> int:
     return 0
 
 
+def cmd_resolve(argv: List[str]) -> int:
+    """Print the state-file path for a task URL (any URL form), or nothing."""
+    try:
+        path = resolve_state(argv[0], argv[1])
+    except ValueError as error:
+        print(f"ERROR: {error}")
+        return 1
+    print(path if path else "")
+    return 0
+
+
+def cmd_log(argv: List[str]) -> int:
+    """Append a structured event to the workflow journal (chronicle, not truth)."""
+    path = argv[0]
+    rest = argv[1:]
+    event: dict = {"type": "note", "actor": "orchestrator"}
+    try:
+        while rest:
+            flag = rest.pop(0)
+            if flag == "--type":
+                event["type"] = rest.pop(0)
+            elif flag == "--phase":
+                event["phase"] = _int_arg(rest.pop(0), "--phase")
+            elif flag == "--status":
+                event["status"] = rest.pop(0)
+            elif flag == "--actor":
+                event["actor"] = rest.pop(0)
+            elif flag == "--summary":
+                event["summary"] = rest.pop(0)
+            elif flag == "--exit-code":
+                event["exitCode"] = _int_arg(rest.pop(0), "--exit-code")
+            elif flag == "--evidence":
+                event["evidence"] = rest.pop(0)
+            elif flag == "--attempt":
+                event["attempt"] = _int_arg(rest.pop(0), "--attempt")
+            elif flag == "--note":
+                event["note"] = rest.pop(0)
+    except ValueError as error:
+        print(f"ERROR: {error}")
+        return 2
+    guard = _canonical_write_guard(path)
+    if guard:
+        print(guard)
+        return 1
+    try:
+        recorded = append_event(path, event)
+    except ValueError as error:
+        print(f"ERROR: {error}")
+        return 1
+    print(f"event seq {recorded['seq']} recorded ({recorded['type']})")
+    return 0
+
+
+def cmd_validate_all(argv: List[str]) -> int:
+    """Scan the canonical dir: every state must be valid AND correctly named.
+
+    Surfaced the a1b2c3d4-style hand-written placeholders that used to sleep
+    next to real states (T-05). Exit 1 if any problem — for pre-resume checks.
+    """
+    directory = argv[0] if argv else state_dir()
+    if not os.path.isdir(directory):
+        print(f"no state dir at {directory} — nothing to validate")
+        return 0
+    count = 0
+    problems_found = 0
+    for name in sorted(os.listdir(directory)):
+        if not name.endswith(".json"):
+            continue
+        count += 1
+        path = os.path.join(directory, name)
+        try:
+            state = load_state(path)
+            problems = validate_state(state, path)
+        except (OSError, ValueError) as error:
+            # A corrupt state file is exactly what validate-all exists to surface.
+            problems_found += 1
+            print(f"PROBLEM {name}: unreadable or corrupt state file ({error})")
+            continue
+        for problem in problems:
+            problems_found += 1
+            print(f"PROBLEM {name}: {problem}")
+    print(f"{count} state(s) checked, {problems_found} problem(s)")
+    return 1 if problems_found else 0
+
+
 def main(argv: List[str]) -> int:
-    if len(argv) < 2:
-        print("usage: tw_state.py validate|resume|mark|invalidate|signature|id ...", file=sys.stderr)
+    if not argv:
+        print("usage: tw_state.py validate|resume|mark|invalidate|signature|id"
+              "|resolve|log|validate-all ...", file=sys.stderr)
         return 2
     command = argv[0]
+    if command == "validate-all":  # optional argument — canonical dir by default
+        return cmd_validate_all(argv[1:])
+    if len(argv) < 2:
+        print("usage: tw_state.py validate|resume|mark|invalidate|signature|id"
+              "|resolve|log|validate-all ...", file=sys.stderr)
+        return 2
     if command == "validate":
         return cmd_validate(argv[1:])
     if command == "resume":
@@ -385,6 +750,10 @@ def main(argv: List[str]) -> int:
         return cmd_signature(argv[1:])
     if command == "id":
         return cmd_id(argv[1:])
+    if command == "resolve":
+        return cmd_resolve(argv[1:])
+    if command == "log":
+        return cmd_log(argv[1:])
     print(f"unknown command: {command}", file=sys.stderr)
     return 2
 

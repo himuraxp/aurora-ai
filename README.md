@@ -12,7 +12,7 @@
 
   Forkable. Extensible. Ready to use.
 
-  **English** · [Français](README.md)
+  **English** · [Français](README.fr.md)
 </div>
 
 > If Aurora is useful to you, consider starring the repository ⭐ — it helps other builders find it.
@@ -25,8 +25,8 @@ AI agents (OpenCode, Cursor, Claude...) don't know which standard to follow unle
 
 **What you get:**
 
-- **18 specialized agents + 4 plugin agents** — engineering roles (reviewer, tester, security, architect, designer...) plus a Search & Growth team
-- **17 universal standards + 38 skills** — adversarial review, verification, commits, plus the 17-skill accessibility suite
+- **19 specialized agents + 4 plugin agents** — engineering roles (reviewer, tester, security, architect, designer...), a Search & Growth team and a delegated product owner
+- **17 universal standards + 39 skills** — adversarial review, verification, commits, plus the 17-skill accessibility suite
 - **Persistent project memory** — 7 `docs/ai/` documents auto-read at session start: agents keep context across sessions
 - **14 models with automatic fallback** — 250k → 1M context, cost-based agent assignment
 - **Consistent across machines** — same setup and behavior everywhere, with ready-to-use examples (Angular, Node.js API, monorepo)
@@ -143,14 +143,15 @@ AI agents lose context at every new session. This repository solves that with a 
 | **STATUS.md** | Continuity — progress state across sessions |
 | **PLAN.md** | Direction — current technical plan |
 | **DECISIONS.md** | Traceability — justified structural decisions |
+| **CHANGELOG.md** | History — dated session log, consulted on suspected regression |
 
-Session cycle (updated with the REVIEW step):
+Session cycle (review and verification run in parallel):
 
 ```txt
-EXPLORER → PLAN → IMPLEMENT → [REVIEW] → VERIFY → COMMIT
+EXPLORER → PLAN → IMPLEMENT → [PARALLEL GATE: REVIEW ∥ VERIFY] → COMMIT
 ```
 
-With the **REVIEW** step (adversarial review) mandatory before considering a task done.
+With the **PARALLEL GATE** — adversarial review and build/lint/test verification running concurrently — mandatory before considering a task done.
 
 ---
 
@@ -185,7 +186,7 @@ shell rc.
 
 ### MCP Servers
 
-The configuration includes six MCP servers in `opencode.json`:
+The configuration includes seven MCP servers in `opencode.json` (six active — plus `aurora-memory`, intentionally closed and routed through an orchestrator-only plugin bridge):
 
 | MCP Server | Role | Installation |
 |------------|------|-------------|
@@ -193,7 +194,8 @@ The configuration includes six MCP servers in `opencode.json`:
 | `browser-debug` | Connects to a browser in debug mode (`http://127.0.0.1:9222`) — used by the `ai-cowork` skill (Aurora ↔ ChatGPT) | Auto-installed via `npx`; requires a browser started in debug mode (see below) |
 | `ios-simulator` | iOS simulator interaction (tap, swipe, screenshots, UI tree) | Optional — requires `idb-companion` + `fb-idb` |
 | `context7` | Up-to-date library and framework documentation | Auto-installed via `npx` |
-| `infomaniak` | Infomaniak API — radio, VOD, newsletter, DNS, events, AI | Local (see `mcp/infomaniak/README.md`) |
+| `infomaniak` | Infomaniak API — radio, VOD, newsletter, DNS, events, AI. **Read-only by default** (write gate): mutations go through the orchestrator-only `infomaniak_api_call` bridge | Local (see `mcp/infomaniak/README.md`) |
+| `aurora-memory` | Personal memory service (knowledge graph, facts, goals, events) — **closed as an MCP** (`enabled: false`): the only access path is the orchestrator-only `aurora_memory` bridge plugin | Local (aurora-core) |
 | `angular-elements` | Angular Elements design system — components, API, stories | Local (see `mcp/angular-elements/README.md`) |
 
 #### chrome-devtools-mcp
@@ -300,7 +302,7 @@ Qwen3.5-397B (204k)    → Kimi-K2.6 (256k)       → Nemotron-3-Nano (1M)
 | `aurora`, `architect`, `security`, `cybersec`, `reviewer`, `atlas`, `sage`, `mobile`, `tester`, `beacon`, `crawler`, `build`, `plan` | euria-code (GLM-5.2) | Expert reasoning, code, security, native 1M long-context |
 | `aurora-heavy`, `designer`, `vision` | Qwen3.5-397B | Native multimodal (image+video), screenshot and mockup analysis |
 | `echo`, `scribe`, `pulse` | Mistral-Small-4 (119B) | Good cost/performance/creativity balance |
-| `spark` | Mistral-Small-4 (119B) | Commits, CLI skills — 256k context avoids the compaction loop |
+| `spark` | Kimi-K2.6 | Commits, CLI skills — 256k context avoids the compaction loop |
 | `oracle` (plugin) | euria-code (high variant) | Strategic advisory, adversarial review |
 | `fixer` (plugin) | Qwen3.5-122B | Fast spec execution |
 | `explorer`, `librarian` (plugin) | Ministral-3 (14B) | Fast codebase / external docs search |
@@ -350,9 +352,9 @@ To adopt project memory on an existing project that already has `docs/ai/`:
 ```txt
 Global Configuration
         ↓
-     Standards    (workflow, memory-session-flow, memory-auto-update, memory-checklist, verification, communication, escalation, commits, review-before-done, audit, exploration-limits, error-correction, anti-patterns, artifact-authoring, delegation-failure, agent-output)
+     Standards    (workflow, memory-session-flow, memory-auto-update, memory-checklist, verification, communication, escalation, commits, review-before-done, audit, exploration-limits, error-correction, anti-patterns, artifact-authoring, delegation-failure, agent-output, product-authority)
         ↓
-          Agents       (aurora, aurora-heavy, reviewer, tester, security, cybersec, architect, spark, vision, atlas, crawler, sage, scribe, pulse, echo, beacon, designer, mobile) + plugin (explorer, fixer, librarian, oracle)
+          Agents       (aurora, aurora-heavy, reviewer, tester, security, cybersec, architect, spark, vision, atlas, crawler, sage, scribe, pulse, echo, beacon, designer, mobile, product-owner) + plugin (explorer, fixer, librarian, oracle)
         ↓
     Frameworks     (angular-20, nodejs, nestjs, astro...)
         ↓
@@ -375,7 +377,7 @@ After installation, the Aurora agent (main) automatically loads:
 
 ```txt
 1. Global standards (workflow, communication, verification...)
-2. Global agents (aurora, aurora-heavy, reviewer, tester, security, cybersec, architect, spark, vision, atlas, crawler, sage, scribe, pulse, echo, beacon, designer, mobile) + plugin agents (explorer, fixer, librarian, oracle)
+2. Global agents (aurora, aurora-heavy, reviewer, tester, security, cybersec, architect, spark, vision, atlas, crawler, sage, scribe, pulse, echo, beacon, designer, mobile, product-owner) + plugin agents (explorer, fixer, librarian, oracle)
 3. Targeted framework (Angular 20+, Node.js, etc.)
 4. Company standards (if configured)
 5. Local AGENTS.md + docs/ai/
@@ -413,6 +415,7 @@ The available agents live in `agents/`:
 | `beacon.md` | Analytics — SEO and marketing measurement |
 | `designer.md` | UX/UI Designer — interface design, art direction, design system, accessibility (2 modes: standalone / Infomaniak DS) |
 | `mobile.md` | Mobile Engineer — iOS, Android, React Native, Flutter |
+| `product-owner.md` | Delegated Product Owner — proposes product decisions, never ratifies (see `standards/product-authority.md`) |
 
 > Agents **provided by the plugin** `oh-my-opencode-slim` (config `config/oh-my-opencode-slim.json`): `explorer` (codebase search), `fixer` (fast spec execution), `librarian` (external docs search), `oracle` (strategic technical advisory, adversarial review).
 
@@ -486,9 +489,11 @@ In `~/.config/opencode/.env` (permissions 600, never versioned) for the MCP tool
 <summary><strong>How do I verify my installation?</strong></summary>
 
 ```bash
-npm run health-check     # config consistency (JSON, agents, models)
-npm run permissions      # agent permissions matrix
-npm run validate-memory  # docs/ai/ structure of a project
+npm run health-check           # config consistency (JSON, agents, models, test suites)
+npm run permissions            # agent permissions matrix
+npm run validate-memory        # docs/ai/ structure of a project
+npm run mcp-lock               # lock local MCP dependencies (supply-chain hardening)
+npm run test:product-authority # product-authority behavioral invariants
 ```
 
 </details>
@@ -597,6 +602,7 @@ aurora-ai/
 │   ├── create-mr/             Merge request creation (scripts + tests)
 │   ├── deepwork/              Orchestrated multi-phase workflow with review gates (heavy efforts)
 │   ├── deployment-changelog/  Deployment changelog
+│   ├── design-qa/              Design conformance QA (Design Contract, convergence loop, fail-closed gate)
 │   ├── figma-ds-sync/         Infomaniak Figma design system sync (check/sync/diff/mapping)
 │   ├── gitlab-ci/             GitLab CI/CD interaction (glab)
 │   ├── gitlab-feature-planner/  GitLab issues from an estimation table + MR grouping suggestions
@@ -627,13 +633,23 @@ aurora-ai/
 │
 ├── scripts/                   Automation
 │   ├── setup.sh                Full installation (first time, interactive)
-│   ├── install.sh              Install/update the global config
+│   ├── install.sh              Install/update the global config (freshness guard before deploy)
+│   ├── check-freshness.sh      Remote freshness verdict (PASS/BLOCK/UNVERIFIED, fetch-only)
+│   ├── test-freshness.sh       Freshness guard suite (35 assertions, local git fixtures)
+│   ├── configure-models.sh     Live-probe providers → agent role mapping (aurora-models.json)
 │   ├── init-project.sh         Initialize a new project (stack auto-detection)
 │   ├── sync-project.sh         Sync the templates
-│   ├── health-check.sh         Check config consistency (JSON, agents, models)
+│   ├── health-check.sh         Check config consistency (JSON, agents, models, suites)
 │   ├── permissions-matrix.sh   Generate an agent permissions table
 │   ├── validate-memory.sh     Validate a project's docs/ai/ structure
+│   ├── setup-mcp-lock.py       Local MCP npm lockfile (supply-chain hardening)
+│   ├── memory-access-check.sh  Orchestrator-only memory bridge invariant check
+│   ├── ui.sh                   Shared terminal UI helpers (animations, non-TTY aware)
+│   ├── check-infomaniak-write-gate.mjs  Verify the Infomaniak MCP stays read-only
+│   ├── test-product-authority.mjs       Product-authority behavioral invariant tests
+│   ├── check-bash-ruleset-order.py      Bash ruleset ordering lint
 │   ├── create-mr/              MR creation scripts (build_body, check_workspace, detect_target_branch, detect_template, push_branch, tests, upload_media, validate_title)
+│   ├── lib/                    Shared shell helpers
 │   └── hooks/
 │       └── pre-commit-secrets.sh  Git hook against secret leaks
 │
@@ -655,8 +671,8 @@ aurora-ai/
 
 The agent receives and applies in this order (from most general to most specific; the most specific wins):
 
-1. Global **Standards** `~/.config/opencode/standards/` (workflow, memory-session-flow, memory-auto-update, memory-checklist, verification, communication, escalation, commits, review-before-done, audit, exploration-limits, error-correction, anti-patterns, artifact-authoring, delegation-failure, agent-output).
-2. Global **Agents** `~/.config/opencode/agents/` (aurora, aurora-heavy, reviewer, tester, security, cybersec, architect, spark, vision, atlas, crawler, sage, scribe, pulse, echo, beacon, designer, mobile) + oh-my-opencode-slim plugin agents (explorer, fixer, librarian, oracle).
+1. Global **Standards** `~/.config/opencode/standards/` (workflow, memory-session-flow, memory-auto-update, memory-checklist, verification, communication, escalation, commits, review-before-done, audit, exploration-limits, error-correction, anti-patterns, artifact-authoring, delegation-failure, agent-output, product-authority).
+2. Global **Agents** `~/.config/opencode/agents/` (aurora, aurora-heavy, reviewer, tester, security, cybersec, architect, spark, vision, atlas, crawler, sage, scribe, pulse, echo, beacon, designer, mobile, product-owner) + oh-my-opencode-slim plugin agents (explorer, fixer, librarian, oracle).
 3. Global **Frameworks** `~/.config/opencode/frameworks/` (angular-20, nodejs, nestjs, astro).
 4. Company standards (if configured).
 5. Project-local **`AGENTS.md`**.

@@ -180,6 +180,9 @@ echo "── install.sh guard integration (isolated HOME, fixture repo)"
 new_sandbox
 STALE="$SANDBOX/stale"
 git clone -q "$SANDBOX/origin.git" "$STALE" 2>/dev/null
+# CI runners have no global git identity — every fixture commit configures its own.
+git -C "$STALE" config user.email t@t
+git -C "$STALE" config user.name t
 mkdir -p "$STALE/scripts"
 cp "$CHECK" "$STALE/scripts/"
 cp "$INSTALL" "$STALE/scripts/"

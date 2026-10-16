@@ -354,6 +354,24 @@ else
   WARNINGS=$((WARNINGS + 1))
 fi
 
+# ─── Legacy live scripts (known stale leftovers) ─────────────────────────────
+# Detection by EXACT names, known classification only — some runtime files are
+# legitimately unversioned, so no generic "not in repo" scan. install.sh is
+# excluded from deployment by design, so a live copy is a stale, unguarded
+# entry point (bypasses the freshness guard): reinforced warning.
+LIVE_SCRIPTS="${HOME}/.config/opencode/scripts"
+LEGACY_LIVE_RESIDUES=""
+for residue in install.sh migrate-secrets.sh test-migrate-secrets.sh; do
+  [[ -f "${LIVE_SCRIPTS}/${residue}" ]] && LEGACY_LIVE_RESIDUES+="${residue} "
+done
+if [[ -n "$LEGACY_LIVE_RESIDUES" ]]; then
+  warn "legacy live scripts detected (not repo-managed, quarantine them): ${LEGACY_LIVE_RESIDUES}"
+  if echo "$LEGACY_LIVE_RESIDUES" | grep -q "install.sh"; then
+    warn "  live scripts/install.sh predates the freshness guard — running it directly BYPASSES the guard; use npm run update"
+  fi
+  WARNINGS=$((WARNINGS + 1))
+fi
+
 # ─── 6. Technical Council agents ─────────────────────────────────────────────
 # 3 seats read-only + synthesizer: file must exist, YAML-valid frontmatter, a
 # model, and deny edit/write/bash/ast_grep_replace (read-only structurel) —

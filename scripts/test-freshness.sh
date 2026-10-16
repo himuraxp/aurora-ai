@@ -242,6 +242,42 @@ else
   echo "  ok: TARGET_BASE not created before the install.sh call — first-deploy derogation reachable"
 fi
 
+echo "── repair-by-rerun (PV-1: a killed mid-copy update is repaired, never atomic)"
+# The real protection against an interrupted update is idempotent
+# re-execution — a partially-populated live must be fully repaired by re-run.
+new_sandbox
+REPAIR="$SANDBOX/repair"
+git clone -q "$SANDBOX/origin.git" "$REPAIR" 2>/dev/null
+git -C "$REPAIR" config user.email t@t
+git -C "$REPAIR" config user.name t
+mkdir -p "$REPAIR/scripts" "$REPAIR/agents"
+cp "$CHECK" "$REPAIR/scripts/"
+cp "$INSTALL" "$REPAIR/scripts/"
+cp "$SCRIPTS_DIR/ui.sh" "$REPAIR/scripts/"
+echo "agent TestAgent" > "$REPAIR/agents/TestAgent.md"
+git -C "$REPAIR" add -A
+git -C "$REPAIR" commit -q -m "fixture"
+git -C "$REPAIR" push -q origin main
+REPAIR_HOME="$(mktemp -d)"
+env HOME="$REPAIR_HOME" bash -c "cd '$REPAIR' && bash scripts/install.sh" >/dev/null 2>&1
+if [[ -f "$REPAIR_HOME/.config/opencode/agents/TestAgent.md" ]]; then
+  PASS_COUNT=$((PASS_COUNT + 1))
+  echo "  ok: full deploy creates the live artifact"
+else
+  FAIL_COUNT=$((FAIL_COUNT + 1))
+  echo "  FAIL: full deploy did not create the live artifact"
+fi
+rm "$REPAIR_HOME/.config/opencode/agents/TestAgent.md"  # simulate post-kill partial live
+env HOME="$REPAIR_HOME" bash -c "cd '$REPAIR' && bash scripts/install.sh" >/dev/null 2>&1
+if [[ -f "$REPAIR_HOME/.config/opencode/agents/TestAgent.md" ]]; then
+  PASS_COUNT=$((PASS_COUNT + 1))
+  echo "  ok: re-run repairs a partially-populated live"
+else
+  FAIL_COUNT=$((FAIL_COUNT + 1))
+  echo "  FAIL: re-run did not repair the partial live"
+fi
+rm -rf "$REPAIR_HOME"
+
 echo ""
 echo "freshness suite: $PASS_COUNT passed, $FAIL_COUNT failed"
 [[ "$FAIL_COUNT" -eq 0 ]]

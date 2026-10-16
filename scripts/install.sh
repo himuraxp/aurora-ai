@@ -83,6 +83,11 @@ Options:
                    Explicit derogation: deploy without the remote freshness
                    check (offline / intentional). Announced as UNVERIFIED,
                    never as a pass.
+
+Notes:
+  Do NOT pipe this script into head/less-less consumers (npm run update | head
+  will kill it mid-copy via SIGPIPE → partially populated live). Redirect to a
+  file instead; a re-run repairs a partial live (idempotent by design).
 EOF
 }
 
@@ -368,8 +373,14 @@ if [[ "$DRY_RUN" == true ]]; then
   FRESHNESS_NOTE="diagnostic dry-run (aucun fetch)"
   echo "[freshness] dry-run : fraîcheur distante non vérifiée (aucun fetch)"
 else
+  # Bash-3.2 array (cowork 2026-10-16): no command substitution in the
+  # argument list — --skip is transmitted as a clean, single argument.
+  freshness_args=("$ROOT_DIR")
+  if [[ "$SKIP_FRESHNESS" == true ]]; then
+    freshness_args+=("--skip")
+  fi
   set +e
-  bash "${ROOT_DIR}/scripts/check-freshness.sh" "$ROOT_DIR" $([[ "$SKIP_FRESHNESS" == true ]] && echo "--skip")
+  bash "${ROOT_DIR}/scripts/check-freshness.sh" "${freshness_args[@]}"
   freshness_rc=$?
   set -e
   case "$freshness_rc" in

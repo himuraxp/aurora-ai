@@ -382,7 +382,7 @@ Aurora analyzes the user request and matches it against the trigger keywords. If
 
 ### Note — Oracle → Sage renaming
 
-The `oh-my-opencode-slim` plugin defines an `oracle` preset (Qwen 397B) for the critical-reasoning skills (code-review, pre-mr-review, verification-planning, simplify). To avoid the conflict, the AIO/GEO agent was named **Sage** instead of Oracle. The plugin's `oracle` preset and the `sage.md` agent coexist without ambiguity. See `docs/ai/DECISIONS.md`.
+The `oh-my-opencode-slim` plugin defines an `oracle` preset (euria-code) for the critical-reasoning skills (code-review, pre-mr-review, verification-planning, simplify). To avoid the conflict, the AIO/GEO agent was named **Sage** instead of Oracle. The plugin's `oracle` preset and the `sage.md` agent coexist without ambiguity. See `docs/ai/DECISIONS.md`.
 
 ## Expected quality
 

@@ -141,10 +141,14 @@ new_sandbox
 assert_exit 3 "UNVERIFIED: non-git source" "$CHECK" "$SANDBOX"
 assert_output "NON VÉRIFIÉE" "UNVERIFIED announced" "$CHECK" "$SANDBOX"
 
-# detached HEAD: voluntary precise-ref deploy → UNVERIFIED, never a pass
+# detached HEAD: BLOCK by default (cowork tour 2) — a detached deploy may be
+# intentional OR accidental (diagnostic, temporary checkout); it must never
+# happen silently. The explicit derogation remains the only silent path.
 new_sandbox
 git -C "$SANDBOX/local" checkout -q --detach HEAD
-assert_exit 3 "UNVERIFIED: detached HEAD" "$CHECK" "$SANDBOX/local"
+assert_exit 1 "BLOCK: detached HEAD without derogation" "$CHECK" "$SANDBOX/local"
+assert_output "à confirmer explicitement" "BLOCK names the derogation path" "$CHECK" "$SANDBOX/local"
+assert_exit 3 "UNVERIFIED: detached HEAD WITH explicit --skip" "$CHECK" --skip "$SANDBOX/local"
 
 # missing upstream (local branch without tracking)
 new_sandbox
@@ -217,6 +221,23 @@ git -C "$STALE" fetch -q origin
 git -C "$STALE" reset -q --hard FETCH_HEAD
 HOME_ISO="$HOME_ISO" assert_exit 0 "install.sh deploys an up-to-date repo" \
   env HOME="$HOME_ISO" bash -c "cd '$STALE' && bash scripts/install.sh"
+
+echo "── setup.sh derogation reachability (cowork tour 2, P1)"
+# The first-deploy derogation (--skip-freshness-check when TARGET_BASE is
+# absent) must be REACHABLE: if setup.sh created TARGET_BASE before calling
+# install.sh, the condition would always be true and the derogation dead code.
+setup_sh="$SCRIPTS_DIR/setup.sh"
+install_call_line="$(grep -n 'scripts/install.sh' "$setup_sh" | head -1 | cut -d: -f1)"
+if [[ -z "$install_call_line" ]]; then
+  FAIL_COUNT=$((FAIL_COUNT + 1))
+  echo "  FAIL: install.sh call not found in setup.sh"
+elif head -n "$install_call_line" "$setup_sh" | grep -q 'mkdir.*TARGET_BASE'; then
+  FAIL_COUNT=$((FAIL_COUNT + 1))
+  echo "  FAIL: setup.sh creates TARGET_BASE before calling install.sh — derogation is dead code"
+else
+  PASS_COUNT=$((PASS_COUNT + 1))
+  echo "  ok: TARGET_BASE not created before the install.sh call — first-deploy derogation reachable"
+fi
 
 echo ""
 echo "freshness suite: $PASS_COUNT passed, $FAIL_COUNT failed"

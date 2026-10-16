@@ -92,7 +92,7 @@ branch="$(git -C "$REPO" rev-parse --abbrev-ref HEAD)"
 head_sha="$(git -C "$REPO" rev-parse --short HEAD)"
 
 if [[ "$branch" == "HEAD" ]]; then
-  unverified "HEAD détaché ($head_sha) — déploiement volontaire d'une référence précise, fraîcheur invérifiable"
+  block "HEAD détaché ($head_sha) — déployer une référence précise est un choix volontaire, à confirmer explicitement"
 fi
 
 upstream="$(git -C "$REPO" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true)"

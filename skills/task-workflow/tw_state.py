@@ -649,6 +649,45 @@ def _canonical_write_guard(path: str) -> Optional[str]:
     return None
 
 
+EVIDENCE_PHASES = {4: "testResults", 5: "qaResults", 6: "reviewResults"}
+CHAIN_PHASES = (4, 5, 6, 7)  # code-bearing phases: their PASSED evidence must
+# all refer to the SAME code state — a validation validates the code it ran on.
+
+
+def evidence_guard(state: dict, phase: int, status: str,
+                   signature: Optional[str]) -> Optional[str]:
+    """Transition-level guard (cmd_mark only — existing states stay valid):
+    a phase is PASSED only WITH its recorded evidence, and code-bearing
+    phases must share one signature. Missing evidence ≠ failed control: a
+    control that legitimately cannot run is recorded as 'skipped' + reason.
+    """
+    if status != "PASSED":
+        return None
+    key = EVIDENCE_PHASES.get(phase)
+    if key:
+        recorded = [entry for entry in state.get(key, [])
+                    if isinstance(entry, dict) and entry.get("status")]
+        if not recorded:
+            return (f"phase {phase} PASSED requires at least one structured entry in "
+                    f"{key} — record what ran (use status 'skipped' + reason when a "
+                    f"control legitimately cannot run; an unrecorded control is never "
+                    f"a passed one)")
+    if phase in CHAIN_PHASES:
+        if not signature:
+            return (f"phase {phase} PASSED requires --signature — evidence must carry "
+                    f"the code state it validates (tw_state.py signature <worktreePath>)")
+        for other in CHAIN_PHASES:
+            if other >= phase:
+                continue
+            entry = state.get("phaseStatuses", {}).get(str(other), {})
+            if (entry.get("status") == "PASSED" and entry.get("codeSignature")
+                    and entry["codeSignature"] != signature):
+                return (f"phase {other} PASSED carries a different codeSignature — its "
+                        f"evidence is stale for this code: invalidate it and re-run the "
+                        f"impacted controls before marking phase {phase} PASSED")
+    return None
+
+
 def cmd_mark(argv: List[str]) -> int:
     try:
         phase = _int_arg(argv[1], "phase")
@@ -670,6 +709,10 @@ def cmd_mark(argv: List[str]) -> int:
         print(guard)
         return 1
     state = load_state(path)
+    violation = evidence_guard(state, phase, status, signature)
+    if violation:
+        print(f"ILLEGAL: {violation}")
+        return 1
     try:
         mark_phase(state, phase, status, code_signature=signature)
     except ValueError as error:

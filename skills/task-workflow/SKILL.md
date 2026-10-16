@@ -375,6 +375,18 @@ modifications non commitées après une phase `PASSED` l'invalident donc aussi
 contrat, validée par le script (toute écriture passe par le CLI — l'édition
 manuelle du JSON est un contournement interdit) :
 
+**Garde de preuve (transitions, depuis 2026-10-15)** — `mark` refuse
+fail-closed un `PASSED` sans preuve enregistrée : phase 4 exige ≥1 entrée
+structurée dans `testResults`, phase 5 dans `qaResults`, phase 6 dans
+`reviewResults` (une entrée `skipped` + raison compte — un contrôle qui ne
+peut pas tourner est **enregistré**, jamais omis) ; les phases 4-7 exigent
+`--signature` et doivent partager la **même** signature entre elles — une
+divergence (`ILLEGAL: different codeSignature`) impose d'invalider la phase
+devenue STALE et de re-exécuter les contrôles impactés : une validation
+valide le code sur lequel elle a tourné. Les phases 1-3 gardent le
+comportement historique ; les états déjà écrits restent valides (la garde
+s'applique aux nouvelles transitions, pas au schéma).
+
 ```bash
 # validation d'un fichier d'état (exit 1 + raisons si invalide ; JOURNAL-WARNING informatifs)
 python3 "<skill_dir>/tw_state.py" validate  <state.json>

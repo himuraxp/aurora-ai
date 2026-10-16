@@ -379,6 +379,113 @@ class TestHandoff(unittest.TestCase):
         self.assertIn("pane:t1", actors)
 
 
+class TestEvidenceGuard(unittest.TestCase):
+    """P0/P1 tour-2 (cowork 2026-10-15): PASSED = evidence recorded + chain
+    freshness. Transition-level guard (cmd_mark) — existing states stay valid."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.path = os.path.join(self.tmp.name, "tw-podcast-player--1a2b3c4d.json")
+        with open(self.path, "w", encoding="utf-8") as handle:
+            json.dump(valid_state(), handle)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _run(self, *args):
+        script = os.path.join(os.path.dirname(__file__), "..", "tw_state.py")
+        return subprocess.run(
+            [sys.executable, script, *args], capture_output=True, text=True, check=False,
+            env={**os.environ, "TW_STATE_STATE_DIR": self.tmp.name})
+
+    def _advance_to(self, phase):
+        sig = "a" * 40
+        evidence = {4: "testResults", 5: "qaResults", 6: "reviewResults"}
+        for p in range(1, phase + 1):
+            self._run("mark", self.path, str(p), "RUNNING")
+            if p in evidence:  # the guard requires recorded evidence for 4+
+                state = tw_state.load_state(self.path)
+                state[evidence[p]] = [{"phase": p, "name": f"check-{p}",
+                                       "status": "pass", "exitCode": 0}]
+                tw_state.save_state(self.path, state)
+            self._run("mark", self.path, str(p), "PASSED", "--signature", sig)
+
+    def test_phase4_passed_without_results_refused(self):
+        self._advance_to(3)
+        self._run("mark", self.path, "4", "RUNNING")
+        result = self._run("mark", self.path, "4", "PASSED", "--signature", "a" * 40)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("ILLEGAL", result.stdout)
+        self.assertIn("testResults", result.stdout)
+        state = tw_state.load_state(self.path)
+        self.assertEqual(state["phaseStatuses"]["4"]["status"], "RUNNING")
+
+    def test_phase4_passed_with_recorded_results_persists(self):
+        self._advance_to(3)
+        state = tw_state.load_state(self.path)
+        state["testResults"] = [{"phase": 4, "name": "unit", "status": "pass", "exitCode": 0}]
+        tw_state.save_state(self.path, state)
+        self._run("mark", self.path, "4", "RUNNING")
+        result = self._run("mark", self.path, "4", "PASSED", "--signature", "a" * 40)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(tw_state.load_state(self.path)["phaseStatuses"]["4"]["status"], "PASSED")
+
+    def test_phase5_skipped_entry_counts_as_evidence(self):
+        # Missing evidence ≠ failed control: a legitimate skip is RECORDED,
+        # and a recorded skip is valid evidence of an honest decision.
+        self._advance_to(4)
+        state = tw_state.load_state(self.path)
+        state["qaResults"] = [{"phase": 5, "status": "skipped",
+                               "name": "QA navigateur", "reason": "aucune UI exposée"}]
+        tw_state.save_state(self.path, state)
+        self._run("mark", self.path, "5", "RUNNING")
+        result = self._run("mark", self.path, "5", "PASSED", "--signature", "a" * 40)
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_signature_required_for_code_phases(self):
+        self._advance_to(3)
+        state = tw_state.load_state(self.path)
+        state["testResults"] = [{"phase": 4, "name": "unit", "status": "pass", "exitCode": 0}]
+        tw_state.save_state(self.path, state)
+        self._run("mark", self.path, "4", "RUNNING")
+        result = self._run("mark", self.path, "4", "PASSED")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("--signature", result.stdout)
+
+    def test_chain_signature_mismatch_refused(self):
+        # Freshness DURING execution, not only at resume: QA passed on other
+        # code than the tests → the chain is stale, invalidate first.
+        self._advance_to(4)
+        state = tw_state.load_state(self.path)
+        state["qaResults"] = [{"phase": 5, "status": "pass", "name": "QA", "exitCode": 0}]
+        tw_state.save_state(self.path, state)
+        self._run("mark", self.path, "5", "RUNNING")
+        result = self._run("mark", self.path, "5", "PASSED", "--signature", "b" * 40)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("different codeSignature", result.stdout)
+        self.assertIn("invalidate", result.stdout)
+
+    def test_chain_same_signature_ok(self):
+        self._advance_to(4)
+        state = tw_state.load_state(self.path)
+        state["qaResults"] = [{"phase": 5, "status": "pass", "name": "QA", "exitCode": 0}]
+        tw_state.save_state(self.path, state)
+        self._run("mark", self.path, "5", "RUNNING")
+        result = self._run("mark", self.path, "5", "PASSED", "--signature", "a" * 40)
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_phases_outside_chain_unaffected(self):
+        # Phases 1-3 keep the historical behaviour (no evidence guard): the
+        # guard must never invent constraints the workflow does not declare.
+        result = self._run("mark", self.path, "1", "RUNNING")
+        self.assertEqual(result.returncode, 0)
+        result = self._run("mark", self.path, "1", "PASSED", "--signature", "a" * 40)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self._run("mark", self.path, "2", "RUNNING")
+        result = self._run("mark", self.path, "2", "PASSED", "--signature", "a" * 40)
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+
 class TestNoOrcaFallback(unittest.TestCase):
     """Fallback contract: without Orca the workflow keeps its historical path —
     no handoff block, state stays valid, resume stays quiet."""

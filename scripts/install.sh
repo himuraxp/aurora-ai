@@ -6,6 +6,8 @@ TARGET_BASE="${HOME}/.config/opencode"
 PRUNE=false
 DRY_RUN=false
 NO_CONFIG=false
+SKIP_FRESHNESS=false
+FRESHNESS_NOTE=""
 
 # Source the Aurora UI library
 # shellcheck disable=SC1091
@@ -70,13 +72,17 @@ _ui_count_files() {
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [--prune] [--dry-run] [--no-config] [--no-animation]
+Usage: $(basename "$0") [--prune] [--dry-run] [--no-config] [--no-animation] [--skip-freshness-check]
 
 Options:
   --prune          Remove installed .md files that no longer exist in this repo.
   --dry-run        Show what would be installed or removed.
   --no-config      Skip copying config/ files (opencode.json, plugins, etc.)
   --no-animation   Disable animations (for CI/SSH non-interactive sessions).
+  --skip-freshness-check
+                   Explicit derogation: deploy without the remote freshness
+                   check (offline / intentional). Announced as UNVERIFIED,
+                   never as a pass.
 EOF
 }
 
@@ -94,6 +100,9 @@ for arg in "$@"; do
     --no-animation)
       UI_NO_ANIMATION=true
       UI_ANIMATE=false
+      ;;
+    --skip-freshness-check)
+      SKIP_FRESHNESS=true
       ;;
     -h|--help)
       usage
@@ -352,6 +361,25 @@ install_config() {
   fi
 }
 
+# ─── Freshness guard (before ANY live mutation) ──────────────────────────────
+# A stale local repo must never be deployed. dry-run never fetches (non-
+# mutating diagnostic); an explicit derogation is announced, never a pass.
+if [[ "$DRY_RUN" == true ]]; then
+  FRESHNESS_NOTE="diagnostic dry-run (aucun fetch)"
+  echo "[freshness] dry-run : fraîcheur distante non vérifiée (aucun fetch)"
+else
+  set +e
+  bash "${ROOT_DIR}/scripts/check-freshness.sh" "$ROOT_DIR" $([[ "$SKIP_FRESHNESS" == true ]] && echo "--skip")
+  freshness_rc=$?
+  set -e
+  case "$freshness_rc" in
+    0) ;;
+    3) FRESHNESS_NOTE="non vérifiée (voir message ci-dessus)" ;;
+    2) echo "freshness check: usage error" >&2; exit 2 ;;
+    *) exit 1 ;;
+  esac
+fi
+
 # Show logo
 if [[ "$DRY_RUN" == false ]]; then
   ui_logo
@@ -443,6 +471,9 @@ else
     warn "${PRUNED_COUNT} pruned"
   fi
   ok "OpenCode configuration installed in $TARGET_BASE"
+  if [[ -n "$FRESHNESS_NOTE" ]]; then
+    warn "FRESHNESS: NON VÉRIFIÉE ($FRESHNESS_NOTE)"
+  fi
   echo ""
   echo "  Next steps:"
   if [[ "${_UI_NPM_NEEDED:-false}" == true ]]; then

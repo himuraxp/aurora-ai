@@ -16,14 +16,6 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-      # TEMPORARY debug (cowork #4 P0): length + API status only — the secret
-      # value is never printed (GitHub masks it in logs regardless).
-      - name: Debug token (length + API code, never the value)
-        run: |
-          L=$(printf '%s' "${{ secrets.RELEASE_PLEASE_TOKEN }}" | wc -c | tr -d ' ')
-          echo "token length: $L"
-          CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${{ secrets.RELEASE_PLEASE_TOKEN }}" https://api.github.com/repos/himuraxp/aurora-ai)
-          echo "API code on repo endpoint: $CODE"
       - uses: googleapis/release-please-action@v4
         with:
           # Fine-grained PAT (repo himuraxp/aurora-ai, Contents:RW +

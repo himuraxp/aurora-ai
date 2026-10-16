@@ -442,12 +442,26 @@ def invalidate_phase(state: dict, phase: int, at: Optional[str] = None) -> dict:
     """Retire a PASSED phase whose result no longer matches current code (-> PENDING).
 
     The ONLY legal move out of PASSED — bypasses the normal transition table.
+    Rolls currentPhase back to the invalidated phase (the rework happens
+    THERE), and purges that phase's recorded evidence: a result may not
+    outlive the phase it proved (a stale entry must never satisfy a future
+    PASSED).
     """
     key = str(phase)
     if state.get("phaseStatuses", {}).get(key, {}).get("status") != "PASSED":
         raise ValueError(f"phase {phase} is not PASSED — nothing to invalidate")
     timestamp = at or _now_iso()
     state["phaseStatuses"][key] = {"status": "PENDING", "at": timestamp}
+    # Roll back ONLY (never forward): rework happens at the earliest
+    # invalidated phase — invalidating a later phase must not lift
+    # currentPhase above an earlier phase already back in PENDING.
+    state["currentPhase"] = min(int(state.get("currentPhase", phase)), phase)
+    for result_key in EVIDENCE_RESULT_KEYS:
+        entries = state.get(result_key)
+        if isinstance(entries, list):
+            state[result_key] = [entry for entry in entries
+                                 if not (isinstance(entry, dict)
+                                         and str(entry.get("phase", "")) == str(phase))]
     state["updatedAt"] = timestamp
     return state
 
@@ -650,34 +664,48 @@ def _canonical_write_guard(path: str) -> Optional[str]:
 
 
 EVIDENCE_PHASES = {4: "testResults", 5: "qaResults", 6: "reviewResults"}
+EVIDENCE_RESULT_KEYS = ("testResults", "qaResults", "reviewResults")
 CHAIN_PHASES = (4, 5, 6, 7)  # code-bearing phases: their PASSED evidence must
 # all refer to the SAME code state — a validation validates the code it ran on.
+
+
+def _attached_results(state: dict, key: str, phase: int) -> list:
+    """Evidence entries usable for a phase: attached to it (entry.phase),
+    honest status, and a non-empty reason when the control was skipped —
+    an unrecorded or unexplained control is never a passed one."""
+    usable = []
+    for entry in state.get(key, []):
+        if not isinstance(entry, dict) or not entry.get("status"):
+            continue
+        if str(entry.get("phase", "")) != str(phase):
+            continue  # evidence must be attached to the phase it proves
+        if (str(entry.get("status", "")).lower() in ("skipped", "not-run")
+                and not str(entry.get("reason", "")).strip()):
+            continue  # a skip without a recorded reason proves nothing
+        usable.append(entry)
+    return usable
 
 
 def evidence_guard(state: dict, phase: int, status: str,
                    signature: Optional[str]) -> Optional[str]:
     """Transition-level guard (cmd_mark only — existing states stay valid):
-    a phase is PASSED only WITH its recorded evidence, and code-bearing
-    phases must share one signature. Missing evidence ≠ failed control: a
-    control that legitimately cannot run is recorded as 'skipped' + reason.
-    """
+    a phase is PASSED only WITH evidence attached to IT, and code-bearing
+    phases must share one signature — in BOTH directions (a later PASSED
+    phase is stale evidence for an earlier re-run, not only the reverse)."""
     if status != "PASSED":
         return None
     key = EVIDENCE_PHASES.get(phase)
-    if key:
-        recorded = [entry for entry in state.get(key, [])
-                    if isinstance(entry, dict) and entry.get("status")]
-        if not recorded:
-            return (f"phase {phase} PASSED requires at least one structured entry in "
-                    f"{key} — record what ran (use status 'skipped' + reason when a "
-                    f"control legitimately cannot run; an unrecorded control is never "
-                    f"a passed one)")
+    if key and not _attached_results(state, key, phase):
+        return (f"phase {phase} PASSED requires at least one structured entry in "
+                f"{key} attached to it ({{\"phase\": {phase}, \"name\", \"status\", ...}}) — "
+                f"a skipped/not-run entry needs a non-empty reason; an unrecorded "
+                f"control is never a passed one")
     if phase in CHAIN_PHASES:
         if not signature:
             return (f"phase {phase} PASSED requires --signature — evidence must carry "
                     f"the code state it validates (tw_state.py signature <worktreePath>)")
         for other in CHAIN_PHASES:
-            if other >= phase:
+            if other == phase:
                 continue
             entry = state.get("phaseStatuses", {}).get(str(other), {})
             if (entry.get("status") == "PASSED" and entry.get("codeSignature")
@@ -750,6 +778,10 @@ def cmd_invalidate(argv: List[str]) -> int:
         print(guard)
         return 1
     state = load_state(path)
+    purged = sum(1 for result_key in EVIDENCE_RESULT_KEYS
+                 for entry in state.get(result_key, [])
+                 if isinstance(entry, dict)
+                 and str(entry.get("phase", "")) == str(phase))
     try:
         invalidate_phase(state, phase)
     except ValueError as error:
@@ -762,7 +794,8 @@ def cmd_invalidate(argv: List[str]) -> int:
         print("state NOT saved")
         return 1
     save_state(path, state)
-    print(f"phase {phase} invalidated -> PENDING")
+    print(f"phase {phase} invalidated -> PENDING"
+          + (f" ({purged} recorded result(s) purged)" if purged else ""))
     try:
         append_event(path, {"type": "phase", "phase": phase, "status": "PENDING",
                             "actor": "orchestrator", "at": state["phaseStatuses"][str(phase)]["at"],

@@ -356,10 +356,13 @@ présent par `tw_state.py`, jamais requis ; entrées de `qaResults[]` avec
 documenté dont le contenu relève de `dq_contract.py`.
 
 **Résultats de contrôle structurés** (additif) : une entrée de `testResults[]`
-/ `qaResults[]` / `reviewResults[]` peut porter
-`{name, status: pass|fail|skipped|not-run, exitCode, baseline?, note?}` —
-un `pass` **exige** `exitCode: 0` (le contrat refuse le mensonge) ; un contrôle
-**ignoré** (`skipped`/`not-run`) n'est jamais présenté comme réussi ;
+/ `qaResults[]` / `reviewResults[]` porte
+`{phase, name, status: pass|fail|skipped|not-run, exitCode, baseline?, note?, reason?}` —
+`phase` rattache la preuve à la phase qu'elle prouve (exigé par la garde de
+transition, purgé à l'invalidation) ; un `pass` **exige** `exitCode: 0` (le
+contrat refuse le mensonge) ; un contrôle
+**ignoré** (`skipped`/`not-run`) n'est jamais présenté comme réussi et
+n'existe qu'avec une `reason` non vide ;
 `baseline` porte le résultat mesuré sur la branche de base — préexistant ≠
 régression : la régression est un **delta mesuré**, jamais un ressenti. Les
 entrées v1 libres (texte) restent valides.
@@ -378,14 +381,20 @@ manuelle du JSON est un contournement interdit) :
 **Garde de preuve (transitions, depuis 2026-10-15)** — `mark` refuse
 fail-closed un `PASSED` sans preuve enregistrée : phase 4 exige ≥1 entrée
 structurée dans `testResults`, phase 5 dans `qaResults`, phase 6 dans
-`reviewResults` (une entrée `skipped` + raison compte — un contrôle qui ne
-peut pas tourner est **enregistré**, jamais omis) ; les phases 4-7 exigent
-`--signature` et doivent partager la **même** signature entre elles — une
-divergence (`ILLEGAL: different codeSignature`) impose d'invalider la phase
-devenue STALE et de re-exécuter les contrôles impactés : une validation
-valide le code sur lequel elle a tourné. Les phases 1-3 gardent le
-comportement historique ; les états déjà écrits restent valides (la garde
-s'applique aux nouvelles transitions, pas au schéma).
+`reviewResults` — l'entrée doit être **rattachée** à la phase
+(`{"phase": N, "name", "status", ...}`) et une entrée `skipped`/`not-run`
+n'existe qu'avec une **raison non vide** (un contrôle qui ne peut pas tourner
+est **enregistré et expliqué**, jamais omis) ; les phases 4-7 exigent
+`--signature` et doivent partager la **même** signature entre elles — dans
+les **deux sens** : une phase PASSED postérieure à une re-run porte une
+preuve périmée au même titre qu'une antérieure (`ILLEGAL: different
+codeSignature` → invalider les phases divergentes et re-exécuter les
+contrôles impactés : une validation valide le code sur lequel elle a tourné).
+**L'invalidation** (`invalidate`) purge les résultats rattachés à la phase
+(une preuve ne survit pas à ce qu'elle prouvait), ramène `currentPhase` à la
+phase de re-travail (jamais en avant) et affiche le compte purgé. Les phases
+1-3 gardent le comportement historique ; les états déjà écrits restent
+valides (la garde s'applique aux nouvelles transitions, pas au schéma).
 
 ```bash
 # validation d'un fichier d'état (exit 1 + raisons si invalide ; JOURNAL-WARNING informatifs)

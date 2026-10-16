@@ -17,12 +17,11 @@ jobs:
     steps:
       - uses: googleapis/release-please-action@v4
         with:
-          # GITHUB_TOKEN can create the Release PR but does NOT trigger CI
-          # workflows on it (GitHub limitation: events from GITHUB_TOKEN never
-          # start new workflow runs). If the branch protection requires checks
-          # on the Release PR, create a fine-grained PAT (contents:write,
-          # pull-requests:write) and expose it as the RELEASE_PLEASE_TOKEN
-          # repository secret — no config change needed (fallback below).
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          # Fine-grained PAT (repo himuraxp/aurora-ai, Contents:RW +
+          # Pull requests:RW) — REQUIRED. GITHUB_TOKEN cannot be used: it is
+          # blocked from creating PRs (repo setting) and never triggers CI
+          # workflows on the Release PR it creates. No silent fallback: if the
+          # secret is missing, this fails loudly.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json

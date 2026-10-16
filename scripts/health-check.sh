@@ -372,6 +372,28 @@ if [[ -n "$LEGACY_LIVE_RESIDUES" ]]; then
   WARNINGS=$((WARNINGS + 1))
 fi
 
+# ─── Semantic versioning coherence (release-please) ──────────────────────────
+# package.json and the release-please manifest must declare the same version.
+# The last git tag is NOT an invariant: a merged Release PR legitimately
+# precedes tag creation, and manual version edits are release-please's job.
+PKG_VERSION=$(python3 -c "import json;print(json.load(open('$ROOT_DIR/package.json')).get('version',''))" 2>/dev/null || true)
+MANIFEST_VERSION=$(python3 -c "import json;print(json.load(open('$ROOT_DIR/.release-please-manifest.json')).get('.',''))" 2>/dev/null || true)
+if [[ -n "$PKG_VERSION" && -n "$MANIFEST_VERSION" ]]; then
+  if [[ "$PKG_VERSION" == "$MANIFEST_VERSION" ]]; then
+    ok "version coherence: package.json == release-please manifest ($PKG_VERSION)"
+  else
+    warn "version drift: package.json ($PKG_VERSION) != release-please manifest ($MANIFEST_VERSION) — do not edit versions by hand, merge the Release PR"
+    WARNINGS=$((WARNINGS + 1))
+  fi
+  if [[ ! "$PKG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    warn "package.json version is not valid semver: $PKG_VERSION"
+    WARNINGS=$((WARNINGS + 1))
+  fi
+else
+  warn "release-please manifest or package.json version unreadable — semantic versioning coherence unverifiable"
+  WARNINGS=$((WARNINGS + 1))
+fi
+
 # ─── 6. Technical Council agents ─────────────────────────────────────────────
 # 3 seats read-only + synthesizer: file must exist, YAML-valid frontmatter, a
 # model, and deny edit/write/bash/ast_grep_replace (read-only structurel) —

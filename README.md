@@ -71,6 +71,13 @@ npm run prune             # clean orphan files after renames/removals
 npm run update -- --no-config   # update without touching opencode.json / plugins
 ```
 
+> ⚠️ Do not pipe `npm run update` into `head` (or any early-closing consumer) —
+> SIGPIPE kills the installer mid-copy and leaves a partially-populated live.
+> Redirect to a file instead: `npm run update > update.log`. A re-run is
+> idempotent and repairs a partial live. `update` also verifies the repo is
+> fresh against `origin` before deploying (`--skip-freshness-check` for an
+> explicit offline/intentional derogation — announced, never silent).
+
 ### 3. Initialize a project
 
 ```bash

@@ -122,6 +122,7 @@ N'écrase jamais les fichiers existants : il crée des fichiers `.new` (ou horod
 - [Configuration](#configuration)
 - [Modèles et Fallback](#modèles-et-fallback)
 - [Mémoire projet](#mémoire-projet)
+- [Releases & versioning](#releases--versioning)
 - [Architecture](#architecture)
 - [Comment l'utiliser ?](#comment-lutiliser-)
 - [Comment personnaliser ?](#comment-personnaliser-)
@@ -345,6 +346,17 @@ Pour adopter la mémoire projet sur un projet existant possédant déjà `docs/a
 5. Supprimer les `.new` une fois traités.
 6. Lancer OpenCode avec Aurora.
 7. Vérifier qu'Aurora annonce la mémoire projet détectée.
+
+---
+
+## Releases & versioning
+
+Le versioning sémantique est **automatisé** par [release-please](https://github.com/googleapis/release-please) :
+
+- Les Conventional Commits pilotent la prochaine version : `feat:` → minor, `fix:` → patch, `feat!:` / `BREAKING CHANGE:` → major (`docs:`/`chore:` seuls → pas de release).
+- Chaque merge sur `main` met à jour (ou crée) une **Release PR** (bump de `package.json`, écriture du `CHANGELOG.md` sémantique). Merger cette Release PR taggue `vX.Y.Z` et publie une GitHub Release — le merge humain est le seul déclencheur de publication.
+- `npm run health-check` vérifie que la version déclarée reste cohérente avec le manifest release-please.
+- Les entrées historiques pré-sémantiques (journal par dates) sont archivées dans [docs/CHANGELOG-dates.md](docs/CHANGELOG-dates.md).
 
 ---
 

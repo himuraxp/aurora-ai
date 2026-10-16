@@ -121,6 +121,7 @@ Never overwrites existing files: it creates `.new` files (or timestamped files) 
 - [Configuration](#configuration)
 - [Models and Fallback](#models-and-fallback)
 - [Project Memory](#project-memory)
+- [Releases & versioning](#releases--versioning)
 - [Architecture](#architecture)
 - [How to use it](#how-to-use-it)
 - [How to customize](#how-to-customize)
@@ -344,6 +345,17 @@ To adopt project memory on an existing project that already has `docs/ai/`:
 5. Delete the `.new` files once processed.
 6. Start OpenCode with Aurora.
 7. Verify that Aurora announces the detected project memory.
+
+---
+
+## Releases & versioning
+
+Semantic versioning is **automated** by [release-please](https://github.com/googleapis/release-please):
+
+- Conventional Commits drive the next version: `feat:` → minor, `fix:` → patch, `feat!:` / `BREAKING CHANGE:` → major (`docs:`/`chore:` alone → no release).
+- Every merge to `main` updates (or creates) a **Release PR** (bumps `package.json`, writes the semantic `CHANGELOG.md`). Merging that Release PR tags `vX.Y.Z` and publishes a GitHub Release — the human merge is the only publish trigger.
+- `npm run health-check` verifies the declared version stays coherent with the release-please manifest.
+- Pre-semantic historical entries (date-based journal) are archived in [docs/CHANGELOG-dates.md](docs/CHANGELOG-dates.md).
 
 ---
 

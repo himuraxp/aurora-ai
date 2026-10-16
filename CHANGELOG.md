@@ -1,4 +1,20 @@
-# CHANGELOG
+# Changelog
+
+## [1.2.0](https://github.com/himuraxp/aurora-ai/compare/v1.1.0...v1.2.0) (2026-10-16)
+
+
+### Features
+
+* Add automated semantic release with release-please ([49617e6](https://github.com/himuraxp/aurora-ai/commit/49617e67e513062ff6b3629e8124ab5c9140d7d5))
+* **release:** Automate semantic versioning with release-please ([365b88a](https://github.com/himuraxp/aurora-ai/commit/365b88a75d65366ec0b4c6c52fbcc9d818dc7ade))
+
+
+### Bug Fixes
+
+* **ci:** Remove GITHUB_TOKEN fallback and require RELEASE_PLEASE_TOKEN ([c13e9d7](https://github.com/himuraxp/aurora-ai/commit/c13e9d7bb2b449fe68d2e235157b7759bf371ccd))
+* **release:** Require explicit RELEASE_PLEASE_TOKEN for release-please ([76eae4a](https://github.com/himuraxp/aurora-ai/commit/76eae4aaacc84f993b17dfae1b953968639a050c))
+
+## CHANGELOG
 
 All notable changes to this project are documented here, **grouped by release**.
 

@@ -266,7 +266,15 @@ fi
 ui_section "Installing configuration files"
 
 info "Running install.sh..."
-bash "${ROOT_DIR}/scripts/install.sh" || fail "install.sh failed"
+if [[ -d "$TARGET_BASE" ]]; then
+  # Existing installation: the freshness guard applies normally.
+  bash "${ROOT_DIR}/scripts/install.sh" || fail "install.sh failed"
+else
+  # First deployment: the guard needs network; an offline first install is a
+  # legitimate, explicit context — announced as UNVERIFIED, never as a pass.
+  info "Premier déploiement (aucune config existante) — vérification de fraîcheur sautée"
+  bash "${ROOT_DIR}/scripts/install.sh" --skip-freshness-check || fail "install.sh failed"
+fi
 
 # ─── Step 4: npm dependencies for plugins ────────────────────────────────────
 

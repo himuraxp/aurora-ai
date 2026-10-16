@@ -340,6 +340,20 @@ else
   WARNINGS=$((WARNINGS + 1))
 fi
 
+# ─── Freshness guard suite ───────────────────────────────────────────────────
+# check-freshness.sh verdict matrix + install.sh guard integration (local
+# git fixtures only — no network, real repo untouched).
+if [[ -x "$ROOT_DIR/scripts/test-freshness.sh" ]]; then
+  if "$ROOT_DIR/scripts/test-freshness.sh" > /tmp/freshness-suite.log 2>&1; then
+    ok "freshness guard suite passed"
+  else
+    fail "freshness guard suite FAILED — see /tmp/freshness-suite.log"
+  fi
+else
+  warn "test-freshness.sh missing — freshness guard unvalidated"
+  WARNINGS=$((WARNINGS + 1))
+fi
+
 # ─── 6. Technical Council agents ─────────────────────────────────────────────
 # 3 seats read-only + synthesizer: file must exist, YAML-valid frontmatter, a
 # model, and deny edit/write/bash/ast_grep_replace (read-only structurel) —

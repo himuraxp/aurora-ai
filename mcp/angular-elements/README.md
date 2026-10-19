@@ -39,38 +39,56 @@ All API responses are cached in-memory for 1 hour (TTL: 3600s).
 - `component` — Folder name in the `projects/` directory (e.g. `button`, `alert`, `actions-menu`, `select`)
 - `subComponent` — Optional sub-component selector (e.g. `ik-button`, `ik-buttons-group`)
 
+## Installation
+
+Requires Node.js >= 18.
+
+```bash
+git clone https://github.com/himuraxp/aurora-ai.git
+cd aurora-ai/mcp/angular-elements
+npm ci         # dependencies are pinned by package-lock.json
+npm run build  # outputs dist/index.js
+```
+
 ## Configuration
 
 Every setting is resolved in this order:
 
-1. The process environment — including values injected by the MCP `env` config in `config/opencode.json` (`{env:VAR}` interpolation)
+1. The process environment — including values injected by the MCP `env` config in `opencode.json` (`{env:VAR}` interpolation)
 2. `~/.config/opencode/.env` (read directly by the client)
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `GITLAB_TOKEN` | ✅ | GitLab private token — create one at `https://<your-gitlab-host>/-/profile/personal_access_tokens` |
+| `GITLAB_TOKEN` | ✅ | GitLab private token — create a **dedicated** one (scope `read_api`, with expiry) at `https://<your-gitlab-host>/-/profile/personal_access_tokens` |
 | `ANGULAR_ELEMENTS_GITLAB_API` | ✅ | GitLab API base, e.g. `https://gitlab.example.com/api/v4` |
 | `ANGULAR_ELEMENTS_PROJECT_ID` | ✅ | Numeric id of the GitLab project hosting the design system sources |
 | `ANGULAR_ELEMENTS_STORYBOOK_BASE` | ✅ | Base URL exposing the built Storybook `index.json` |
 | `ANGULAR_ELEMENTS_REF` | — | Git ref to read (default: `master`) |
 
+Example `~/.config/opencode/.env` — the client reads this file directly, no `env` block needed in `opencode.json`:
+
+```sh
+GITLAB_TOKEN=<your-personal-access-token>
+ANGULAR_ELEMENTS_GITLAB_API=https://gitlab.example.com/api/v4
+ANGULAR_ELEMENTS_PROJECT_ID=1234
+ANGULAR_ELEMENTS_STORYBOOK_BASE=https://<your-gitlab-host>/front/angular-elements
+# ANGULAR_ELEMENTS_REF=master   # optional
+```
+
 Missing required variables fail with an explicit error listing the variable name.
 
 ### OpenCode config
 
-Configured in `config/opencode.json`:
+Declare the MCP in `opencode.json`, pointing at your clone of this repository:
 
 ```json
 {
   "mcp": {
     "angular-elements": {
       "type": "local",
-      "command": ["node", "{env:HOME}/.config/opencode-config/mcp/angular-elements/dist/index.js"],
+      "command": ["node", "/path/to/aurora-ai/mcp/angular-elements/dist/index.js"],
       "enabled": true,
-      "timeout": 30000,
-      "env": {
-        "GITLAB_TOKEN": "{env:GITLAB_TOKEN}"
-      }
+      "timeout": 30000
     }
   }
 }

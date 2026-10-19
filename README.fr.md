@@ -26,7 +26,7 @@ Les agents IA (OpenCode, Cursor, Claude...) ne savent pas quel standard utiliser
 **Ce que vous obtenez :**
 
 - **19 agents spécialisés + 4 agents plugin** — rôles ingénierie (reviewer, tester, security, architect, designer...), équipe Search & Growth et product owner délégué
-- **17 standards universels + 39 skills** — review adversariale, vérification, commits, et la suite accessibilité de 17 sous-skills
+- **17 standards universels + 40 skills** — review adversariale, vérification, commits, et la suite accessibilité de 17 sous-skills
 - **Mémoire projet persistante** — 7 documents `docs/ai/` lus automatiquement en début de session : les agents gardent le contexte entre les sessions
 - **14 modèles avec fallback automatique** — contexte 250k → 1M, assignation des agents par coût
 - **Cohérent entre machines** — même setup et même comportement partout, avec des exemples prêts à l'emploi (Angular, API Node.js, monorepo)
@@ -616,6 +616,7 @@ aurora-ai/
 │   ├── deepwork/              Workflow orchestré multi-phases avec gates de review (chantiers lourds)
 │   ├── deployment-changelog/  Changelog de déploiement
 │   ├── design-qa/              QA de conformité design (Design Contract, boucle de convergence, gate fail-closed)
+│   ├── domain-language/        Glossaire du langage métier du projet (VALIDATED/CANDIDATE/AMBIGUOUS, extraction = proposition)
 │   ├── figma-ds-sync/         Sync du design system Figma Infomaniak (check/sync/diff/mapping)
 │   ├── gitlab-ci/             Interaction GitLab CI/CD (glab)
 │   ├── gitlab-feature-planner/  Issues GitLab depuis un tableau d'estimation + suggestions de regroupement MR

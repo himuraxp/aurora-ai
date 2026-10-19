@@ -704,6 +704,33 @@ if [[ -f "$ROOT_DIR/skills/verification-planning/SKILL.md" ]]; then
     || fail "verification-planning must reference the task-workflow implementation contract"
 fi
 
+# ─── Skill domain-language (ubiquitous language glossary, lot 3) ─────────────
+# Extraction = PROPOSITION (never business truth), human-only VALIDATED,
+# targeted consumption (never systematic injection), AGENTS.md conflicts
+# signalled — never silently resolved.
+if [[ -f "$ROOT_DIR/skills/domain-language/SKILL.md" ]]; then
+  grep -q '^name: domain-language' "$ROOT_DIR/skills/domain-language/SKILL.md" \
+    && ok "domain-language skill present (frontmatter)" \
+    || fail "domain-language frontmatter name missing or renamed"
+  grep -q 'PROPOSITION, jamais la vérité métier\|est une \*\*proposition\*\*' "$ROOT_DIR/skills/domain-language/SKILL.md" \
+    && grep -q '\*\*Jamais un agent\*\*' "$ROOT_DIR/skills/domain-language/SKILL.md" \
+    && ok "domain-language extraction-is-a-proposal + human-only VALIDATED rules present" \
+    || fail "domain-language must state that extraction is a proposal and VALIDATED is human-only"
+  grep -q 'jamais injecté en entier\|jamais par injection systématique' "$ROOT_DIR/skills/domain-language/SKILL.md" \
+    && grep -q 'sélection ciblée' "$ROOT_DIR/skills/domain-language/SKILL.md" \
+    && ok "domain-language targeted-consumption rule present (never whole-glossary injection)" \
+    || fail "domain-language must forbid systematic glossary injection (targeted selection only)"
+  grep -q 'invalidatedBy: HUMAN\|jamais silencieusement' "$ROOT_DIR/skills/domain-language/SKILL.md" \
+    && grep -q "AGENTS.md\`[[:space:]]*$" "$ROOT_DIR/skills/domain-language/SKILL.md" \
+    && ok "domain-language VALIDATED-retrograde trace + AGENTS.md-primacy rules present" \
+    || fail "domain-language must require human trace for VALIDATED retrograde and AGENTS.md primacy on conflicts"
+  ruby -ryaml -e "YAML.safe_load(File.read('$ROOT_DIR/skills/domain-language/SKILL.md').split(/^---\n/)[1], permitted_classes: [], aliases: false)" \
+    && ok "domain-language skill frontmatter valid YAML" \
+    || fail "domain-language skill frontmatter invalid YAML"
+else
+  fail "skills/domain-language/SKILL.md missing"
+fi
+
 # ─── 12. Design-qa skill (conformité interface ↔ design de référence) ───────
 
 if [[ -f "$ROOT_DIR/skills/design-qa/SKILL.md" ]]; then

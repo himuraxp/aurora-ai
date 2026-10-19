@@ -174,6 +174,41 @@ sections/critères UI vérifiables), enregistré à côté de l'état
 les critères d'acceptation. Le développement est ainsi tenu au contrat dès
 le départ — la comparaison finale n'est pas une découverte.
 
+### Classification de risque et contrat d'implémentation (conditionnel)
+
+**Classification** — évaluer le risque d'implémentation et l'enregistrer dans
+l'état (`riskLevel`, optionnel ; défaut `LOW`). Règle : lorsque plusieurs
+caractéristiques s'appliquent, le **niveau maximal** gagne — un changement
+localisé touchant l'authentification, les secrets, les permissions, la finance
+ou les hooks de sécurité est `HIGH` **de droit**, indépendamment de sa taille :
+
+| Niveau | Caractéristiques |
+|---|---|
+| `LOW` | défaut — changement localisé, aucun comportement observable modifié, pas d'interface exposée (doc, refactor interne, config isolée) |
+| `MEDIUM` | comportement observable modifié ou plusieurs modules concernés, logique métier neuve, interface/contrat existant étendu |
+| `HIGH` | **de droit** : auth, secrets, permissions, chiffrement, finance, hooks de sécurité, migrations de données destructives — indépendamment du nombre de lignes |
+
+**Contrat d'implémentation** — requis pour `MEDIUM`/`HIGH`, absent pour `LOW`
+(parcours inchangé, zéro overhead). C'est une **section du plan**, pas un
+document séparé ni une gate : le développement, la QA et la review se
+réfèrent au même contrat. Contenu (enregistré via le champ additif
+`implementationContract` de l'état, chaque section = liste de points) :
+
+1. **Interfaces / comportements observables** concernés (avant → après) ;
+2. **Invariants** fonctionnels et techniques à préserver ;
+3. **Critères d'acceptation** (référencés par la QA Phase 5) ;
+4. **Preuves de vérification attendues** (tests, mesures, QA — alimentent le
+   plan de vérification `verification-planning` et ses preuves intermédiaires
+   en Phase 4) ;
+5. **Modules affectés et contraintes de compatibilité** (API publiques,
+   migrations, rétrocompatibilité).
+
+Les signatures exactes ne sont obligatoires que lorsque la stabilité de
+l'interface est un enjeu (API consommée ailleurs, contrat de données). Le
+contrat ne duplique pas les gardes existantes — il **nomme** ce qui devra être
+prouvé ; les gardes de preuve Phase 4-7 et le PARALLEL GATE restent les seuls
+verdicts.
+
 **Gate Product Owner** — ne pas interrompre pour une décision technique
 ordinaire couverte par le contexte et les conventions. Demander une validation
 humaine si : règle métier absente/contradictoire, plusieurs comportements
@@ -202,6 +237,36 @@ progression dans l'état (`testResults[]`). Une commande non exécutée n'est
 jamais un test réussi. Hors périmètre = interdit sauf justification tracée.
 Commits via le skill `commit` (délégation Spark, vérification ls-remote).
 Aucun secret dans les commits, logs ou rapports.
+
+### Discipline d'incréments (risque `MEDIUM`/`HIGH`)
+
+Pour un changement classé `MEDIUM` ou `HIGH`, le développement ne consiste pas
+à produire tout le changement puis à le vérifier : les incréments sont
+**vérifiés au plus tôt**, pendant l'implémentation.
+
+1. **Découper** le plan en incréments testables (un incrément = un
+   comportement ou une frontière du contrat d'implémentation) ;
+2. **Vérifier au plus tôt** après chaque incrément significatif — corriger les
+   régressions AVANT d'étendre la modification (une régression bloquante
+   jamais ignorée au profit de l'incrément suivant) ;
+3. **Preuve intermédiaire par incrément** : entrée `testResults[]` rattachée à
+   la phase 4 avec `increment` (identifiant/nom) et `codeSignature`
+   (signature du worktree au moment de la preuve — la preuve valide le code
+   sur lequel elle a tourné) ; les règles d'honnêteté existantes s'appliquent
+   (pass ⇒ exitCode 0, skip ⇒ raison) ;
+4. **Invalidation fail-closed inchangée** : une preuve ne survit pas à ce
+   qu'elle prouvait — l'invalidation de la phase 4 purge les preuves
+   d'incréments rattachées à l'ancien code (à ré-exécuter) ; une preuve ne
+   compte jamais pour un `PASSED` postérieur à un changement de code — c'est
+   la garde de transition existante (signature partagée phases 4-7, purge à
+   l'invalidation), sans comparaison nouvelle entrée-par-entrée.
+
+**TDD privilégié, jamais imposé indistinctement** : écrire le test d'abord
+pour la logique métier neuve et les corrections de bugs reproductibles ; les
+changements documentaires, visuels ou exploratoires suivent le parcours
+normal. Le **PARALLEL GATE** final (review ∥ build/lint/test) reste la
+validation indépendante inchangée — les preuves d'incréments l'alimentent,
+elles ne le remplacent pas.
 
 ## Phase 5 — QA navigateur
 
@@ -337,6 +402,8 @@ volumineux — référencer les preuves, ne pas les embarquer.
   "decisions": [{ "question": "...", "answer": "...", "source": "HUMAN|policy" }],
   "testResults": [], "qaResults": [], "reviewResults": [],
   "designContract": null,
+  "riskLevel": null,
+  "implementationContract": null,
   "mergeRequestUrl": null,
   "blockers": [{ "phase": 3, "reason": "..." }]
 }
@@ -353,7 +420,15 @@ inchangée, les états existants restent valides) : `designContract` (chemin du
 Design Contract `design-qa`, ex. `<workflowId>.design.json`) — validé quand
 présent par `tw_state.py`, jamais requis ; entrées de `qaResults[]` avec
 `type: "functional"` (défaut) ou `"design"` (rapport design-qa) — format
-documenté dont le contenu relève de `dq_contract.py`.
+documenté dont le contenu relève de `dq_contract.py` ; `riskLevel`
+(`LOW`/`MEDIUM`/`HIGH` — classification de risque, défaut `LOW` si absent) ;
+`implementationContract` (contrat d'implémentation conditionnel MEDIUM/HIGH —
+sections `observableBehaviors`/`invariants`/`acceptanceCriteria`/
+`expectedEvidence`/`modulesAffected`/`constraints`, chacune une liste de
+points ; validé quand présent, jamais requis pour un parcours `LOW`) ;
+entrées de `testResults[]`/`qaResults[]`/`reviewResults[]` avec `increment`
+(preuve intermédiaire d'un incrément) et `codeSignature` (sha1 du code que la
+preuve a validé).
 
 **Résultats de contrôle structurés** (additif) : une entrée de `testResults[]`
 / `qaResults[]` / `reviewResults[]` porte

@@ -651,6 +651,81 @@ class TestCli(unittest.TestCase):
         self.assertTrue(any("designContract" in p for p in tw_state.validate_state(bad)))
 
 
+class TestRiskLevelAndContract(unittest.TestCase):
+    """Software Fundamentals lot 1 (additive): riskLevel + implementationContract."""
+
+    def test_v1_state_without_risk_fields_stays_valid(self):
+        legacy = valid_state()
+        self.assertNotIn("riskLevel", legacy)
+        self.assertNotIn("implementationContract", legacy)
+        self.assertEqual(tw_state.validate_state(legacy), [])
+
+    def test_risk_level_values(self):
+        for level in ("LOW", "MEDIUM", "HIGH"):
+            self.assertEqual(tw_state.validate_state(valid_state(riskLevel=level)), [])
+        self.assertEqual(tw_state.validate_state(valid_state(riskLevel=None)), [])
+
+    def test_risk_level_invalid(self):
+        bad = valid_state(riskLevel="CRITICAL")
+        self.assertTrue(any("riskLevel" in p for p in tw_state.validate_state(bad)))
+        bad = valid_state(riskLevel="")
+        self.assertTrue(any("riskLevel" in p for p in tw_state.validate_state(bad)))
+
+    def test_contract_valid(self):
+        contract = {
+            "observableBehaviors": ["sort button disabled while a run is streaming"],
+            "invariants": ["no run deleted on cancel"],
+            "acceptanceCriteria": ["cancel stops the encoder within 2s"],
+            "expectedEvidence": ["unit tests on cancel path"],
+            "modulesAffected": ["RunsService", "RunDetailComponent"],
+            "constraints": ["API of RunsService stays backward compatible"],
+        }
+        self.assertEqual(tw_state.validate_state(valid_state(implementationContract=contract)), [])
+        # Partial contract (at least one known section) is legitimate.
+        self.assertEqual(
+            tw_state.validate_state(valid_state(implementationContract={"invariants": ["x"]})), [])
+
+    def test_contract_invalid(self):
+        problems = tw_state.validate_state(valid_state(implementationContract={}))
+        self.assertTrue(any("implementationContract" in p for p in problems))
+        problems = tw_state.validate_state(valid_state(implementationContract="path.json"))
+        self.assertTrue(any("implementationContract" in p for p in problems))
+        problems = tw_state.validate_state(valid_state(implementationContract={"unknown": ["x"]}))
+        self.assertTrue(any("at least one section" in p for p in problems))
+        # Co-occurrence: section-level AND "at least one section" errors both
+        # surface for an empty unknown section (plan requirement).
+        problems = tw_state.validate_state(valid_state(implementationContract={"unknown": []}))
+        self.assertTrue(any("non-empty list" in p for p in problems))
+        self.assertTrue(any("at least one section" in p for p in problems))
+
+    def test_contract_sections_must_be_non_empty_string_lists(self):
+        for bad_section in ({"invariants": []}, {"invariants": ""}, {"invariants": ["", "x"]},
+                            {"invariants": [42]}, {"invariants": "one string"}):
+            problems = tw_state.validate_state(valid_state(implementationContract=bad_section))
+            self.assertTrue(any("non-empty list" in p for p in problems), f"case {bad_section}")
+
+    def test_increment_evidence_additive(self):
+        state = valid_state(testResults=[
+            {"phase": 4, "name": "unit:cancel", "status": "pass", "exitCode": 0,
+             "increment": "increment-2-cancel-path",
+             "codeSignature": "a" * 40},
+        ])
+        self.assertEqual(tw_state.validate_state(state), [])
+
+    def test_increment_evidence_invalid(self):
+        base = [{"phase": 4, "name": "unit:cancel", "status": "pass", "exitCode": 0}]
+        cases = [
+            {"increment": ""},                       # empty string
+            {"increment": "   "},                    # whitespace only
+            {"codeSignature": "not-a-sha"},          # bad sha1
+            {"codeSignature": "b" * 39},             # truncated sha1
+        ]
+        for extra in cases:
+            entry = dict(base[0], **extra)
+            problems = tw_state.validate_state(valid_state(testResults=[entry]))
+            self.assertTrue(any("must be" in p for p in problems), f"case {extra}")
+
+
 class TestCodeSignatureComputation(unittest.TestCase):
     def setUp(self):
         self.repo = tempfile.mkdtemp()

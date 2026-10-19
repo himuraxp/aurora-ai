@@ -46,6 +46,14 @@ inputs, environment, and state remain valid. Required repository and release
 checks still apply; broaden or repeat verification only when a stated condition
 justifies it.
 
+**Link with the implementation contract (task-workflow Phase 3).** When the
+workflow records an `implementationContract` (risk `MEDIUM`/`HIGH`), its
+`expectedEvidence` sections feed this evidence path directly: each expected
+proof in the contract becomes a claim to cover here, and each intermediate
+increment proof (Phase 4 `testResults[]` with `increment` + `codeSignature`)
+is evidence that stays valid only while the code state it signed is current —
+a changed worktree retires it, like any phase evidence.
+
 ## 3. Create a verification affordance when needed
 
 When the existing system leaves the decisive truth too indirect or ambiguous,

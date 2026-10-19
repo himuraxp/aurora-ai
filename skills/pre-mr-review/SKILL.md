@@ -455,6 +455,21 @@ En plus des vérifications du mode standard, effectuer les contrôles suivants :
 - responsabilités multiples dans une même fonction ;
 - code difficile à tester.
 
+### 6bis. Deep Modules (complexité d'interface)
+
+Pour chaque module touché par le diff, poser la question : « **L'interface de
+ce module expose-t-elle une complexité disproportionnée par rapport aux
+comportements qu'elle encapsule ?** »
+
+Examiner : dépendances visibles depuis l'extérieur, stabilité du contrat (API
+consommées ailleurs), cohésion des responsabilités, testabilité aux frontières.
+
+Jugement qualitatif — **pas de seuil universel**, **pas de refonte
+automatique** : un constat produit un commentaire argumenté
+(`suggestion:` ou `thought:`, interface alternative proposée en option),
+jamais une exigence de réécriture. Une interface large mais justifiée par ce
+qu'elle masque est correcte.
+
 ### 7. Gestion des erreurs
 
 - cas limites non gérés ;

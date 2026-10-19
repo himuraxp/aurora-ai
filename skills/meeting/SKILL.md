@@ -42,11 +42,42 @@ Séparation de 3 concepts : **agent exécuteur** (prompt système inchangé ; po
 
 Composition : heuristique Aurora **transparente** (surface de code touchée, types de changement) ; sélection observable ; `3-4 participants` = configuration courante ; override explicite : `/meeting --roles frontend,qa "..."` (la liste remplace l'heuristique). Expertise critique manquante → signalée dans le record.
 
+## Mode clarification du besoin (triage par risque)
+
+La délibération multi-métiers lève des bloqueurs **techniques croisés**. Avant
+de composer la réunion, Aurora trie le **besoin** lui-même par risque
+(classification task-workflow : `LOW`/`MEDIUM`/`HIGH`, niveau maximal ; HIGH
+de droit pour auth/secrets/finance/hooks de sécurité) — le mode clarification
+est **distinct de la délibération** et ne la remplace pas :
+
+| Risque du besoin | Clarification (avant dispatch) | Coût |
+|---|---|---|
+| `LOW` | **Aucune interview obligatoire** — parcours inchangé (revue simple ou meeting standard si déjà invoqué). | zéro |
+| `MEDIUM` | Questions ciblées sur les **ambiguïtés bloquantes** uniquement (format Contexte / Options / Recommandation / Conséquences, batchées). | proportionné |
+| `HIGH` | Exploration progressive des décisions et dépendances, puis **reformulation du concept partagé** (compréhension utilisateur ↔ modèle) soumise à confirmation humaine avant toute délégation d'implémentation. | complet |
+
+Règles (réutilisent le Question Ledger et l'Authority Contract — **aucun état
+nouveau, aucune phase, aucun document, aucune gate supplémentaire**) :
+
+1. Chaque question de clarification entre dans le **Question Ledger**
+   (`OPEN→ANSWERED→VERIFIED|DEFERRED|HUMAN_REQUIRED`) — une réponse d'agent
+   n'est jamais une validation produit (toute décision business →
+   `HUMAN_REQUIRED`, Authority Contract inchangé).
+2. Une ambiguïté bloquante non arbitée **interdit `READY`** — le gate
+   readiness Phase 4 (critère essentiel non défini = `BLOCKED`) reste le seul
+   verdict ; la clarification ne le court-circuite pas, elle le nourrit.
+3. Le concept partagé reformulé (HIGH) alimente la Phase 0 du meeting (ou le
+   plan Phase 3 de `task-workflow`) — jamais un document alternatif.
+4. Coût proportionné au risque : un micro-changement conserve son parcours
+   actuel sans surcharge.
+
 ## Protocole
 
 ### Phase 0 — Task Discovery (Aurora)
 
 Clarifier : tâche, exigences, périmètre (in/out), critères d'acceptation connus, contraintes (`AGENTS.md`, standards applicables), dépendances internes/externes, zones d'incertitude. Noter le SHA (`git rev-parse HEAD`). Checklist de complétude des exigences (rôle du `product-analyst` si présent dans la composition, sinon Aurora). Sources externes embarquées dans le brief.
+
+**Triage du besoin (mode clarification, section dédiée)** : risque LOW → pas de clarification obligatoire ; MEDIUM → ambiguïtés bloquantes uniquement ; HIGH → exploration progressive + reformulation du concept partagé. Les questions de clarification alimentent le Question Ledger (aucun état nouveau) et une ambiguïté bloquante non arbitée interdit `READY`.
 
 ### Phase 1 — Composition dynamique
 

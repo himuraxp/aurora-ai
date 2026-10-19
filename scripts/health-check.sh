@@ -488,6 +488,13 @@ if [[ -f "$ROOT_DIR/skills/meeting/SKILL.md" ]]; then
     ruby -ryaml -e "YAML.safe_load(File.read('$ROOT_DIR/skills/meeting/SKILL.md').split(/^---\n/)[1], permitted_classes: [], aliases: false)" \
       && ok "meeting skill frontmatter valid YAML" \
       || fail "meeting skill frontmatter invalid YAML"
+    # Software Fundamentals lot 2: need-clarification mode (risk triage,
+    # Question Ledger reused, no new state/phase/gate/document).
+    grep -q 'Mode clarification du besoin' "$ROOT_DIR/skills/meeting/SKILL.md" \
+      && grep -q 'niveau maximal' "$ROOT_DIR/skills/meeting/SKILL.md" \
+      && grep -q 'interdit `READY`' "$ROOT_DIR/skills/meeting/SKILL.md" \
+      && ok "meeting need-clarification mode documented (risk triage, ledger reused, no new gate)" \
+      || fail "meeting must document the need-clarification mode (LOW/MEDIUM/HIGH triage, Question Ledger reuse, READY gate intact)"
   else
     fail "meeting skill frontmatter invalid (name: meeting missing)"
   fi

@@ -33,9 +33,10 @@ signale le conflit dans le rapport et passe le terme en `AMBIGUOUS`.
 
 ## Fichier de sortie
 
-`docs/ai/domain-language.md` dans le dépôt cible (mémoire projet, git-ignorée
-comme les autres fichiers `docs/ai/`) — un référentiel par projet, jamais
-global :
+`docs/ai/domain-language.md` du **worktree principal** (mémoire projet,
+git-ignorée comme les autres fichiers `docs/ai/`) — un référentiel par
+projet, jamais global ; la résolution du chemin est définie dans la section
+suivante :
 
 ```markdown
 # Domain Language — <projet>
@@ -61,6 +62,40 @@ global :
 - Conflit : <ce qui diverge> → arbitrage humain requis
 ```
 
+## Résolution canonique (worktrees)
+
+Les agents travaillent dans des worktrees (siblings `new-worktree`, lanes
+`.slim/`, `git worktree add` manuel) et `docs/ai/` est git-ignoré → le
+glossaire n'existe pas dans un checkout secondaire. La résolution est
+**canonique et symétrique** : le fichier du **worktree principal** est LA
+source de vérité pour les **lectures ET les écritures** — une priorité
+« local d'abord » créerait une divergence silencieuse.
+
+1. `git worktree list --porcelain` → première entrée, vérifiée worktree
+   utilisable (**non bare**) = worktree principal.
+2. Chemin canonique : `<worktree-principal>/docs/ai/domain-language.md`.
+3. Lire **exclusivement** ce fichier — que la session tourne dans le checkout
+   principal ou dans un worktree secondaire.
+4. Écrire **exclusivement** ce chemin : une création initialise le glossaire
+   dans le worktree principal, une modification met à jour cette même source,
+   **aucune copie locale n'est créée**. Les statuts `VALIDATED` restent
+   soumis à la validation humaine existante.
+
+États explicites — aucun comportement implicite, aucun repli silencieux :
+
+| État | Situation | Comportement |
+|---|---|---|
+| `RESOLVED` | Source canonique accessible | Lecture/écriture normales |
+| `GLOSSARY_ABSENT` | Canonique introuvable (projet sans glossaire encore) | État déclaré explicitement, jamais une erreur — un scan peut créer le glossaire au chemin canonique |
+| `LOCAL_SHADOW_DETECTED` | Un `docs/ai/domain-language.md` local (worktree courant) existe alors que la source canonique est le fichier du worktree principal — divergence de contenu | **Signaler** la divergence — jamais fusionner, supprimer ou écraser automatiquement son contenu |
+| `UNRESOLVED` | Dépôt principal inaccessible (bare, chemin Git invalide) | Erreur explicite, aucun chemin supposé, **écriture interdite** |
+| `WRITE_CONFLICT` | Contenu modifié entre la lecture et l'écriture (contrôle optimiste par hash, pas de verrou) | **Refuser l'écriture** sans perte — relire, ré-appliquer, notifier |
+
+Portée : le mécanisme couvre les worktrees rattachés au même dépôt commun ;
+il **ne couvre pas les clones Git indépendants** (limite documentée — un
+store hors dépôt n'est à envisager que sur un besoin réel de partage
+inter-clones).
+
 ## Procédure
 
 1. **Scan du dépôt** (délégation **Explorer**, périmètre ciblé) : termes du
@@ -71,7 +106,8 @@ global :
    `Pipeline`), compter les usages, détecter les conflits de sens (même terme,
    2 définitions incompatibles → `AMBIGUOUS`).
 3. **Proposition** : générer/mettre à jour `docs/ai/domain-language.md`
-   (statuts `CANDIDATE`/`AMBIGUOUS` uniquement — un agent ne pose jamais
+   **(canonique — cf. Résolution canonique)** (statuts
+   `CANDIDATE`/`AMBIGUOUS` uniquement — un agent ne pose jamais
    `VALIDATED`) ; mise à jour **idempotente** (re-scan = mêmes entrées,
    nouvelles découvertes ajoutées, rien d'écrasé sans trace).
 4. **Validation humaine** : présenter les `CANDIDATE` prioritaires (usages
@@ -105,19 +141,31 @@ prime ; la définition passe en `AMBIGUOUS` jusqu'à arbitrage humain.
 - ❌ Injecter le glossaire entier dans chaque contexte — sélection ciblée.
 - ❌ Trancher un `AMBIGUOUS` soi-même — l'arbitrage est humain.
 - ❌ Résoudre silencieusement un conflit définition ↔ `AGENTS.md` — signaler.
+- ❌ Lire ou écrire une copie locale du glossaire depuis un worktree — la
+  source est le worktree principal (résolution canonique).
+- ❌ Fusionner, supprimer ou écraser un `LOCAL_SHADOW_DETECTED` — signaler.
+- ❌ Repli silencieux quand la source canonique est absente — déclarer
+  `GLOSSARY_ABSENT` / `UNRESOLVED`.
 - ❌ Créer un second référentiel terminologique ailleurs (templates, skills
   dédiés) — `docs/ai/domain-language.md` est le référentiel unique par projet.
 
 ## Tests
 
 ```bash
-bash scripts/health-check.sh   # section domain-language (invariants doc)
+bash scripts/health-check.sh   # sections domain-language + résolution canonique (invariants doc)
 ```
 
 Le skill est documentaire (génération + maintenance de glossaire) : pas de
 suite unitaire — les invariants sont vérifiés par le health-check (règles
-dures présentes) et les pilotes réels (1er scan = proposition, validation
-humaine, consommation ciblée).
+dures présentes) et les pilotes réels : 1er scan = proposition, validation
+humaine, consommation ciblée ; **pilote multi-worktree** (dépôt jetable :
+lecture identique depuis deux worktrees créés par des mécanismes différents
+dont `git worktree add` manuel, **création initiale depuis un worktree
+secondaire (`GLOSSARY_ABSENT` → création au canonique)**, écriture depuis un
+worktree visible dans le principal puis l'autre worktree, shadow divergent
+signalé, écriture concurrente sans perte, **dépôt bare → `UNRESOLVED`,
+écriture refusée**, aucun `VALIDATED` rétrogradé sans autorisation
+humaine).
 
 ## Skills et outils réutilisés
 

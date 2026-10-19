@@ -134,7 +134,7 @@ Le fichier `AGENTS.md` contient des règles CRITICAL numérotées. Il faut les e
 | Rule 42 — Dead `??` after non-nullish expression | `\.split\([^)]*\)\[0\]\s*\?\?` ou `\.match\([^)]*\)\?\.\[0\]\s*\?\?` | Fallback `??` après une expression toujours définie (ex: `split('?')[0] ?? path`) |
 | Rule 43 — `as never` / double cast in tests | `\bas\s+never\b` ou `\bas\s+unknown\s+as\s+` | Cast bypassant TypeScript, même dans les tests |
 | Rule 44 — Production crippled by test env | `JSON\.parse\(JSON\.stringify\(` dans un fichier `.ts` non `.spec.ts`, ou `eslint-disable.*structuredClone` | Code de production contraint par limitation de l'environnement de test |
-| Rule 18 — User-facing string without transloco | `\[(ikTooltip\|attr\.aria-label\|label\|placeholder)\]="[^"]*"` sans `\| transloco` dans `.html`, ou `{{ '[^']*' }}` / `{{ "[^"]*" }}` sans `\| transloco` | Attribut user-facing ou interpolation texte non pipé через `transloco` |
+| Rule 18 — User-facing string without transloco | `\[(ikTooltip\|attr\.aria-label\|label\|placeholder)\]="[^"]*"` sans `\| transloco` dans `.html`, ou `{{ '[^']*' }}` / `{{ "[^"]*" }}` sans `\| transloco` | Attribut user-facing ou interpolation texte non pipé via `transloco` |
 | Rule 49 — Magic string domain literal | `!== '[A-Z][A-Za-z]+'` ou `=== '[A-Z][A-Za-z]+'` dans un `.component.ts` ou `.helper.ts` | Littéral chaîne représentant une valeur du domaine comparé directement |
 | Rule §2 — Interface with `T` prefix | `interface\s+T[A-Z]` dans un fichier `.ts` | Interface déclarée avec préfixe `T` au lieu de `I` |
 | Rule 50 — Anonymous inline object type in signature | `:\s*\{[^}]+\}\[\]` ou `:\s*\{[^}]+\}\s*$` dans une `export function` | Type objet anonyme inline dans une signature de fonction exportée |
@@ -432,7 +432,7 @@ En plus des vérifications du mode standard, effectuer les contrôles suivants :
 - **pas de `?? fallback` après une expression toujours définie** (ex: `split('?')[0] ?? path`) — `AGENTS.md` Rule 42 ;
 - **pas de `as never` ni `as unknown as T` (double cast)**, même dans les tests — `AGENTS.md` Rule 43 ;
 - **pas de code de production contraint par l'environnement de test** (ex: `JSON.parse(JSON.stringify())` au lieu de `structuredClone` à cause d'un claim jsdom) — `AGENTS.md` Rule 44 ;
-- **pas d'attribut user-facing sans `transloco`** (`[ikTooltip]`, `[attr.aria-label]`, `label=`, `placeholder=` non pipés через `transloco`) — `AGENTS.md` Rule 18 ;
+- **pas d'attribut user-facing sans `transloco`** (`[ikTooltip]`, `[attr.aria-label]`, `label=`, `placeholder=` non pipés via `transloco`) — `AGENTS.md` Rule 18 ;
 - **pas de magic string domain literal comparé directement** (ex: `label !== 'ValidateProto'` — extraire en constante nommée ou `enum`) — `AGENTS.md` Rule 49 ;
 - **pas de fausse séparation de groupe d'imports** (ligne vide entre deux imports du même groupe) — `AGENTS.md` Section 1 ;
 - **interfaces toujours préfixées `I`** (jamais `T`) — `AGENTS.md` §2 Naming Conventions ;
@@ -509,7 +509,7 @@ En plus des règles générales :
 - **`split(...)[0] ?? ...` ou `match(...)?.[0] ?? ...`** dans le diff → le `??` est un dead fallback, à supprimer — `AGENTS.md` Rule 42 ;
 - **`as never` ou `as unknown as T`** dans le diff (tests compris) → double cast interdit, construire un `Partial<T>` typé — `AGENTS.md` Rule 43 ;
 - **`JSON.parse(JSON.stringify(...))` dans un fichier non-`.spec.ts`** ou `eslint-disable` justifié par jsdom → code de production contraint par l'env de test, BLOCKER — `AGENTS.md` Rule 44.
-- **`[ikTooltip]`, `[attr.aria-label]`, `label=`, `placeholder=` non pipés через `transloco`** dans un `.html` du diff → attribut user-facing sans i18n, BLOCKER — `AGENTS.md` Rule 18 ;
+- **`[ikTooltip]`, `[attr.aria-label]`, `label=`, `placeholder=` non pipés via `transloco`** dans un `.html` du diff → attribut user-facing sans i18n, BLOCKER — `AGENTS.md` Rule 18 ;
 - **`=== 'PascalCase'` ou `!== 'PascalCase'`** dans un `.ts` du diff → magic string domain literal, extraire en constante nommée ou `enum` — `AGENTS.md` Rule 49 ;
 - **ligne vide entre deux imports du même groupe** (ex: deux imports relatifs séparés par une ligne vide) → fausse séparation de groupe, BLOCKER — `AGENTS.md` Section 1.
 - **`interface TName` au lieu de `interface IName`** dans un `.ts` du diff → interface avec préfixe `T` au lieu de `I`, renommer — `AGENTS.md` §2.

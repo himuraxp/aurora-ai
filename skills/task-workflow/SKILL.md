@@ -203,6 +203,12 @@ réfèrent au même contrat. Contenu (enregistré via le champ additif
 5. **Modules affectés et contraintes de compatibilité** (API publiques,
    migrations, rétrocompatibilité).
 
+Vocabulaire : les critères d'acceptation et invariants du contrat utilisent
+les définitions `VALIDATED` du `docs/ai/domain-language.md` du projet quand ce
+référentiel existe (skill `domain-language`) — un terme absent du glossaire
+suit l'extraction standard ; un conflit définition ↔ `AGENTS.md` est signalé,
+jamais résolu silencieusement.
+
 Les signatures exactes ne sont obligatoires que lorsque la stabilité de
 l'interface est un enjeu (API consommée ailleurs, contrat de données). Le
 contrat ne duplique pas les gardes existantes — il **nomme** ce qui devra être

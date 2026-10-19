@@ -56,6 +56,10 @@ est **distinct de la délibération** et ne la remplace pas :
 | `MEDIUM` | Questions ciblées sur les **ambiguïtés bloquantes** uniquement (format Contexte / Options / Recommandation / Conséquences, batchées). | proportionné |
 | `HIGH` | Exploration progressive des décisions et dépendances, puis **reformulation du concept partagé** (compréhension utilisateur ↔ modèle) soumise à confirmation humaine avant toute délégation d'implémentation. | complet |
 
+Pour le HIGH, les termes ambigus du `docs/ai/domain-language.md` du projet
+(skill `domain-language`, s'il existe) alimentent les questions de
+clarification avec leurs définitions et conflits sourcés.
+
 Règles (réutilisent le Question Ledger et l'Authority Contract — **aucun état
 nouveau, aucune phase, aucun document, aucune gate supplémentaire**) :
 

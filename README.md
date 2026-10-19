@@ -26,7 +26,7 @@ AI agents (OpenCode, Cursor, Claude...) don't know which standard to follow unle
 **What you get:**
 
 - **19 specialized agents + 4 plugin agents** — engineering roles (reviewer, tester, security, architect, designer...), a Search & Growth team and a delegated product owner
-- **17 universal standards + 39 skills** — adversarial review, verification, commits, plus the 17-skill accessibility suite
+- **17 universal standards + 40 skills** — adversarial review, verification, commits, plus the 17-skill accessibility suite
 - **Persistent project memory** — 7 `docs/ai/` documents auto-read at session start: agents keep context across sessions
 - **14 models with automatic fallback** — 250k → 1M context, cost-based agent assignment
 - **Consistent across machines** — same setup and behavior everywhere, with ready-to-use examples (Angular, Node.js API, monorepo)
@@ -615,6 +615,7 @@ aurora-ai/
 │   ├── deepwork/              Orchestrated multi-phase workflow with review gates (heavy efforts)
 │   ├── deployment-changelog/  Deployment changelog
 │   ├── design-qa/              Design conformance QA (Design Contract, convergence loop, fail-closed gate)
+│   ├── domain-language/        Project ubiquitous-language glossary (VALIDATED/CANDIDATE/AMBIGUOUS, extraction = proposal)
 │   ├── figma-ds-sync/         Infomaniak Figma design system sync (check/sync/diff/mapping)
 │   ├── gitlab-ci/             GitLab CI/CD interaction (glab)
 │   ├── gitlab-feature-planner/  GitLab issues from an estimation table + MR grouping suggestions

@@ -615,7 +615,7 @@ aurora-ai/
 │   ├── deepwork/              Orchestrated multi-phase workflow with review gates (heavy efforts)
 │   ├── deployment-changelog/  Deployment changelog
 │   ├── design-qa/              Design conformance QA (Design Contract, convergence loop, fail-closed gate)
-│   ├── domain-language/        Project ubiquitous-language glossary (VALIDATED/CANDIDATE/AMBIGUOUS, extraction = proposal)
+│   ├── domain-language/        Project ubiquitous-language glossary (VALIDATED/CANDIDATE/AMBIGUOUS, extraction = proposal, canonical across worktrees)
 │   ├── figma-ds-sync/         Infomaniak Figma design system sync (check/sync/diff/mapping)
 │   ├── gitlab-ci/             GitLab CI/CD interaction (glab)
 │   ├── gitlab-feature-planner/  GitLab issues from an estimation table + MR grouping suggestions

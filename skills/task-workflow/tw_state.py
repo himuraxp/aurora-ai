@@ -39,6 +39,20 @@ EVENT_TYPES = ("phase", "command", "decision", "incident", "recovery", "note")
 # skipped = handoff evaluated and not applicable (not an Orca session, runtime
 # down) — recorded, never silent; requires a "why" for the report.
 HANDOFF_STATUSES = ("pending", "accepted", "failed", "uncertain", "skipped")
+# Risk classification (Software Fundamentals lot 1, additive): the
+# implementation risk level recorded at Phase 3 drives the conditional
+# implementation contract and the increment discipline. Rule: when several
+# risk characteristics apply, the HIGHEST level wins — a localized change
+# touching auth/secrets/finance/security hooks is HIGH regardless of size.
+RISK_LEVELS = ("LOW", "MEDIUM", "HIGH")
+# Implementation contract (additive, optional): a SECTION of the Phase 3 plan
+# (never a separate document nor a gate) required for MEDIUM/HIGH changes.
+# Each section is a list of non-empty strings; the contract must carry at
+# least one section to exist (an empty contract proves nothing).
+IMPLEMENTATION_CONTRACT_SECTIONS = (
+    "observableBehaviors", "invariants", "acceptanceCriteria",
+    "expectedEvidence", "modulesAffected", "constraints",
+)
 DEFAULT_STATE_DIR = os.path.expanduser("~/.config/opencode/task-workflows")
 
 
@@ -267,6 +281,30 @@ def validate_state(state: Any, path: Optional[str] = None) -> List[str]:
     design_contract = state.get("designContract")
     if design_contract is not None and (not isinstance(design_contract, str) or not design_contract.strip()):
         problems.append("designContract must be a non-empty path string or null")
+    # Risk level (additive, Software Fundamentals lot 1): drives the
+    # conditional implementation contract + increment discipline. Absent =
+    # legitimate (v1 states and LOW-by-default workflows without triage).
+    risk_level = state.get("riskLevel")
+    if risk_level is not None and risk_level not in RISK_LEVELS:
+        problems.append(f"riskLevel must be one of {list(RISK_LEVELS)} or null when present")
+    # Implementation contract (additive, optional): a section of the plan,
+    # never a separate document. Validated when present: each section is a
+    # list of non-empty strings, and the contract must carry at least one
+    # section (an empty contract object would be a ghost requirement).
+    contract = state.get("implementationContract")
+    if contract is not None:
+        if not isinstance(contract, dict) or not contract:
+            problems.append("implementationContract must be a non-empty object or null")
+        else:
+            for section, items in contract.items():
+                if not isinstance(items, list) or not items or \
+                        not all(isinstance(item, str) and item.strip() for item in items):
+                    problems.append(
+                        f"implementationContract.{section} must be a non-empty list of non-empty strings")
+            if not any(section in contract for section in IMPLEMENTATION_CONTRACT_SECTIONS):
+                problems.append(
+                    "implementationContract must carry at least one section of "
+                    f"{list(IMPLEMENTATION_CONTRACT_SECTIONS)} (got: {sorted(contract)})")
     # Structured check results (additive, B1): when a check entry carries a
     # machine status, it must be honest — a "pass" with a non-zero exitCode is
     # a lie the contract refuses. Entries without these fields stay valid
@@ -288,6 +326,18 @@ def validate_state(state: Any, path: Optional[str] = None) -> List[str]:
                 problems.append(f"{key}[{index}].exitCode must be an integer when present")
             if status in ("pass", "passed", "PASSED") and isinstance(exit_code, int) and exit_code != 0:
                 problems.append(f"{key}[{index}]: exitCode {exit_code} cannot be reported as pass")
+            # Increment evidence (additive, Software Fundamentals lot 1): an
+            # intermediate proof must reference its increment; when it carries
+            # a code signature, it must be a real sha1 (the proof validates
+            # the code state it ran on — same honesty rule as phases).
+            increment = entry.get("increment")
+            if increment is not None and (not isinstance(increment, str) or not increment.strip()):
+                problems.append(f"{key}[{index}].increment must be a non-empty string when present")
+            entry_signature = entry.get("codeSignature")
+            if entry_signature is not None and (
+                    not isinstance(entry_signature, str) or not SHA1_RE.match(entry_signature)):
+                problems.append(
+                    f"{key}[{index}].codeSignature must be a 40-char git sha1 when present")
     # Handoff tracking (additive): a handoff block must be coherent — an
     # "accepted" takeover without a claimed session is an unverifiable mandate.
     handoff = state.get("handoff")

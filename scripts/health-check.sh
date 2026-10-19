@@ -674,6 +674,27 @@ if [[ -f "$ROOT_DIR/skills/task-workflow/tw_state.py" ]]; then
     && grep -q "def cmd_claim" "$ROOT_DIR/skills/task-workflow/tw_state.py" \
     && ok "task-workflow Orca handoff: adapter + claim protocol documented" \
     || fail "task-workflow Orca handoff integration incomplete (tw_orca.py / claim / SKILL.md)"
+  # Software Fundamentals lot 1 (risk triage + conditional implementation
+  # contract + increment discipline): additive fields, validated contract.
+  grep -q 'riskLevel' "$ROOT_DIR/skills/task-workflow/SKILL.md" \
+    && grep -q 'implementationContract' "$ROOT_DIR/skills/task-workflow/SKILL.md" \
+    && grep -q 'niveau maximal' "$ROOT_DIR/skills/task-workflow/SKILL.md" \
+    && ok "task-workflow risk classification + conditional implementation contract documented (lot 1)" \
+    || fail "task-workflow must document the LOW/MEDIUM/HIGH triage (maximal level) and the conditional implementation contract"
+  grep -q 'RISK_LEVELS' "$ROOT_DIR/skills/task-workflow/tw_state.py" \
+    && grep -q 'IMPLEMENTATION_CONTRACT_SECTIONS' "$ROOT_DIR/skills/task-workflow/tw_state.py" \
+    && grep -q 'increment' "$ROOT_DIR/skills/task-workflow/SKILL.md" \
+    && ok "task-workflow contract validates riskLevel + implementationContract + increment evidence" \
+    || fail "tw_state.py must validate the risk/contract/increment additive fields"
+fi
+
+# Software Fundamentals lot 1: verification-planning links to the
+# implementation contract (own existence block — fails loudly if the skill
+# disappears, never silently skipped).
+if [[ -f "$ROOT_DIR/skills/verification-planning/SKILL.md" ]]; then
+  grep -q 'implementationContract' "$ROOT_DIR/skills/verification-planning/SKILL.md" \
+    && ok "verification-planning references the implementation contract evidence path" \
+    || fail "verification-planning must reference the task-workflow implementation contract"
 fi
 
 # ─── 12. Design-qa skill (conformité interface ↔ design de référence) ───────

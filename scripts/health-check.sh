@@ -724,6 +724,19 @@ if [[ -f "$ROOT_DIR/skills/domain-language/SKILL.md" ]]; then
     && grep -q "AGENTS.md\`[[:space:]]*$" "$ROOT_DIR/skills/domain-language/SKILL.md" \
     && ok "domain-language VALIDATED-retrograde trace + AGENTS.md-primacy rules present" \
     || fail "domain-language must require human trace for VALIDATED retrograde and AGENTS.md primacy on conflicts"
+  # Lot 3bis (cowork #7): canonical resolution across worktrees — the main
+  # worktree file is the single source for reads AND writes, no local-first
+  # priority, no silent fallback, no auto-merge of a divergent local copy.
+  grep -q 'git worktree list --porcelain' "$ROOT_DIR/skills/domain-language/SKILL.md" \
+    && grep -q 'LOCAL_SHADOW_DETECTED' "$ROOT_DIR/skills/domain-language/SKILL.md" \
+    && grep -q 'aucune copie locale' "$ROOT_DIR/skills/domain-language/SKILL.md" \
+    && ok "domain-language canonical worktree resolution documented (main = single source, no local copy)" \
+    || fail "domain-language must document canonical worktree resolution (git worktree list --porcelain, LOCAL_SHADOW_DETECTED, no local copy)"
+  grep -q 'GLOSSARY_ABSENT' "$ROOT_DIR/skills/domain-language/SKILL.md" \
+    && grep -q 'UNRESOLVED' "$ROOT_DIR/skills/domain-language/SKILL.md" \
+    && grep -q 'WRITE_CONFLICT' "$ROOT_DIR/skills/domain-language/SKILL.md" \
+    && ok "domain-language resolution states declared (GLOSSARY_ABSENT/UNRESOLVED/WRITE_CONFLICT — no silent fallback)" \
+    || fail "domain-language must declare GLOSSARY_ABSENT/UNRESOLVED/WRITE_CONFLICT states (no silent fallback)"
   ruby -ryaml -e "YAML.safe_load(File.read('$ROOT_DIR/skills/domain-language/SKILL.md').split(/^---\n/)[1], permitted_classes: [], aliases: false)" \
     && ok "domain-language skill frontmatter valid YAML" \
     || fail "domain-language skill frontmatter invalid YAML"

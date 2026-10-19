@@ -101,6 +101,14 @@ Signals:
 - Dead code
 - Wrappers or abstractions that add no value
 
+**Deep Modules check** — for each module in scope, ask: "Does this module's
+interface expose complexity disproportionate to the behavior it encapsulates?"
+Examine visible dependencies, contract stability, cohesion, and testability at
+the boundaries. This is a qualitative judgment — no universal threshold, and
+never an automatic rewrite: flag the finding with its reasoning, offer the
+simpler interface as an option, and let the owner decide. A module whose
+interface width is genuinely justified by what it hides is correct as-is.
+
 ### Step 3: Apply Changes Incrementally
 
 Make one simplification at a time.

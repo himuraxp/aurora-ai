@@ -731,6 +731,35 @@ else
   fail "skills/domain-language/SKILL.md missing"
 fi
 
+# ─── Software Fundamentals lot 4: Deep Modules criterion ─────────────────────
+# One canonical question shared by architect / simplify / pre-mr-review:
+# interface complexity disproportionate to encapsulated behavior. Qualitative
+# judgment only — no universal threshold, no automatic rewrite.
+if [[ -f "$ROOT_DIR/agents/architect.md" ]]; then
+  grep -q 'complexité disproportionnée' "$ROOT_DIR/agents/architect.md" \
+    && grep -q 'pas de refonte automatique' "$ROOT_DIR/agents/architect.md" \
+    && ok "architect agent carries the bounded Deep Modules question" \
+    || fail "agents/architect.md must carry the Deep Modules question (no universal threshold, no automatic rewrite)"
+else
+  fail "agents/architect.md missing"
+fi
+if [[ -f "$ROOT_DIR/skills/simplify/SKILL.md" ]]; then
+  grep -q 'disproportionate to the behavior it encapsulates' "$ROOT_DIR/skills/simplify/SKILL.md" \
+    && grep -q 'no universal threshold' "$ROOT_DIR/skills/simplify/SKILL.md" \
+    && ok "simplify skill carries the Deep Modules check" \
+    || fail "skills/simplify must carry the Deep Modules check (question + no universal threshold)"
+else
+  fail "skills/simplify/SKILL.md missing"
+fi
+if [[ -f "$ROOT_DIR/skills/pre-mr-review/SKILL.md" ]]; then
+  grep -q 'complexité disproportionnée' "$ROOT_DIR/skills/pre-mr-review/SKILL.md" \
+    && grep -q 'pas de seuil universel' "$ROOT_DIR/skills/pre-mr-review/SKILL.md" \
+    && ok "pre-mr-review advanced mode carries the Deep Modules axis" \
+    || fail "skills/pre-mr-review must carry the Deep Modules axis (question + no universal threshold)"
+else
+  fail "skills/pre-mr-review/SKILL.md missing"
+fi
+
 # ─── 12. Design-qa skill (conformité interface ↔ design de référence) ───────
 
 if [[ -f "$ROOT_DIR/skills/design-qa/SKILL.md" ]]; then

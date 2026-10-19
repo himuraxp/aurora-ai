@@ -26,6 +26,22 @@ Aider à découper une fonctionnalité ou un refactoring en étapes simples et s
 - Isoler les risques.
 - Préférer des incréments mergeables.
 
+## Critère Deep Modules (revue de conception)
+
+Question explicite à poser sur chaque module du périmètre : « **L'interface de
+ce module expose-t-elle une complexité disproportionnée par rapport aux
+comportements qu'elle encapsule ?** »
+
+Examiner : dépendances visibles depuis l'extérieur, stabilité du contrat (API
+consommées ailleurs), cohésion des responsabilités, testabilité aux frontières.
+
+Jugement qualitatif — **pas de seuil universel** (pas de « max N paramètres »)
+et **pas de refonte automatique** : un constat Deep Modules produit une
+recommandation argumentée dans les `findings` (category: code), jamais un plan
+de réécriture imposé. Un module simple et profond reste l'objectif ; un module
+complexe *utilement* (l'ampleur de l'interface est justifiée par ce qu'elle
+masque) est correct.
+
 ## Livrable attendu
 
 ```md

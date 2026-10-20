@@ -782,6 +782,12 @@ if [[ -f "$ROOT_DIR/skills/design-qa/SKILL.md" ]]; then
   grep -qi 'jamais inventer une mesure figma\|jamais inventer des valeurs figma' "$ROOT_DIR/skills/design-qa/SKILL.md" \
     && ok "design-qa no-invented-figma-measurements rule present" \
     || fail "design-qa must forbid invented Figma measurements"
+  # Figma quota fallback (2026-10-20): a 429/quota must trigger the
+  # browser-debug fallback procedure, not a silent degradation to estimates.
+  grep -qi 'repli.*browser-debug' "$ROOT_DIR/skills/design-qa/SKILL.md" \
+    && grep -qi 'panneau inspect' "$ROOT_DIR/skills/design-qa/SKILL.md" \
+    && ok "design-qa figma-quota browser-debug fallback procedure present" \
+    || fail "design-qa must document the browser-debug fallback for Figma quota (429)"
   grep -qi "score.*similarité\|similarité.*preuve" "$ROOT_DIR/skills/design-qa/SKILL.md" \
     && ok "design-qa pixel-score-is-not-proof rule present" \
     || fail "design-qa must state that a similarity score is never sufficient proof"
@@ -802,6 +808,8 @@ if [[ -f "$ROOT_DIR/skills/design-qa/SKILL.md" ]]; then
     && grep -qi 'réconciliation\|reconcile' "$ROOT_DIR/skills/design-qa/SKILL.md" \
     && ok "design-qa convergence: findings reconciliation + reopened status present" \
     || fail "design-qa must document findings reconciliation and reopened regressions"
+else
+  fail "skills/design-qa/SKILL.md missing — 13 doc checks silently skipped"
 fi
 
 if [[ -f "$ROOT_DIR/skills/design-qa/dq_contract.py" ]]; then

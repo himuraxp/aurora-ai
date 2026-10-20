@@ -808,6 +808,8 @@ if [[ -f "$ROOT_DIR/skills/design-qa/SKILL.md" ]]; then
     && grep -qi 'réconciliation\|reconcile' "$ROOT_DIR/skills/design-qa/SKILL.md" \
     && ok "design-qa convergence: findings reconciliation + reopened status present" \
     || fail "design-qa must document findings reconciliation and reopened regressions"
+else
+  fail "skills/design-qa/SKILL.md missing — 13 doc checks silently skipped"
 fi
 
 if [[ -f "$ROOT_DIR/skills/design-qa/dq_contract.py" ]]; then

@@ -53,9 +53,11 @@ du code exacte — ne trouve plus rien de bloquant.
    implémenter une fonctionnalité parce qu'elle apparaît dans une maquette ;
    les décisions produit restent au PO.
 2. **Jamais inventer une mesure Figma.** Une valeur est soit `measured`
-   (donnée API exacte), soit `estimated` (lecture visuelle par Designer),
-   soit indisponible (tracée). Une image seule ne donne pas de valeurs
-   exactes — les estimer et les marquer.
+   (donnée exacte : API Figma, ou panneau Inspect Figma lu dans le
+   navigateur en repli — provenance tracée dans `evidence`), soit
+   `estimated` (lecture visuelle par Designer), soit indisponible (tracée).
+   Une image seule ne donne pas de valeurs exactes — les estimer et les
+   marquer.
 3. **Ne jamais masquer un écart** en modifiant la capture de référence, les
    fixtures de façon trompeuse ou le seuil de comparaison.
 4. **Un score de similarité global n'est jamais une preuve** : un bouton
@@ -77,8 +79,10 @@ du code exacte — ne trouve plus rien de bloquant.
 ## Étape 1 — Acquisition de la référence
 
 Ordre : 1) API Figma (`FIGMA_TOKEN` déjà configuré — pas de MCP Figma dans
-l'environnement), 2) image/ressource déjà acquise, 3) `browser-debug` avec
-session authentifiée en repli.
+l'environnement), 2) image/ressource déjà acquise, 3) en cas de **quota
+Figma bloquant (429 + Retry-After long)** → repli `browser-debug` avec
+session authentifiée (procédure ci-dessous), 4) à défaut seulement :
+valeurs `estimated` par Designer — jamais d'invention.
 
 **URL Figma** → parser avec `dq_contract.py parse-figma-url <url>`
 (`fileKey` + `nodeId`, normalisation `node-id=1421-40648` → `1421:40648`).
@@ -87,11 +91,35 @@ Puis deux lectures API :
 - `GET /v1/files/<key>/nodes?ids=<nodeId>` → **valeurs exactes** : dimensions,
   auto-layout (padding, gap, alignement), fills/couleurs, typographie,
   rayons. ⚠️ Endpoint contenu soumis au quota (429 + Retry-After, cf.
-  `tools/figma-ds/src/capture.ts`) → en cas de gating, dégrader : valeurs
-  `estimated` par Designer, jamais d'invention.
+  `tools/figma-ds/src/capture.ts`) → en cas de gating, appliquer le repli
+  ci-dessous (ne pas dégrader directement en `estimated`).
 - `GET /v1/images/<key>?ids=<nodeId>&format=png&scale=2` → PNG de référence
   à télécharger dans le dossier de preuves (endpoint standard non wrappé par
   `figma-ds` → appel REST direct, même pattern de résilience 429).
+
+**Repli quota → browser-debug** : un gating Figma n'est pas une fin de
+course — la maquette reste lisible dans le navigateur. Un 429 avec
+Retry-After long (quota plan, pas un burst) déclenche la bascule :
+
+1. `browser-debug` (profil Brave debug :9222 — même prérequis que Trello),
+   navigation vers `https://figma.com/file/<fileKey>?node-id=<nodeId>`.
+2. Session Figma absente du profil → demander la connexion à l'utilisateur
+   (une fois, même pattern que Trello/ChatGPT), puis reprendre.
+3. Capturer la frame dans le dossier de preuves : canvas zoom 100 % (+ zones
+   clés) et panneau Inspect. Ces captures **remplacent le PNG API** comme
+   référence visuelle pour l'audit Designer (Étape 4A) ; le diff pixel
+   (Étape 4C) reste indicatif avec une référence navigateur (rendu canvas
+   ≠ rendu PNG API).
+4. Valeurs : les lectures écran restent `estimated` (lecture ≠ mesure API) ;
+   seules les valeurs **lues explicitement dans le panneau Inspect** sont
+   exactes — enregistrées `confidence: "measured"` avec la provenance
+   « lues panneau Inspect (repli browser) » dans `evidence`. Jamais
+   d'invention (règle 2 ci-dessus).
+5. Traçabilité : le repli est une **limitation externe** (section rapport) ;
+   en mode intégré task-workflow, l'incident est journalisé (429, repli
+   browser-debug). Navigateur indisponible et assistance refusée → rester
+   en `estimated` (dégradation assumée, jamais un `PASSED` sur des valeurs
+   inventées).
 
 **Image locale / pièce jointe** → référence directe, `valuesAvailable:
 false` (estimations Designer uniquement).
@@ -490,8 +518,9 @@ interruption, migration d'état task-workflow.
 
 ## Limitations connues
 
-- Sans quota API Figma (endpoint contenu gated) → valeurs estimées par
-  Designer uniquement, `confidence: estimated` (dégradation tracée).
+- Sans quota API Figma **et** repli browser indisponible (Étape 1, point 5)
+  → valeurs estimées par Designer uniquement, `confidence: estimated`
+  (dégradation tracée — le repli browser-debug est à tenter d'abord).
 - Une image seule ne donne pas de mesures exactes — la comparaison
   technique est alors limitée aux ratios et à la sémantique.
 - Le diff pixel suppose même rendu navigateur/zoom/DPR — conditions de

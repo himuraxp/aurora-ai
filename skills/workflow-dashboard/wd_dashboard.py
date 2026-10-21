@@ -7,8 +7,14 @@ RÉCEMMENT. Ce module n'écrit JAMAIS (aucun fichier, stdout uniquement) et ne
 décide jamais qu'une tâche est terminée — il interprète les transitions
 publiées.
 
+Vue HIÉRARCHIQUE (retour UX 2026-10-21, tour cowork 5) : sous chaque sujet
+actif, ses étapes non terminées (cap 3 + compteur « +N ») — un tableau de
+bord lisible, pas une sortie de diagnostic. `--verbose` garde le détail
+complet (toutes les étapes, avec détail publié).
+
 Zéro dépendance (stdlib). Un frame par appel ; `--watch <secondes>` redessine
-(clear + frame, latence de propagation maîtrisée par l'intervalle).
+sans scintillement (home + effacement de fin de ligne, JAMAIS de full clear
+après le premier frame) — latence de propagation maîtrisée par l'intervalle.
 
 La SOURCE est toujours affichée (task-workflow | todowrite-relay |
 orchestrator-cli) : les garanties natives ne se dégradent jamais en
@@ -186,6 +192,30 @@ def render_steps(topic: Dict[str, Any], indent: str, now: datetime,
     return lines
 
 
+def render_active_steps(topic: Dict[str, Any], indent: str, width: int,
+                        colors: bool, cap: int = 3) -> List[str]:
+    """Hiérarchie compacte (retour UX 2026-10-21) : les étapes NON terminées
+    d'un sujet actif, dans l'ordre du payload (déterministe), cap `cap` +
+    compteur « +N étape(s) » — jamais de wrap, troncature stricte.
+
+    Une étape DONE n'est pas répétée : le compteur n/m de la ligne sujet
+    porte déjà la progression ; les statuts intermédiaires (BLOCKED…) sont
+    visibles avec leur icône dédiée."""
+    open_steps = [s for s in topic["steps"] if s["status"] not in DONE_STATUSES]
+    if not open_steps:
+        return []
+    budget = max(16, width - len(indent) - 4)  # indent + icon + espace + marge
+    lines: List[str] = []
+    for step in open_steps[:cap]:
+        status = step["status"]
+        icon = _c(STATUS_ICONS.get(status, "·"), STATUS_COLORS.get(status), colors)
+        label = step["label"].replace("\n", " ")
+        lines.append(f"{indent}{icon} {_truncate(label, budget)}")
+    if len(open_steps) > cap:
+        lines.append(_c(f"{indent}  + {len(open_steps) - cap} étape(s)", "gray", colors))
+    return lines
+
+
 def gather() -> Tuple[List[Tuple[Dict[str, Any], Dict[str, Any]]], int]:
     """Toutes les sources : adaptateur natif + topics publiés (lecture seule).
     Retourne aussi le nombre de sources illisibles/ignorées — le dashboard
@@ -249,11 +279,17 @@ def render(width: int = 80, now: Optional[datetime] = None,
     for category in ("running", "action", "done"):
         if not buckets[category]:
             continue
-        lines.append(_c(CATEGORY_TITLES[category], "bold", colors))
+        # compteur de catégorie (retour UX 2026-10-21 : hiérarchie lisible)
+        header = f"{CATEGORY_TITLES[category]} · {len(buckets[category])}"
+        lines.append(_c(header, "bold", colors))
         for topic, progress in buckets[category]:
             lines.append(render_topic_line(topic, progress, width, now, colors))
             if verbose:
                 lines.extend(render_steps(topic, "   ", now, colors, width=width))
+            elif category != "done":
+                # étapes ouvertes sous le sujet actif — le sujet reste la
+                # référence, ses étapes la lisibilité (cap 3 + « +N »)
+                lines.extend(render_active_steps(topic, "    ", width, colors))
     if archived:
         lines.append(_c(f"+ {archived} sujet(s) terminé(s) antérieur(s)", "gray", colors))
     if dropped:
@@ -296,21 +332,39 @@ def main(argv: Optional[List[str]] = None) -> int:
                         help="largeur du frame (défaut : terminal)")
     args = parser.parse_args(argv)
     colors = sys.stdout.isatty()
-    width = args.width or shutil.get_terminal_size((80, 24)).columns
 
     def frame() -> str:
+        # largeur relue À CHAQUE frame : la disposition reste utilisable après
+        # redimensionnement du pane (critère UX 2026-10-21 #5) — --width figé
+        # reste supporté pour les captures/tests
+        width = args.width or shutil.get_terminal_size((80, 24)).columns
         return render(width=width, session_id=args.session_id
                       or current_session_id(), colors=colors, verbose=args.verbose)
 
     if args.watch is None:
         sys.stdout.write(frame())
         return 0
+    # Anti-scintillement (retour UX 2026-10-21) : premier frame = full clear,
+    # puis home + effacement de fin de ligne (\033[K) — JAMAIS de \033[2J
+    # répété. Les lignes restantes d'un frame plus grand sont effacées.
+    previous_rows = 0
+    first_frame = True
     try:
         while True:
-            _clear()
-            sys.stdout.write(frame())
+            text = frame()
+            if first_frame:
+                _clear()
+                first_frame = False
+            rows = text.splitlines() or [""]
+            parts = ["\033[H"]
+            for row in rows:
+                parts.append(row + "\033[K\n")
+            if previous_rows > len(rows):
+                parts.append("\033[K\n" * (previous_rows - len(rows)))
+            sys.stdout.write("".join(parts))
             sys.stdout.flush()
-            time.sleep(max(0.2, args.watch))
+            previous_rows = len(rows)
+            time.sleep(args.watch)
     except KeyboardInterrupt:
         return 0
 

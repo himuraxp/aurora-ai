@@ -25,6 +25,9 @@ class OrcaTestCase(unittest.TestCase):
         self._patcher = mock.patch.dict(os.environ, {
             wd_orca.ENV_PANES_STATE: os.path.join(self._tmp.name, "panes.json"),
             "ORCA_WORKTREE_ID": "wt-test-1234",  # session hébergée simulée
+            # neutralisé : les tests passent par la voie fallback (terminal
+            # list) — la priorité ORCA_TERMINAL_HANDLE a son test dédié
+            "ORCA_TERMINAL_HANDLE": "",
         })
         self._patcher.start()
 
@@ -70,40 +73,69 @@ class TestEnsure(OrcaTestCase):
             if args[:1] == ["status"]:
                 return {"ok": True, "stdout": json.dumps({
                     "result": {"runtimeReachable": True}}), "rc": 0, "why": None}
-            if args[:2] == ["worktree", "list"]:
+            if args[:2] == ["terminal", "list"]:
+                # shell-1 est le plus récent MAIS pas opencode : le filtre
+                # agentIdentity doit l'écarter (jamais splitter un shell)
                 return {"ok": True, "stdout": json.dumps({
-                    "result": {"worktrees": [
-                        {"id": "sel-abc", "path": "/tmp/wt-demo"},
-                        {"id": "sel-other", "path": "/tmp/wt-other"},
+                    "result": {"terminals": [
+                        {"handle": "host-demo", "agentIdentity": "opencode",
+                         "worktreePath": "/tmp/wt-demo", "lastOutputAt": 10},
+                        {"handle": "host-other", "agentIdentity": "opencode",
+                         "worktreePath": "/tmp/wt-other", "lastOutputAt": 20},
+                        {"handle": "shell-1", "agentIdentity": None,
+                         "worktreePath": "/tmp/wt-demo", "lastOutputAt": 30},
                     ]}}), "rc": 0, "why": None}
-            if args[:2] == ["terminal", "create"]:
+            if args[:2] == ["terminal", "split"]:
                 created["n"] += 1  # un vrai orca rend un handle unique par pane
                 return {"ok": True, "stdout": json.dumps({
-                    "result": {"terminal": {"handle": f"term-{created['n']}",
-                                            "paneKey": f"pane-{created['n']}"}}}),
+                    "result": {"split": {"handle": f"term-{created['n']}",
+                                         "tabId": "tab-1"}}}),
                     "rc": 0, "why": None}
             if args[:2] == ["terminal", "close"]:
                 return {"ok": True, "stdout": "", "rc": 0, "why": None}
             return {"ok": True, "stdout": "", "rc": 0, "why": None}
         return fake_run
 
-    def test_ensure_creates_once_then_reuses(self):
-        # critère E2E : pane relançable SANS duplication
+    def test_ensure_splits_once_then_reuses(self):
+        # critère E2E : pane relançable SANS duplication — et JAMAIS un onglet
         calls: list = []
         with mock.patch.object(wd_orca, "_run", self._fake_run(calls)):
             first = wd_orca.ensure("/tmp/wt-demo")
             self.assertTrue(first["ok"])
             self.assertFalse(first["reused"])
             self.assertEqual(first["handle"], "term-1")
-            creates = [c for c in calls if c[:2] == ["terminal", "create"]]
-            self.assertEqual(len(creates), 1)
-            # 2e appel : handle enregistré -> réutilisation, aucun create
+            splits = [c for c in calls if c[:2] == ["terminal", "split"]]
+            self.assertEqual(len(splits), 1)
+            # le host splitté est le terminal OpenCode du worktree (jamais
+            # le shell plus récent, jamais un create d'onglet)
+            self.assertEqual(splits[0][3], "host-demo")
+            self.assertEqual([c for c in calls
+                              if c[:2] == ["terminal", "create"]], [])
+            state = wd_orca.read_panes_state()
+            entry = state["panes"][os.path.realpath("/tmp/wt-demo")]
+            self.assertEqual(entry["parentHandle"], "host-demo")
+            # 2e appel : handle enregistré -> réutilisation, aucun split
             calls.clear()
             second = wd_orca.ensure("/tmp/wt-demo")
             self.assertTrue(second["ok"])
             self.assertTrue(second["reused"])
             self.assertEqual(second["handle"], "term-1")
-            self.assertEqual([c for c in calls if c[:2] == ["terminal", "create"]], [])
+            self.assertEqual([c for c in calls
+                              if c[:2] == ["terminal", "split"]], [])
+
+    def test_orca_terminal_handle_takes_priority(self):
+        # ORCA_TERMINAL_HANDLE (injecté par Orca) = voie déterministe :
+        # terminal list jamais consulté, split sur ce handle exact
+        calls: list = []
+        with mock.patch.object(wd_orca, "_run", self._fake_run(calls)), \
+             mock.patch.dict(os.environ,
+                             {"ORCA_TERMINAL_HANDLE": "host-explicit"}):
+            res = wd_orca.ensure("/tmp/wt-demo")
+        self.assertTrue(res["ok"])
+        self.assertEqual([c for c in calls if c[:2] == ["terminal", "list"]], [])
+        splits = [c for c in calls if c[:2] == ["terminal", "split"]]
+        self.assertEqual(len(splits), 1)
+        self.assertEqual(splits[0][3], "host-explicit")
 
     def test_ensure_two_worktrees_isolated(self):
         # critère E2E : isolation multi-worktrees sans collision
@@ -136,35 +168,36 @@ class TestEnsure(OrcaTestCase):
         self.assertFalse(res["ok"])
         self.assertTrue(res["skipped"])
         self.assertEqual(res["why"], "session non hébergée par Orca (ORCA_WORKTREE_ID absent)")
-        self.assertEqual([c for c in calls if c[:2] == ["terminal", "create"]], [])
+        self.assertEqual([c for c in calls if c[:2] == ["terminal", "split"]], [])
 
-    def test_ensure_unindexed_worktree_refused(self):
+    def test_ensure_no_opencode_terminal_refused(self):
         calls: list = []
 
         def fake_run(args, timeout=wd_orca.DEFAULT_TIMEOUT):
             if args[:1] == ["status"]:
                 return {"ok": True, "stdout": json.dumps({
                     "result": {"runtimeReachable": True}}), "rc": 0, "why": None}
-            if args[:2] == ["worktree", "list"]:
+            if args[:2] == ["terminal", "list"]:
                 return {"ok": True, "stdout": json.dumps({
-                    "result": {"worktrees": [{"id": "sel-abc",
-                                              "path": "/tmp/wt-demo"}]}}),
+                    "result": {"terminals": [{"handle": "host-demo",
+                                              "agentIdentity": "opencode",
+                                              "worktreePath": "/tmp/wt-demo"}]}}),
                     "rc": 0, "why": None}
             return {"ok": True, "stdout": "", "rc": 0, "why": None}
 
         with mock.patch.object(wd_orca, "_run", fake_run):
             res = wd_orca.ensure("/tmp/unknown-wt")
         self.assertFalse(res["ok"])
-        self.assertIn("not indexed", res["why"])
+        self.assertIn("aucun terminal OpenCode", res["why"])
 
     def test_ensure_watch_out_of_range_refused_before_any_create(self):
-        # review J3 : refuser --watch hors plage AVANT le create orca
+        # review J3 : refuser --watch hors plage AVANT le split orca
         calls: list = []
         with mock.patch.object(wd_orca, "_run", self._fake_run(calls)):
             res = wd_orca.ensure("/tmp/wt-demo", watch=0.1)
         self.assertFalse(res["ok"])
         self.assertTrue(res["skipped"])
-        self.assertEqual([c for c in calls if c[:2] == ["terminal", "create"]], [])
+        self.assertEqual([c for c in calls if c[:2] == ["terminal", "split"]], [])
 
     def test_ensure_runtime_unreachable_skips(self):
         # leçon tw_orca : orca --version réussit même app fermée ; le check
@@ -198,15 +231,16 @@ class TestEnsure(OrcaTestCase):
                     return {"ok": True, "stdout": json.dumps({
                         "result": {"runtimeReachable": True}}),
                         "rc": 0, "why": None}
-                if args[:2] == ["worktree", "list"]:
+                if args[:2] == ["terminal", "list"]:
                     return {"ok": True, "stdout": json.dumps({
-                        "result": {"worktrees": [{"id": f"sel-{path}",
-                                                  "path": path}]}}),
+                        "result": {"terminals": [{"handle": f"host-{path}",
+                                                  "agentIdentity": "opencode",
+                                                  "worktreePath": path}]}}),
                         "rc": 0, "why": None}
-                if args[:2] == ["terminal", "create"]:
+                if args[:2] == ["terminal", "split"]:
                     return {"ok": True, "stdout": json.dumps({
-                        "result": {"terminal": {"handle": f"term-{path}",
-                                                "paneKey": "p"}}}),
+                        "result": {"split": {"handle": f"term-{path}",
+                                             "tabId": "t"}}}),
                         "rc": 0, "why": None}
                 return {"ok": True, "stdout": "", "rc": 0, "why": None}
 
@@ -233,15 +267,16 @@ class TestEnsure(OrcaTestCase):
             if args[:1] == ["status"]:
                 return {"ok": True, "stdout": json.dumps({
                     "result": {"runtimeReachable": True}}), "rc": 0, "why": None}
-            if args[:2] == ["worktree", "list"]:
+            if args[:2] == ["terminal", "list"]:
                 return {"ok": True, "stdout": json.dumps({
-                    "result": {"worktrees": [{"id": "sel-abc",
-                                              "path": "/tmp/wt-demo"}]}}),
+                    "result": {"terminals": [{"handle": "host-demo",
+                                              "agentIdentity": "opencode",
+                                              "worktreePath": "/tmp/wt-demo"}]}}),
                     "rc": 0, "why": None}
-            if args[:2] == ["terminal", "create"]:
+            if args[:2] == ["terminal", "split"]:
                 return {"ok": True, "stdout": json.dumps({
-                    "result": {"terminal": {"handle": "term-1",
-                                            "paneKey": "p"}}}),
+                    "result": {"split": {"handle": "term-1",
+                                         "tabId": "t"}}}),
                     "rc": 0, "why": None}
             if args[:2] == ["terminal", "close"]:
                 return {"ok": False, "stdout": "", "rc": 1, "why": "timeout"}
@@ -254,14 +289,14 @@ class TestEnsure(OrcaTestCase):
         state = wd_orca.read_panes_state()
         self.assertIn(os.path.realpath("/tmp/wt-demo"), state["panes"])
 
-    def test_force_without_existing_pane_creates_without_close(self):
+    def test_force_without_existing_pane_splits_without_close(self):
         calls: list = []
         with mock.patch.object(wd_orca, "_run", self._fake_run(calls)):
             res = wd_orca.ensure("/tmp/wt-demo", force=True)
         self.assertTrue(res["ok"])
         self.assertFalse(res["reused"])
         self.assertEqual([c for c in calls if c[:2] == ["terminal", "close"]], [])
-        self.assertEqual(len([c for c in calls if c[:2] == ["terminal", "create"]]), 1)
+        self.assertEqual(len([c for c in calls if c[:2] == ["terminal", "split"]]), 1)
 
     def test_ensure_without_handle_is_uncertain_and_unrecorded(self):
         # sagesse tw_orca : handle manquant = jamais un succès enregistré
@@ -269,14 +304,15 @@ class TestEnsure(OrcaTestCase):
             if args[:1] == ["status"]:
                 return {"ok": True, "stdout": json.dumps({
                     "result": {"runtimeReachable": True}}), "rc": 0, "why": None}
-            if args[:2] == ["worktree", "list"]:
+            if args[:2] == ["terminal", "list"]:
                 return {"ok": True, "stdout": json.dumps({
-                    "result": {"worktrees": [{"id": "sel-abc",
-                                              "path": "/tmp/wt-demo"}]}}),
+                    "result": {"terminals": [{"handle": "host-demo",
+                                              "agentIdentity": "opencode",
+                                              "worktreePath": "/tmp/wt-demo"}]}}),
                     "rc": 0, "why": None}
-            if args[:2] == ["terminal", "create"]:
+            if args[:2] == ["terminal", "split"]:
                 return {"ok": True, "stdout": json.dumps({
-                    "result": {"terminal": {}}}), "rc": 0, "why": None}
+                    "result": {"split": {}}}), "rc": 0, "why": None}
             return {"ok": True, "stdout": "", "rc": 0, "why": None}
 
         with mock.patch.object(wd_orca, "_run", fake_run):
@@ -294,9 +330,9 @@ class TestEnsure(OrcaTestCase):
             self.assertTrue(res["ok"])
             self.assertFalse(res["reused"])
             closes = [c for c in calls if c[:2] == ["terminal", "close"]]
-            creates = [c for c in calls if c[:2] == ["terminal", "create"]]
+            splits = [c for c in calls if c[:2] == ["terminal", "split"]]
             self.assertEqual(len(closes), 1)
-            self.assertEqual(len(creates), 1)
+            self.assertEqual(len(splits), 1)
 
     def test_renderer_command_is_absolute_and_quoted(self):
         command = wd_orca.renderer_command(watch=0.5, session_id="ses-1")
@@ -317,14 +353,17 @@ class TestClose(OrcaTestCase):
             if args[:1] == ["status"]:
                 return {"ok": True, "stdout": json.dumps({
                     "result": {"runtimeReachable": True}}), "rc": 0, "why": None}
-            if args[:2] == ["worktree", "list"]:
+            if args[:2] == ["terminal", "list"]:
                 return {"ok": True, "stdout": json.dumps({
-                    "result": {"worktrees": [{"id": "sel-abc",
-                                              "path": "/tmp/wt-demo"}]}}),
+                    "result": {"terminals": [{"handle": "host-demo",
+                                              "agentIdentity": "opencode",
+                                              "worktreePath": "/tmp/wt-demo"}]}}),
                     "rc": 0, "why": None}
-            return {"ok": True, "stdout": json.dumps({
-                "result": {"terminal": {"handle": "term-1"}}}),
-                "rc": 0, "why": None}
+            if args[:2] == ["terminal", "split"]:
+                return {"ok": True, "stdout": json.dumps({
+                    "result": {"split": {"handle": "term-1"}}}),
+                    "rc": 0, "why": None}
+            return {"ok": True, "stdout": "", "rc": 0, "why": None}
 
         with mock.patch.object(wd_orca, "_run", fake_run):
             wd_orca.ensure("/tmp/wt-demo")
@@ -362,14 +401,15 @@ class TestCliE2E(OrcaTestCase):
             if args[:1] == ["status"]:
                 return {"ok": True, "stdout": json.dumps({
                     "result": {"runtimeReachable": True}}), "rc": 0, "why": None}
-            if args[:2] == ["worktree", "list"]:
+            if args[:2] == ["terminal", "list"]:
                 return {"ok": True, "stdout": json.dumps({
-                    "result": {"worktrees": [{"id": "sel-x",
-                                              "path": "/tmp/wt-x"}]}}),
+                    "result": {"terminals": [{"handle": "host-x",
+                                              "agentIdentity": "opencode",
+                                              "worktreePath": "/tmp/wt-x"}]}}),
                     "rc": 0, "why": None}
             return {"ok": False, "rc": 1,
                     "stdout": json.dumps({"error": "app closed mid-create"}),
-                    "why": "orca terminal create failed: app closed mid-create"}
+                    "why": "orca terminal split failed: app closed mid-create"}
 
         with mock.patch.object(wd_orca, "_run", fake_run):
             with mock.patch("sys.stdout", stdout), \

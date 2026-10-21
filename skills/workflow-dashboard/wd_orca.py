@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""Workflow Dashboard — intégration Orca (J3) : pane persistant idempotent.
+"""Workflow Dashboard — intégration Orca (J3 + UX 2026-10-21) : pane SPLIT idempotent.
 
 Ouvre et gère le pane terminal qui héberge le renderer (wd_dashboard.py
---watch) DANS Orca, par worktree. Ce module est la voie d'intégration côté
-orchestrateur (pattern tw_orca) : le renderer lui-même reste un lecteur
-strict, ce module écrit UNIQUEMENT son propre état de gestion des handles
+--watch) DANS Orca, par worktree — via `terminal split` du terminal OpenCode
+courant (PAS un nouvel onglet : le retour UX du 2026-10-21 est explicite —
+le dashboard doit être adjacent à OpenCode, visible simultanément, sans onglet
+supplémentaire). Ce module est la voie d'intégration côté orchestrateur
+(pattern tw_orca) : le renderer lui-même reste un lecteur strict, ce module
+écrit UNIQUEMENT son propre état de gestion des handles
 (workflow-dashboard-panes.json — hors du répertoire progress/ du contrat).
 
 Garanties (consensus t3/t4, critères E2E) :
@@ -12,16 +15,18 @@ Garanties (consensus t3/t4, critères E2E) :
   ne crée jamais deux panes ; `restart` (close + recreate) est explicite.
 - PERSISTANCE : l'état des handles survit aux crashs de session (comme
   handoff dans tw_state) — la reprise ne réinitialise rien.
-- SAGESSE tw_orca : un `terminal create` réussi n'est PAS la confirmation
-  que le renderer tourne ; handle manquant = résultat incertain, jamais un
-  succès prétendu.
+- SAGESSE tw_orca : un split réussi n'est PAS la confirmation que le renderer
+  tourne ; handle manquant = résultat incertain, jamais un succès prétendu.
 - ISOLATION : une clé de pane = realpath(worktree) — deux worktrees
   coexistent sans collision.
+- NEVER CLOSE PARENT : close ne ferme QUE le pane split (handle du pane),
+  jamais le terminal OpenCode hôte (parentHandle enregistré pour l'audit).
 
 Le CLI orca est le SEUL mécanisme (aucune API runtime OpenCode) :
-  worktree list --json          -> selector <id> du worktree
-  terminal create --worktree <sel> --title <t> --command <c> --json [--focus]
-  terminal close --terminal <handle>
+  terminal list --json            -> découverte du terminal OpenCode hôte
+  terminal split --terminal <h> --direction vertical --command <c> --json
+  terminal set-pane-title --terminal <h> --title <t>
+  terminal close --terminal <h>
 """
 
 from __future__ import annotations
@@ -145,49 +150,66 @@ def in_orca_session() -> bool:
     return bool(os.environ.get("ORCA_WORKTREE_ID"))
 
 
-def find_worktree_selector(worktree_path: str) -> Dict[str, Any]:
-    """Selector orca du worktree — découverte, jamais création/registre."""
-    res = _run(["worktree", "list", "--json", "--limit", "80"])
+def find_opencode_terminal(worktree_path: str) -> Dict[str, Any]:
+    """Terminal OpenCode hôte du worktree — sélecteur déterministe :
+    ORCA_TERMINAL_HANDLE (injecté par Orca dans le terminal qu'il héberge)
+    sinon découverte dans `terminal list` (agentIdentity=opencode ET
+    worktreePath=worktree courant, le plus récemment actif). Jamais de
+    création ni de guess hors de ces deux voies."""
+    handle = os.environ.get("ORCA_TERMINAL_HANDLE")
+    if handle:
+        return {"ok": True, "handle": handle, "why": None}
+    res = _run(["terminal", "list", "--json"])
     if not res["ok"]:
         return {"ok": False, "why": res["why"]}
     try:
         data = json.loads(res["stdout"])
-        rows = (data.get("result") or {}).get("worktrees") or []
+        rows = (data.get("result") or {}).get("terminals") or []
     except (ValueError, TypeError):
-        return {"ok": False, "why": "unparsable orca worktree list output"}
+        return {"ok": False, "why": "unparsable orca terminal list output"}
     wanted = os.path.realpath(os.path.expanduser(worktree_path))
+    candidates = []
     for row in rows:
-        if not isinstance(row, dict):
+        if not isinstance(row, dict) or not row.get("handle"):
             continue
-        if not row.get("id"):  # review J3 : selector None => jamais propagé
+        if row.get("agentIdentity") != "opencode":
             continue
-        if os.path.realpath(row.get("path") or "") == wanted:
-            return {"ok": True, "selector": row.get("id"), "why": None}
-    return {"ok": False,
-            "why": f"worktree not indexed by Orca: {worktree_path}"}
+        if os.path.realpath(row.get("worktreePath") or "") != wanted:
+            continue
+        candidates.append(row)
+    if not candidates:
+        return {"ok": False,
+                "why": "aucun terminal OpenCode pour ce worktree (l'ouvrir dans Orca ?)"}
+    best = max(candidates, key=lambda r: r.get("lastOutputAt") or 0)
+    return {"ok": True, "handle": best["handle"], "why": None}
 
 
-def create_dashboard_terminal(selector: str, title: str, command: str,
-                              focus: bool = True) -> Dict[str, Any]:
-    """Crée le pane et retourne handle/paneKey — incertain si handle absent."""
-    args = ["terminal", "create", "--worktree", selector, "--title", title,
-            "--command", command, "--json"]
-    if focus:
-        args.append("--focus")
-    res = _run(args, timeout=20)
+def split_dashboard_pane(parent_handle: str, command: str) -> Dict[str, Any]:
+    """Split du terminal hôte — le pane est dans le MÊME onglet qu'OpenCode
+    (jamais un onglet séparé). `--direction vertical` = division par une
+    barre verticale (deux panneaux côte à côte). Handle manquant = incertain
+    (sagesse tw_orca : succès prétendu interdit)."""
+    res = _run(["terminal", "split", "--terminal", parent_handle,
+                "--direction", "vertical", "--command", command, "--json"],
+               timeout=20)
     if not res["ok"]:
         return res
     try:
         data = json.loads(res["stdout"])
-        term = (data.get("result") or {}).get("terminal") or {}
+        split = (data.get("result") or {}).get("split") or {}
     except ValueError:
-        term = {}
-    handle = term.get("handle")
+        split = {}
+    handle = split.get("handle")
     if not handle:
         return {"ok": False, "uncertain": True,
-                "why": "terminal created but handle missing — treat as uncertain"}
-    return {"ok": True, "handle": handle,
-            "paneKey": term.get("paneKey"), "why": None}
+                "why": "split réussi mais handle du pane manquant — incertain"}
+    return {"ok": True, "handle": handle, "tabId": split.get("tabId"),
+            "why": None}
+
+
+def set_pane_title(handle: str, title: str) -> None:
+    """Best-effort : cosmétique, jamais bloquant (échec ignoré volontairement)."""
+    _run(["terminal", "set-pane-title", "--terminal", handle, "--title", title])
 
 
 def close_terminal(handle: str) -> Dict[str, Any]:
@@ -208,15 +230,16 @@ def renderer_command(watch: float = 0.5,
 
 def ensure(worktree_path: Optional[str] = None, *,
            session_id: Optional[str] = None, watch: float = 0.5,
-           focus: bool = True, force: bool = False) -> Dict[str, Any]:
-    """Idempotent : réutilise le pane enregistré, sinon le crée.
+           force: bool = False) -> Dict[str, Any]:
+    """Idempotent : réutilise le pane enregistré, sinon le split à droite du
+    terminal OpenCode du worktree.
 
-    force=True (= restart) : close du handle existant puis recreate — la
+    force=True (= restart) : close du pane existant puis re-split — la
     relance sans duplication du critère E2E passe par ensure, jamais par un
-    second create.
+    second split.
 
     Review J3 : le read-modify-write de l'état GLOBAL des panes (partagé par
-    toutes les sessions) est sous wd_core.FileLock — le create orca (~20 s)
+    toutes les sessions) est sous wd_core.FileLock — le split orca (~10 s)
     est DANS la section critique, sinon le second writer écrase le handle du
     premier (pane orphelin + duplication)."""
     if not wd_dashboard.WATCH_MIN <= watch <= wd_dashboard.WATCH_MAX:
@@ -248,25 +271,29 @@ def ensure(worktree_path: Optional[str] = None, *,
         if not runtime_ready():
             return {"ok": False, "skipped": True, "handle": None,
                     "why": "orca runtime indisponible (app fermée ?)"}
-        selector_res = find_worktree_selector(key)
-        if not selector_res["ok"]:
+        host_res = find_opencode_terminal(key)
+        if not host_res["ok"]:
             return {"ok": False, "skipped": False, "handle": None,
-                    "why": selector_res["why"]}
+                    "why": host_res["why"]}
         if force and existing and isinstance(existing, dict) and existing.get("handle"):
             close_terminal(existing["handle"])  # best-effort : pane peut-être déjà mort
-        created = create_dashboard_terminal(
-            selector_res["selector"], DASHBOARD_TITLE,
-            renderer_command(watch=watch, session_id=session_id), focus=focus)
-        if not created["ok"]:
+        split_res = split_dashboard_pane(
+            host_res["handle"],
+            renderer_command(watch=watch, session_id=session_id))
+        if not split_res["ok"]:
             # handle incertain : on N'ENREGISTRE PAS un succès invérifiable
-            return {"ok": False, "uncertain": created.get("uncertain", False),
-                    "handle": None, "why": created["why"]}
-        panes[key] = {"handle": created["handle"], "paneKey": created.get("paneKey"),
+            return {"ok": False, "uncertain": split_res.get("uncertain", False),
+                    "handle": None, "why": split_res["why"]}
+        handle = split_res["handle"]
+        set_pane_title(handle, DASHBOARD_TITLE)
+        panes[key] = {"handle": handle,
+                      "parentHandle": host_res["handle"],
+                      "tabId": split_res.get("tabId"),
                       "startedAt": wd_now_iso(), "command":
                           renderer_command(watch=watch, session_id=session_id)}
         state["panes"] = panes
         write_panes_state(state)
-        return {"ok": True, "reused": False, "handle": created["handle"],
+        return {"ok": True, "reused": False, "handle": handle,
                 "why": None}
     finally:
         lock.release()
@@ -314,13 +341,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         description="Workflow Dashboard — intégration pane Orca (idempotent)")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p = sub.add_parser("ensure", help="créer le pane s'il n'existe pas (idempotent)")
+    p = sub.add_parser("ensure", help="splitter le dashboard à droite du terminal OpenCode (idempotent)")
     p.add_argument("--worktree-path", default=None)
     p.add_argument("--session-id", default=None)
     p.add_argument("--watch", type=float, default=0.5)
-    p.add_argument("--no-focus", action="store_true")
     p.add_argument("--force", action="store_true",
-                   help="restart : close du pane existant puis recreate")
+                   help="restart : close du pane existant puis re-split")
     p.set_defaults(func=_cmd_ensure)
 
     p = sub.add_parser("close", help="fermer le pane du worktree")
@@ -342,8 +368,7 @@ def _emit(payload: Dict[str, Any]) -> int:
 def _cmd_ensure(args: argparse.Namespace) -> int:
     try:
         return _emit(ensure(args.worktree_path, session_id=args.session_id,
-                            watch=args.watch, focus=not args.no_focus,
-                            force=args.force))
+                            watch=args.watch, force=args.force))
     except (OSError, wd_core.LockError) as exc:
         # garantie « toutes les sorties sont JSON » (review J3 : OSError après
         # un create réussi ne doit jamais sortir en traceback)

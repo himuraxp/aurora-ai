@@ -174,12 +174,12 @@ class TestRender(DashTestCase):
         self.publish(title="Ma session", status="RUNNING",
                      session_id="ses-mine", updated=older)
         frame = dash.render(now=NOW, session_id="ses-mine")
-        running = frame.split("EN COURS\n", 1)[1]
+        running = frame.split("EN COURS", 1)[1]
         self.assertLess(running.index("Ma session"), running.index("Autre session"))
 
         # sans sessionId : aucun sujet priorisé, tri par récence seule
         frame = dash.render(now=NOW)
-        running = frame.split("EN COURS\n", 1)[1]
+        running = frame.split("EN COURS", 1)[1]
         self.assertLess(running.index("Autre session"), running.index("Ma session"))
 
     def test_progress_bar_and_counts(self):

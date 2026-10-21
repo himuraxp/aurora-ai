@@ -16,7 +16,7 @@ todowrite (plugin).
 | `wd_dashboard.py` | Renderer terminal (LECTURE SEULE STRICTE) : 3 catégories, `--watch`, `--verbose` |
 | `wd_orca.py` | Intégration pane Orca (idempotent) : ensure / close / status |
 | `wd_relay.py` | Relais todowrite (RELAIS NATIF) : `reconcile <sessionID> <todos|->` |
-| `tests/` | 145 tests (contrat, verrous, concurrence multi-process, atomicité, adaptateur, renderer, Orca, relais, CLI e2e) |
+| `tests/` | 147 tests (contrat, verrous, concurrence multi-process, atomicité, adaptateur, renderer, Orca, relais, CLI e2e) |
 
 ## Contrat ProgressTopic v1
 
@@ -97,10 +97,13 @@ topics **stockés** — les topics natifs task-workflow ne passent que par
 `list --source task-workflow` (adaptateur, lecture seule).
 
 ```bash
-# Renderer (lecture seule) :
+# Renderer (lecture seule, vue hiérarchique : étapes ouvertes sous chaque
+# sujet actif, cap 3 + « +N ») :
 python3 wd_dashboard.py [--watch 0.5] [--verbose] [--width N] [--session-id S]
 
-# Pane Orca (idempotent — un handle réutilisé, jamais de duplication) :
+# Pane Orca (idempotent — SPLIT du terminal OpenCode du worktree, JAMAIS un
+# nouvel onglet ; ORCA_TERMINAL_HANDLE prioritaire, sinon découverte via
+# `orca terminal list` filtrée agentIdentity=opencode + worktree courant) :
 python3 wd_orca.py ensure --worktree-path /path [--session-id S] [--watch 0.5]
 python3 wd_orca.py close --worktree-path /path && python3 wd_orca.py status
 # re-lance un pane : close puis ensure (nouveau handle, sans duplication)

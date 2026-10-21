@@ -2,8 +2,8 @@
 # build_comparison_table.sh — Build the Before/After comparison Markdown table.
 #
 # Usage: build_comparison_table.sh \
-#   --before "<upload Markdown of the BEFORE screenshot>" \
 #   --after  "<upload Markdown of the AFTER screenshot>" \
+#   [--before "<upload Markdown of the BEFORE screenshot>"] \
 #   [--caption "<component or feature name>"] \
 #   [--before-label "<label>"] \
 #   [--after-label "<label>"]
@@ -12,9 +12,14 @@
 # image). This script performs NO network calls and never touches GitLab:
 # upload first with upload_media.sh, then pass the returned snippets here.
 #
-# Output (stdout): an optional bold caption line followed by a two-column
-# Markdown table, ready to be appended to the Solution section of the MR
-# description.
+# Two modes:
+#   --before + --after : two-column table "| Avant | Après |".
+#   --after only       : single-column table "| Visuel |" (new component,
+#                        no previous state to show). "Visuel" is the default
+#                        header; override with --after-label.
+#
+# Output (stdout): an optional bold caption line followed by the Markdown
+# table, ready to be appended to the Solution section of the MR description.
 #
 # Fail-closed: missing/empty snippet, a snippet that does not look like an
 # upload link, or a caption/label containing a pipe (would break the table)
@@ -29,10 +34,12 @@ BEFORE=""
 AFTER=""
 CAPTION=""
 BEFORE_LABEL="Avant"
-AFTER_LABEL="Après"
+AFTER_LABEL=""  # resolved by mode: "Après" (two-column) / "Visuel" (single-column)
 
 usage() {
-  echo "Usage: build_comparison_table.sh --before <md> --after <md> [--caption <text>] [--before-label <text>] [--after-label <text>]" >&2
+  echo "Usage: build_comparison_table.sh --after <md> [--before <md>] [--caption <text>] [--before-label <text>] [--after-label <text>]" >&2
+  echo "  --after only: single-column \"Visuel\" table (new component)." >&2
+  echo "  --before + --after: two-column \"Avant | Après\" table." >&2
 }
 
 missing_value() {
@@ -80,9 +87,11 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-# Fail-closed: both sides are required — without one there is no comparison.
-if [ -z "$BEFORE" ] || [ -z "$AFTER" ]; then
-  echo "ERROR: --before and --after are both required (non-empty upload Markdown from upload_media.sh)." >&2
+# Fail-closed: AFTER is always required — without a visual there is no table
+# at all. BEFORE is optional: absent means the component is new (no previous
+# state exists) and the table is single-column with the "Visuel" header.
+if [ -z "$AFTER" ]; then
+  echo "ERROR: --after is required (non-empty upload Markdown from upload_media.sh)." >&2
   usage
   exit 1
 fi
@@ -94,14 +103,28 @@ looks_like_upload_md() {
   echo "$1" | grep -qE '!\[[^]]*\]\([^)]*/uploads/[^)]+\)'
 }
 
-if ! looks_like_upload_md "$BEFORE"; then
+if ! looks_like_upload_md "$AFTER"; then
+  echo "ERROR: --after does not look like a GitLab upload Markdown snippet (expected ![...](/uploads/...))." >&2
+  exit 1
+fi
+
+if [ -n "$BEFORE" ] && ! looks_like_upload_md "$BEFORE"; then
   echo "ERROR: --before does not look like a GitLab upload Markdown snippet (expected ![...](/uploads/...))." >&2
   exit 1
 fi
 
-if ! looks_like_upload_md "$AFTER"; then
-  echo "ERROR: --after does not look like a GitLab upload Markdown snippet (expected ![...](/uploads/...))." >&2
-  exit 1
+# Resolve default labels: two-column mode = Avant/Après, single-column
+# (new component, no BEFORE) = Visuel. An explicit --after-label wins.
+# Explicit if/then (not a short-circuit list) to stay safe under `set -e`
+# even if this block ever moves to a terminal position.
+if [ -n "$BEFORE" ]; then
+  if [ -z "$AFTER_LABEL" ]; then
+    AFTER_LABEL="Après"
+  fi
+else
+  if [ -z "$AFTER_LABEL" ]; then
+    AFTER_LABEL="Visuel"
+  fi
 fi
 
 # Fail-closed: a pipe or a newline inside any table cell/caption would break
@@ -128,6 +151,12 @@ if [ -n "$CAPTION" ]; then
   echo ""
 fi
 
-echo "| ${BEFORE_LABEL} | ${AFTER_LABEL} |"
-echo "| ------ | ------ |"
-echo "| ${BEFORE} | ${AFTER} |"
+if [ -n "$BEFORE" ]; then
+  echo "| ${BEFORE_LABEL} | ${AFTER_LABEL} |"
+  echo "| ------ | ------ |"
+  echo "| ${BEFORE} | ${AFTER} |"
+else
+  echo "| ${AFTER_LABEL} |"
+  echo "| ------ |"
+  echo "| ${AFTER} |"
+fi

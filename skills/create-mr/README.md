@@ -53,7 +53,7 @@ glab auth status
 | `validate_title.sh` | Valide le format Conventional Commit |
 | `build_body.sh` | Assemble le body depuis template ou format défaut |
 | `upload_media.sh` | Upload fichiers média vers GitLab |
-| `build_comparison_table.sh` | Assemble le tableau Avant/Après depuis les Markdowns d'upload (aucun appel réseau) |
+| `build_comparison_table.sh` | Assemble le tableau Avant/Après (ou Visuel seul pour un nouveau composant) depuis les Markdowns d'upload (aucun appel réseau) |
 | `push_branch.sh` | Push la branche si commits non pushés |
 | `create_mr.sh` | Crée la MR via `glab mr create` (`--dry-run` supporté) |
 
@@ -103,7 +103,7 @@ Ou passer `--dry-run` à `create_mr.sh` directement.
 bash "${OPENCODE_GLOBAL_DIR}/scripts/create-mr/tests/test_all.sh"
 ```
 
-94 assertions de test (fail-closed vérifié). N'appelle jamais un vrai projet GitLab.
+107 assertions de test (fail-closed vérifié). N'appelle jamais un vrai projet GitLab.
 
 ## Règles de langue
 

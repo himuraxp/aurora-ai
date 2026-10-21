@@ -200,6 +200,23 @@ def _mr_evidence_fragment(state: dict) -> str:
     return f" · " + " · ".join(parts) if parts else ""
 
 
+def _notify_fragment(state: dict) -> str:
+    """Step-7bis notification outcome (notifyResults[]) — recorded facts only:
+    no entry, no fragment; a skip shows its reason, never a bare silence."""
+    entries = [e for e in (state.get("notifyResults") or []) if isinstance(e, dict)]
+    if not entries:
+        return ""
+    last = entries[-1]
+    channel = last.get("channel") or "?"
+    status = last.get("status")
+    if status in ("skipped", "not-run"):
+        reason = last.get("reason") or "raison non enregistrée"
+        return f" · notification trello : non exécutée ({_truncate(reason, 60)})"
+    if status == "pass":
+        return f" · notification trello ✅ ({channel})"
+    return f" · notification trello ❌ ({channel})"
+
+
 def _controls_line(state: dict) -> str:
     items: List[str] = []
     defaults = {"testResults": "tests", "reviewResults": "review", "qaResults": "QA"}
@@ -354,6 +371,7 @@ def render_operational(state: dict, events: List[dict], context: Optional[dict] 
         if context.get("files_changed") is not None:
             mr += f" · {context['files_changed']} fichiers modifiés"
         mr += _mr_evidence_fragment(state)
+        mr += _notify_fragment(state)
         lines.append(mr)
     lines.append(f"**Prochaine action** : {_next_action(state)}")
     if context.get("detail_path"):
@@ -396,8 +414,9 @@ def render_detailed(state: dict, events: List[dict], context: Optional[dict] = N
                 lines.append(f"- {_truncate(summary, 110)}{attempt} — {event.get('actor', '?')}")
         validations = []
         defaults = {"testResults": "tests", "reviewResults": "review",
-                    "qaResults": "QA", "mrResults": "MR"}
-        for key in ("testResults", "reviewResults", "qaResults", "mrResults"):
+                    "qaResults": "QA", "mrResults": "MR", "notifyResults": "trello"}
+        for key in ("testResults", "reviewResults", "qaResults", "mrResults",
+                    "notifyResults"):
             for check in state.get(key, []):
                 if isinstance(check, dict) and check.get("phase") == phase:
                     line = _check_line(check, defaults[key])

@@ -158,6 +158,25 @@ class TestOperational(unittest.TestCase):
         self.assertNotIn("template", out)
         self.assertNotIn("tableau :", out)
 
+    def test_notify_fragment_pass_rendered(self):
+        state = rich_state(notifyResults=[
+            {"channel": "api", "status": "pass", "phase": 7,
+             "mergeRequestUrl": "https://gitlab.example.com/g/r/-/merge_requests/570"}])
+        out = tw_report.render_operational(state, [], CONTEXT)
+        self.assertIn("notification trello ✅ (api)", out)
+
+    def test_notify_fragment_skipped_shows_reason(self):
+        state = rich_state(notifyResults=[
+            {"channel": "browser", "status": "skipped", "phase": 7,
+             "mergeRequestUrl": "https://gitlab.example.com/g/r/-/merge_requests/570",
+             "reason": "navigateur debug non disponible"}])
+        out = tw_report.render_operational(state, [], CONTEXT)
+        self.assertIn("notification trello : non exécutée (navigateur debug non disponible", out)
+
+    def test_no_notify_results_no_fragment(self):
+        out = tw_report.render_operational(rich_state(), [], CONTEXT)
+        self.assertNotIn("notification trello", out)
+
     def test_blocked_status_and_blocker_next_action(self):
         state = rich_state()
         state["phaseStatuses"]["4"] = {"status": "BLOCKED", "at": TS}

@@ -660,6 +660,20 @@ if [[ -f "$ROOT_DIR/skills/task-workflow/SKILL.md" ]]; then
       && ok "create-mr step 6bis documents the orchestrator text-only image rule" \
       || fail "create-mr step 6bis must document the text-only image rule (never read a capture)"
   fi
+  if [[ -f "$ROOT_DIR/scripts/task-workflow/trello_comment.sh" ]]; then
+    grep -q 'GET-before-POST' "$ROOT_DIR/scripts/task-workflow/trello_comment.sh" \
+      && grep -q 'notifyResults' "$ROOT_DIR/skills/task-workflow/SKILL.md" \
+      && ok "task-workflow step 7bis present (trello_comment.sh idempotent + notifyResults[] documented)" \
+      || fail "task-workflow step 7bis must document notifyResults[] and the idempotent GET-before-POST"
+    grep -q 'TRELLO_API_KEY' "$ROOT_DIR/config/.env.example" \
+      && ok "trello credentials documented in .env.example" \
+      || fail ".env.example must document TRELLO_API_KEY/TRELLO_TOKEN"
+    if bash "$ROOT_DIR/scripts/task-workflow/tests/test_all.sh" >/dev/null 2>&1; then
+      ok "task-workflow script tests passed (trello_comment, zero network)"
+    else
+      fail "task-workflow script tests FAILED"
+    fi
+  fi
 fi
 
 if [[ -f "$ROOT_DIR/skills/task-workflow/tw_state.py" ]]; then

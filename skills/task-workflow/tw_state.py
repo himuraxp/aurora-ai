@@ -313,7 +313,8 @@ def validate_state(state: Any, path: Optional[str] = None) -> List[str]:
     # machine status, it must be honest — a "pass" with a non-zero exitCode is
     # a lie the contract refuses. Entries without these fields stay valid
     # (v1 free-form results).
-    for key in ("testResults", "qaResults", "reviewResults", "mrResults"):
+    for key in ("testResults", "qaResults", "reviewResults", "mrResults",
+                "notifyResults"):
         entries = state.get(key, [])
         if not isinstance(entries, list):
             problems.append(f"{key} must be a list")
@@ -360,6 +361,24 @@ def validate_state(state: Any, path: Optional[str] = None) -> List[str]:
             problems.append(f"mrResults[{index}].comparisonTable must be one of {list(COMPARISON_MODES)} when present")
         if comparison == "none" and not str(entry.get("reason") or "").strip():
             problems.append(f"mrResults[{index}]: comparisonTable=none requires a non-empty reason (a silent skip is not evidence)")
+    # Step 7 bis (additive, Trello→MR link): the notification result is NOT a
+    # phase proof (it never gates PASSED — see SKILL.md Phase 7) but a
+    # recorded outcome still honors the same honesty rules when it carries a
+    # machine status: http(s) MR url, and no silent skip.
+    for index, entry in enumerate(state.get("notifyResults") or []):
+        if not isinstance(entry, dict):
+            continue
+        channel = entry.get("channel")
+        if channel is not None and (not isinstance(channel, str) or not channel.strip()):
+            problems.append(f"notifyResults[{index}].channel must be a non-empty string when present")
+        entry_mr_url = entry.get("mergeRequestUrl")
+        if entry_mr_url is not None and (not isinstance(entry_mr_url, str) or not entry_mr_url.strip()):
+            problems.append(f"notifyResults[{index}].mergeRequestUrl must be a non-empty string when present")
+        elif isinstance(entry_mr_url, str) and entry_mr_url.strip() and not entry_mr_url.startswith(("http://", "https://")):
+            problems.append(f"notifyResults[{index}].mergeRequestUrl must be an absolute http(s) URL")
+        entry_status = entry.get("status")
+        if entry_status in ("skipped", "not-run") and not str(entry.get("reason") or "").strip():
+            problems.append(f"notifyResults[{index}]: status={entry_status} requires a non-empty reason (a silent skip is not a record)")
     # Handoff tracking (additive): a handoff block must be coherent — an
     # "accepted" takeover without a claimed session is an unverifiable mandate.
     handoff = state.get("handoff")
@@ -1083,17 +1102,104 @@ def cmd_validate_all(argv: List[str]) -> int:
     return 1 if problems_found else 0
 
 
+def cmd_notify(argv: List[str]) -> int:
+    """Record a step-7bis notification outcome (Trello→MR link) in notifyResults[].
+
+    Sanctioned write path for a field the SKILL contract forbids editing by
+    hand: canonical-dir guard + validate_state fail-closed + journal event.
+    A notification is NEVER a phase proof — this command does not touch
+    phaseStatuses and cannot gate a PASSED."""
+    path = argv[0]
+    rest = argv[1:]
+    channel = None
+    status = None
+    mr_url = None
+    comment_id = None
+    reason = None
+    actor = "orchestrator"
+    try:
+        while rest:
+            flag = rest.pop(0)
+            if flag == "--channel":
+                channel = rest.pop(0)
+            elif flag == "--status":
+                status = rest.pop(0)
+            elif flag == "--mr-url":
+                mr_url = rest.pop(0)
+            elif flag == "--comment-id":
+                comment_id = rest.pop(0)
+            elif flag == "--reason":
+                reason = rest.pop(0)
+            elif flag == "--actor":
+                actor = rest.pop(0)
+            else:
+                print(f"ERROR: unknown flag {flag}")
+                return 2
+    except IndexError:
+        print("ERROR: missing value for the last flag")
+        return 2
+    if not channel or not status or not mr_url:
+        print("ERROR: notify requires --channel, --status and --mr-url")
+        return 2
+    if channel not in ("api", "browser"):
+        print(f"ERROR: --channel must be api or browser (got {channel})")
+        return 2
+    if status not in RESULT_STATUSES:
+        print(f"ERROR: --status must be one of {list(RESULT_STATUSES)}")
+        return 2
+    if not mr_url.startswith(("http://", "https://")):
+        print("ERROR: --mr-url must be an absolute http(s) URL")
+        return 2
+    if status in ("skipped", "not-run") and not (reason and reason.strip()):
+        # Same doctrine as the evidence guard: a silent skip is never a record.
+        print("ERROR: --reason is required for a skipped/not-run notification")
+        return 1
+    guard = _canonical_write_guard(path)
+    if guard:
+        print(guard)
+        return 1
+    state = load_state(path)
+    entry: dict = {"channel": channel, "status": status, "mergeRequestUrl": mr_url,
+                   "phase": 7, "at": _now_iso()}
+    if comment_id:
+        entry["commentId"] = comment_id
+    if reason:
+        entry["reason"] = reason
+    results = state.get("notifyResults")
+    if not isinstance(results, list):
+        results = []
+    results.append(entry)
+    state["notifyResults"] = results
+    state["updatedAt"] = entry["at"]
+    problems = validate_state(state, path)
+    if problems:
+        for problem in problems:
+            print(f"INVALID: {problem}")
+        print("state NOT saved")
+        return 1
+    save_state(path, state)
+    print(f"notification recorded: {channel} {status} -> {mr_url}")
+    try:
+        append_event(path, {"type": "command", "phase": 7, "status": status,
+                            "actor": actor, "at": entry["at"],
+                            "summary": f"trello notification {channel} {status}"
+                            + (f" ({comment_id})" if comment_id else "")})
+    except (OSError, ValueError) as error:
+        print(f"JOURNAL-WARNING: notification event not recorded ({error})")
+    return 0
+
+
 def main(argv: List[str]) -> int:
     if not argv:
         print("usage: tw_state.py validate|resume|mark|invalidate|signature|id"
-              "|resolve|log|validate-all|handoff|claim ...", file=sys.stderr)
+              "|resolve|log|notify|validate-all|handoff|claim ...", file=sys.stderr)
         return 2
     command = argv[0]
     if command == "validate-all":  # optional argument — canonical dir by default
         return cmd_validate_all(argv[1:])
     if len(argv) < 2:
         print("usage: tw_state.py validate|resume|mark|invalidate|signature|id"
-              "|resolve|log|validate-all|handoff|claim ...", file=sys.stderr)
+              "|resolve|log|notify|validate-all|handoff|claim ...", file=sys.stderr)
         return 2
     if command == "validate":
         return cmd_validate(argv[1:])
@@ -1111,6 +1217,8 @@ def main(argv: List[str]) -> int:
         return cmd_resolve(argv[1:])
     if command == "log":
         return cmd_log(argv[1:])
+    if command == "notify":
+        return cmd_notify(argv[1:])
     if command == "handoff":
         return cmd_handoff(argv[1:])
     if command == "claim":

@@ -35,6 +35,7 @@ def valid_state(**overrides):
         "qaResults": [],
         "reviewResults": [],
         "mrResults": [],
+        "notifyResults": [],
         "mergeRequestUrl": None,
         "blockers": [],
     }
@@ -694,6 +695,94 @@ class TestMrEvidenceGuard(unittest.TestCase):
         state = tw_state.load_state(self.path)
         self.assertEqual(
             [e for e in state["mrResults"] if str(e.get("phase")) == "7"], [])
+
+
+class TestNotifyResults(unittest.TestCase):
+    """Step 7 bis (Trello→MR link): notification outcomes are additive state —
+    never a phase proof (no evidence guard: a courtesy notification never gates
+    PASSED), but honest when machine-annotated."""
+
+    def test_notify_results_validation_additive(self):
+        problems = tw_state.validate_state(valid_state(notifyResults=[
+            {"channel": "api", "status": "pass",
+             "mergeRequestUrl": "https://gitlab.example/mr/1"}]))
+        self.assertEqual(problems, [])
+
+    def test_notify_results_empty_channel_invalid(self):
+        problems = tw_state.validate_state(valid_state(notifyResults=[
+            {"channel": "  ", "status": "pass"}]))
+        self.assertTrue(any("channel" in p for p in problems))
+
+    def test_notify_results_v1_states_stay_valid(self):
+        state = valid_state()
+        del state["notifyResults"]
+        self.assertEqual(tw_state.validate_state(state), [])
+
+    def test_notify_results_skipped_without_reason_invalid(self):
+        # Same doctrine as the evidence guard: a skip without a reason is not
+        # a record (review F-11).
+        problems = tw_state.validate_state(valid_state(notifyResults=[
+            {"channel": "api", "status": "skipped"}]))
+        self.assertTrue(any("reason" in p for p in problems))
+
+    def test_notify_results_relative_mr_url_invalid(self):
+        problems = tw_state.validate_state(valid_state(notifyResults=[
+            {"channel": "api", "status": "pass", "mergeRequestUrl": "mr/1"}]))
+        self.assertTrue(any("http(s)" in p for p in problems))
+
+    def test_notify_command_records_outcome(self):
+        # Sanctioned write path (review F-04): canonical guard + validate +
+        # journal — the SKILL forbids manual JSON edits, so notifyResults[]
+        # MUST have a CLI.
+        script = os.path.join(os.path.dirname(__file__), "..", "tw_state.py")
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = os.path.join(tmp.name, "tw-podcast-player--1a2b3c4d.json")
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(valid_state(), handle)
+        result = subprocess.run(
+            [sys.executable, script, "notify", path, "--channel", "api",
+             "--status", "pass", "--mr-url", "https://gitlab.example/mr/1",
+             "--comment-id", "68f0a1b2"],
+            capture_output=True, text=True, check=False,
+            env={**os.environ, "TW_STATE_STATE_DIR": tmp.name})
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        state = tw_state.load_state(path)
+        self.assertEqual(state["notifyResults"][0]["channel"], "api")
+        self.assertEqual(state["notifyResults"][0]["status"], "pass")
+        self.assertEqual(state["notifyResults"][0]["commentId"], "68f0a1b2")
+        self.assertEqual(state["notifyResults"][0]["phase"], 7)
+
+    def test_notify_command_skipped_without_reason_refused(self):
+        script = os.path.join(os.path.dirname(__file__), "..", "tw_state.py")
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = os.path.join(tmp.name, "tw-podcast-player--1a2b3c4d.json")
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(valid_state(), handle)
+        result = subprocess.run(
+            [sys.executable, script, "notify", path, "--channel", "browser",
+             "--status", "skipped", "--mr-url", "https://gitlab.example/mr/1"],
+            capture_output=True, text=True, check=False,
+            env={**os.environ, "TW_STATE_STATE_DIR": tmp.name})
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("reason", result.stdout)
+        state = tw_state.load_state(path)
+        self.assertEqual(state.get("notifyResults", []), [])
+
+    def test_notify_command_bad_channel_refused(self):
+        script = os.path.join(os.path.dirname(__file__), "..", "tw_state.py")
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = os.path.join(tmp.name, "tw-podcast-player--1a2b3c4d.json")
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(valid_state(), handle)
+        result = subprocess.run(
+            [sys.executable, script, "notify", path, "--channel", "pigeon",
+             "--status", "pass", "--mr-url", "https://gitlab.example/mr/1"],
+            capture_output=True, text=True, check=False,
+            env={**os.environ, "TW_STATE_STATE_DIR": tmp.name})
+        self.assertEqual(result.returncode, 2)
 
 
 class TestNoOrcaFallback(unittest.TestCase):

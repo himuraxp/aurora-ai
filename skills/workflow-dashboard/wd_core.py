@@ -377,16 +377,28 @@ def _mutate(path: str, mutator: Callable[[Optional[Dict[str, Any]]], Dict[str, A
         lock.release()
 
 
+class TopicExistsError(ContractError):
+    """La création a perdu une course : le topic existe déjà (review J4 —
+    erreur typée, plus de match par message fragile côté relais)."""
+
+
 def create_topic(title: str, kind: str, source: str, scope: str,
                  steps: Optional[List[Dict[str, Any]]] = None,
                  session_id: Optional[str] = None,
                  worktree_path: Optional[str] = None,
                  parent_topic_id: Optional[str] = None,
-                 root: Optional[str] = None) -> Dict[str, Any]:
+                 root: Optional[str] = None,
+                 topic_id: Optional[str] = None) -> Dict[str, Any]:
+    """Crée un topic stocké.
+
+    `topic_id` (review J4) : identité imposée par la source NATIVE (relais
+    todowrite = UUID v5 dérivé de la session — association session→topic
+    stable sans état). La validation du contrat reste identique ; le check
+    « already exists » protège contre les doublons."""
     now = now_iso()
     topic: Dict[str, Any] = {
         "schemaVersion": SCHEMA_VERSION,
-        "topicId": new_topic_id(),
+        "topicId": topic_id or new_topic_id(),
         "title": title,
         "kind": kind,
         "source": source,
@@ -416,7 +428,7 @@ def create_topic(title: str, kind: str, source: str, scope: str,
     lock.acquire()
     try:
         if os.path.exists(path):
-            raise ContractError(f"topic already exists: {topic['topicId']}")
+            raise TopicExistsError(f"topic already exists: {topic['topicId']}")
         _write_atomic(path, json.dumps(topic, indent=2, ensure_ascii=False) + "\n")
     finally:
         lock.release()
@@ -492,15 +504,32 @@ def set_steps(topic_id: str, step_specs: List[Dict[str, Any]],
         steps: List[Dict[str, Any]] = []
         for spec in step_specs:
             old = previous.get(spec["id"])
-            step: Dict[str, Any] = {"id": spec["id"], "label": spec["label"],
-                                    "status": old["status"] if old else "PENDING"}
+            forced = spec.get("status")
+            if forced is not None and forced not in PROGRESS_STATUSES:
+                raise ContractError(
+                    f"status {forced!r} not in {list(PROGRESS_STATUSES)}")
+            # review J4 : un spec portant "status" = mode PAYLOAD (relais
+            # todowrite) — le payload est la source de vérité COMPLÈTE : le
+            # statut fourni gagne sur la conservation t4, ET l'ancien detail
+            # ne survit pas (une trace « statut non reconnu » doit mourir
+            # quand le statut redevient connu — review J4 F1).
+            payload_mode = "status" in spec
+            step: Dict[str, Any] = {
+                "id": spec["id"], "label": spec["label"],
+                "status": forced if forced is not None
+                else (old["status"] if old else "PENDING")}
             if spec.get("parentId"):
                 step["parentId"] = spec["parentId"]
-            detail = old.get("detail") if old else spec.get("detail")
+            if payload_mode:
+                detail = spec.get("detail")
+            else:
+                detail = spec.get("detail") or (old.get("detail") if old else None)
             if detail:
                 step["detail"] = detail
-            if old and old.get("updatedAt"):
-                step["updatedAt"] = old["updatedAt"]
+            if old and old.get("updatedAt") and old.get("status") == step["status"]:
+                step["updatedAt"] = old["updatedAt"]  # pas de transition : âge préservé
+            else:
+                step["updatedAt"] = now_iso()  # transition réelle (ou step nouveau)
             steps.append(step)
         existing["steps"] = steps
         return existing

@@ -210,6 +210,96 @@ class TestStore(EnvTestCase):
                                       [{"id": "a", "label": "Un"}])
         self.assertEqual(rewritten["revision"], 2)
 
+    def test_create_with_explicit_topic_id(self):
+        # review J4 : les sources NATIVES imposent leur identité (UUID v5
+        # dérivé — relais todowrite, adaptateur task-workflow)
+        topic = wd_core.create_topic(title="X", kind="plan",
+                                     source="todowrite-relay", scope="session",
+                                     session_id="ses_1",
+                                     topic_id="11111111-1111-4111-8111-222222222222")
+        self.assertEqual(topic["topicId"], "11111111-1111-4111-8111-222222222222")
+        self.assertEqual(wd_core.find_topic_path(topic["topicId"]),
+                         wd_core.topic_abspath(topic))
+
+    def test_create_duplicate_explicit_id_refused(self):
+        wd_core.create_topic(title="X", kind="plan", source="todowrite-relay",
+                             scope="session", session_id="ses_1",
+                             topic_id="11111111-1111-4111-8111-222222222222")
+        with self.assertRaises(wd_core.ContractError):
+            wd_core.create_topic(title="Y", kind="plan", source="todowrite-relay",
+                                 scope="session", session_id="ses_1",
+                                 topic_id="11111111-1111-4111-8111-222222222222")
+
+    def test_set_steps_forced_status_wins(self):
+        # review J4 : mode PAYLOAD (relais) — le statut fourni gagne sur la
+        # conservation t4 ; le label reste éditable
+        topic = wd_core.create_topic(title="X", kind="plan",
+                                     source="todowrite-relay", scope="session",
+                                     session_id="ses_1",
+                                     steps=[{"id": "a", "label": "Un"}])
+        wd_core.update_step(topic["topicId"], "a", "RUNNING")
+        rewritten = wd_core.set_steps(topic["topicId"], [
+            {"id": "a", "label": "Un", "status": "DONE"}])
+        self.assertEqual(rewritten["steps"][0]["status"], "DONE")
+
+    def test_set_steps_without_status_preserves(self):
+        # règle t4 inchangée : sans statut fourni, l'état stable est conservé
+        topic = wd_core.create_topic(title="X", kind="plan", source="orchestrator-cli",
+                                     scope="global",
+                                     steps=[{"id": "a", "label": "Un"}])
+        wd_core.update_step(topic["topicId"], "a", "RUNNING")
+        rewritten = wd_core.set_steps(topic["topicId"],
+                                      [{"id": "a", "label": "Un"}])
+        self.assertEqual(rewritten["steps"][0]["status"], "RUNNING")
+
+    def test_set_steps_payload_mode_detail_wins(self):
+        # review J4 F1 : en mode PAYLOAD, le detail fourni gagne sur l'ancien
+        # (et l'absence de detail tue l'ancien — le payload est complet)
+        topic = wd_core.create_topic(title="X", kind="plan", source="orchestrator-cli",
+                                     scope="global",
+                                     steps=[{"id": "a", "label": "Un"}])
+        wd_core.update_step(topic["topicId"], "a", "BLOCKED", detail="ancien")
+        rewritten = wd_core.set_steps(topic["topicId"], [
+            {"id": "a", "label": "Un", "status": "DONE",
+             "detail": "nouveau"}])
+        self.assertEqual(rewritten["steps"][0]["detail"], "nouveau")
+        cleaned = wd_core.set_steps(topic["topicId"], [
+            {"id": "a", "label": "Un", "status": "DONE"}])
+        self.assertNotIn("detail", cleaned["steps"][0])  # l'ancien ne revit pas
+
+    def test_set_steps_cli_mode_preserves_detail(self):
+        # rétrocompat : les specs CLI (id=label sans status) conservent
+        # le détail existant (règle t4)
+        topic = wd_core.create_topic(title="X", kind="plan", source="orchestrator-cli",
+                                     scope="global",
+                                     steps=[{"id": "a", "label": "Un"}])
+        wd_core.update_step(topic["topicId"], "a", "BLOCKED", detail="ancien")
+        rewritten = wd_core.set_steps(topic["topicId"],
+                                      [{"id": "a", "label": "Un modifié"}])
+        self.assertEqual(rewritten["steps"][0]["detail"], "ancien")
+
+    def test_create_topic_exists_typed_error(self):
+        wd_core.create_topic(title="X", kind="plan", source="todowrite-relay",
+                             scope="session", session_id="ses_1",
+                             topic_id="11111111-1111-4111-8111-222222222222")
+        with self.assertRaises(wd_core.TopicExistsError):
+            wd_core.create_topic(title="Y", kind="plan", source="todowrite-relay",
+                                 scope="session", session_id="ses_1",
+                                 topic_id="11111111-1111-4111-8111-222222222222")
+
+    def test_set_steps_forced_transition_bumps_step_timestamp(self):
+        topic = wd_core.create_topic(title="X", kind="plan",
+                                     source="todowrite-relay", scope="session",
+                                     session_id="ses_1",
+                                     steps=[{"id": "a", "label": "Un"}])
+        first = wd_core.set_steps(topic["topicId"],
+                                  [{"id": "a", "label": "Un"}])["steps"][0]
+        time.sleep(0.002)  # now_iso a une résolution µs — garantir l'écart
+        second = wd_core.set_steps(topic["topicId"],
+                                   [{"id": "a", "label": "Un",
+                                     "status": "RUNNING"}])["steps"][0]
+        self.assertGreater(second["updatedAt"], first["updatedAt"])  # transition réelle
+
     def test_close_bumps_revision_and_preserves_existing_detail(self):
         topic = wd_core.create_topic(title="X", kind="plan", source="orchestrator-cli",
                                      scope="global",

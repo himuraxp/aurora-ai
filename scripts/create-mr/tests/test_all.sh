@@ -593,6 +593,147 @@ test_upload_nonexistent_file() {
 }
 test_upload_nonexistent_file
 
+# ─── Tests: build_multipart.py (binary-safe multipart body) ──────────────────
+
+echo ""
+echo "=== build_multipart.py ==="
+
+MPART_PY="$SCRIPTS_DIR/build_multipart.py"
+
+# 1x1 transparent PNG fixture, assembled at runtime (byte-exact, no binary literal).
+PNG_1X1="$TMP_BASE/1x1.png"
+python3 - "$PNG_1X1" <<'PY'
+import struct, sys, zlib
+
+
+def chunk(tag, data):
+    c = tag + data
+    return struct.pack(">I", len(data)) + c + struct.pack(">I", zlib.crc32(c) & 0xFFFFFFFF)
+
+
+png = (
+    b"\x89PNG\r\n\x1a\n"
+    + chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 6, 0, 0, 0))
+    + chunk(b"IDAT", zlib.compress(b"\x00\x00\x00\x00\x00"))
+    + chunk(b"IEND", b"")
+)
+open(sys.argv[1], "wb").write(png)
+PY
+
+validate_multipart() {
+  # $1 = body file, $2 = boundary, $3 = expected payload file (optional)
+  python3 - "$1" "$2" "${3:-}" <<'PY'
+import sys
+
+body_path, boundary, orig_path = sys.argv[1], sys.argv[2], sys.argv[3]
+raw = open(body_path, "rb").read()
+opening = ("--" + boundary).encode()
+closing = ("\r\n--" + boundary + "--\r\n").encode()
+assert raw.startswith(opening + b"\r\n"), f"body must open with the boundary, got {raw[:40]!r}"
+assert raw.endswith(closing), "body must close with --boundary--"
+assert b'Content-Disposition: form-data; name="file";' in raw, "missing form-data disposition"
+assert b"Content-Type: image/png" in raw, "missing image/png part header"
+if orig_path:
+    orig = open(orig_path, "rb").read()
+    head, _, rest = raw.partition(b"\r\n\r\n")
+    payload = rest[: -len(closing)]
+    assert payload == orig, f"payload not byte-exact: {payload!r} vs {orig!r}"
+PY
+}
+
+test_multipart_structure() {
+  local body="$TMP_BASE/body1.multipart"
+  local boundary
+  boundary=$(python3 "$MPART_PY" --file "$PNG_1X1" --out "$body")
+  assert_contains "boundary printed on stdout" "aurora" "$boundary"
+  validate_multipart "$body" "$boundary" "$PNG_1X1"
+  assert_contains "disposition names the file" 'filename="1x1.png"' "$(cat "$body")"
+}
+test_multipart_structure
+
+test_multipart_binary_roundtrip() {
+  # NUL bytes + CR/LF inside the payload must survive byte-exact (the reason
+  # the body is built in Python, not shell).
+  local binfile="$TMP_BASE/binary.dat"
+  local body="$TMP_BASE/body2.multipart"
+  printf 'a\x00b\r\n\x00\xff\xfe' > "$binfile"
+  local boundary
+  boundary=$(python3 "$MPART_PY" --file "$binfile" --out "$body")
+  python3 - "$body" "$boundary" "$binfile" <<'PY'
+import sys
+
+body_path, boundary, orig_path = sys.argv[1], sys.argv[2], sys.argv[3]
+raw = open(body_path, "rb").read()
+orig = open(orig_path, "rb").read()
+closing = ("\r\n--" + boundary + "--\r\n").encode()
+head, _, rest = raw.partition(b"\r\n\r\n")
+payload = rest[: -len(closing)]
+assert payload == orig, f"binary payload altered: {payload!r} vs {orig!r}"
+PY
+}
+test_multipart_binary_roundtrip
+
+test_multipart_content_types() {
+  local txt="$TMP_BASE/note.txt"
+  local body="$TMP_BASE/body5.multipart"
+  printf 'hello' > "$txt"
+  python3 "$MPART_PY" --file "$txt" --out "$body" >/dev/null
+  assert_contains "txt maps to text/plain" "Content-Type: text/plain" "$(cat "$body")"
+  local unk="$TMP_BASE/blob.xyz123"
+  printf 'x' > "$unk"
+  python3 "$MPART_PY" --file "$unk" --out "$body" >/dev/null
+  assert_contains "unknown extension maps to octet-stream" "Content-Type: application/octet-stream" "$(cat "$body")"
+}
+test_multipart_content_types
+
+test_multipart_filename_sanitized() {
+  # A quote in the filename must not break the quoted Content-Disposition.
+  local weird="$TMP_BASE/say \"hi\".png"
+  local body="$TMP_BASE/body3.multipart"
+  printf 'x' > "$weird"
+  python3 "$MPART_PY" --file "$weird" --out "$body" >/dev/null
+  assert_contains "quotes stripped from filename" 'filename="say hi.png"' "$(cat "$body")"
+  # Backslash = quoted-string escape (RFC 2183), CR/LF = header injection —
+  # all three must be stripped from the disposition filename.
+  local hostile="$TMP_BASE/bad\\slash"$'\r\n'"crlf.png"
+  printf 'x' > "$hostile"
+  python3 "$MPART_PY" --file "$hostile" --out "$body" >/dev/null
+  assert_contains "backslash + CRLF stripped from filename" 'filename="badslashcrlf.png"' "$(cat "$body")"
+}
+test_multipart_filename_sanitized
+
+test_multipart_missing_file() {
+  local result code
+  set +e
+  result=$(python3 "$MPART_PY" --file "$TMP_BASE/does-not-exist.png" --out "$TMP_BASE/body4.multipart" 2>&1)
+  code=$?
+  set -e
+  assert_exit_code "missing file exits 1" 1 "$code"
+  assert_contains "error mentions not found" "not found" "$result"
+}
+test_multipart_missing_file
+
+test_upload_no_gh_flag() {
+  # Regression guard: gh CLI syntax `-F file=@...` is NOT glab syntax (glab
+  # --field/--raw-field produce JSON-encoded fields) — it caused systematic
+  # HTTP 400 on every upload.
+  local content
+  content=$(cat "$SCRIPTS_DIR/upload_media.sh")
+  if grep -qF -- '-F "file=@' "$SCRIPTS_DIR/upload_media.sh"; then
+    TOTAL_ASSERTIONS=$((TOTAL_ASSERTIONS + 1))
+    FAIL=$((FAIL + 1))
+    FAILED_ASSERTIONS=$((FAILED_ASSERTIONS + 1))
+    echo "  FAIL: upload_media.sh uses the gh-style -F flag (glab has no multipart -F)"
+  else
+    TOTAL_ASSERTIONS=$((TOTAL_ASSERTIONS + 1))
+    PASS=$((PASS + 1))
+    echo "  PASS: upload_media.sh no longer uses the gh-style -F flag"
+  fi
+  assert_contains "upload sends body via glab --input" "--input" "$content"
+  assert_contains "upload builds body via build_multipart.py" "build_multipart.py" "$content"
+}
+test_upload_no_gh_flag
+
 # ─── Tests: build_comparison_table.sh ────────────────────────────────────────
 
 echo ""

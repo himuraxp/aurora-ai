@@ -660,6 +660,69 @@ if [[ -f "$ROOT_DIR/skills/task-workflow/SKILL.md" ]]; then
       && ok "create-mr step 6bis documents the orchestrator text-only image rule" \
       || fail "create-mr step 6bis must document the text-only image rule (never read a capture)"
   fi
+  # create-mr media upload — multipart path. glab has NO gh-style -F multipart
+  # flag (--field/--raw-field are JSON-encoded): the old `-F "file=@..."`
+  # portage caused a systematic HTTP 400 on every upload.
+  if [[ -f "$ROOT_DIR/scripts/create-mr/upload_media.sh" ]]; then
+    if grep -qF -- '-F "file=@' "$ROOT_DIR/scripts/create-mr/upload_media.sh"; then
+      fail "upload_media.sh uses the gh-style -F flag (glab has no multipart -F — systematic HTTP 400)"
+    else
+      ok "upload_media.sh avoids the gh-style -F flag (multipart regression guard)"
+    fi
+    grep -q -- '--input' "$ROOT_DIR/scripts/create-mr/upload_media.sh" \
+      && grep -q 'build_multipart.py' "$ROOT_DIR/scripts/create-mr/upload_media.sh" \
+      && [[ -f "$ROOT_DIR/scripts/create-mr/build_multipart.py" ]] \
+      && ok "upload_media.sh builds the multipart body via build_multipart.py + glab api --input" \
+      || fail "upload_media.sh must use build_multipart.py + glab api --input (validated upload path)"
+    if bash "$ROOT_DIR/scripts/create-mr/tests/test_all.sh" >/dev/null 2>&1; then
+      ok "create-mr script tests passed (comparison table + multipart builder, zero network)"
+    else
+      fail "create-mr script tests FAILED"
+    fi
+    # Live smoke (opt-in): UPLOAD_MEDIA_SMOKE_PROJECT=<project id> enables a
+    # real 1x1 PNG upload expecting a /uploads/ markdown URL — detects a
+    # future glab multipart compatibility regression (e.g. after a glab upgrade).
+    if [[ -n "${UPLOAD_MEDIA_SMOKE_PROJECT:-}" ]] && command -v glab >/dev/null 2>&1; then
+      _smoke_dir=""
+      if _smoke_dir="$(mktemp -d "${TMPDIR:-/tmp}/upload-smoke.XXXXXX")"; then
+        if ! python3 - "$_smoke_dir/smoke.png" <<'PY'
+import struct, sys, zlib
+
+
+def chunk(tag, data):
+    c = tag + data
+    return struct.pack(">I", len(data)) + c + struct.pack(">I", zlib.crc32(c) & 0xFFFFFFFF)
+
+
+png = (
+    b"\x89PNG\r\n\x1a\n"
+    + chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 6, 0, 0, 0))
+    + chunk(b"IDAT", zlib.compress(b"\x00\x00\x00\x00\x00"))
+    + chunk(b"IEND", b"")
+)
+open(sys.argv[1], "wb").write(png)
+PY
+        then
+          warn "upload smoke could not generate the 1x1 PNG fixture"
+        elif ! _smoke_boundary="$(python3 "$ROOT_DIR/scripts/create-mr/build_multipart.py" \
+          --file "$_smoke_dir/smoke.png" --out "$_smoke_dir/body.multipart")"; then
+          warn "upload smoke could not build the multipart body"
+        elif glab api --method POST \
+          --input "$_smoke_dir/body.multipart" \
+          -H "Content-Type: multipart/form-data; boundary=${_smoke_boundary}" \
+          "/projects/${UPLOAD_MEDIA_SMOKE_PROJECT}/uploads" 2>/dev/null | grep -q '/uploads/'; then
+          ok "live upload smoke passed (1x1 PNG -> /uploads/ markdown, project ${UPLOAD_MEDIA_SMOKE_PROJECT})"
+        else
+          fail "live upload smoke FAILED — glab multipart compatibility regression? (project ${UPLOAD_MEDIA_SMOKE_PROJECT})"
+        fi
+        rm -rf "$_smoke_dir"
+      else
+        warn "upload smoke skipped (mktemp failed)"
+      fi
+    else
+      warn "upload smoke skipped — set UPLOAD_MEDIA_SMOKE_PROJECT=<project id> to enable the live glab multipart check"
+    fi
+  fi
   if [[ -f "$ROOT_DIR/scripts/task-workflow/trello_comment.sh" ]]; then
     grep -q 'GET-before-POST' "$ROOT_DIR/scripts/task-workflow/trello_comment.sh" \
       && grep -q 'notifyResults' "$ROOT_DIR/skills/task-workflow/SKILL.md" \

@@ -48,7 +48,7 @@ assert_contains() {
   local needle="$2"
   local haystack="$3"
   TOTAL_ASSERTIONS=$((TOTAL_ASSERTIONS + 1))
-  if echo "$haystack" | grep -qF "$needle"; then
+  if echo "$haystack" | grep -qF -- "$needle"; then
     PASS=$((PASS + 1))
     echo "  PASS: $desc"
   else
@@ -637,17 +637,45 @@ test_table_missing_after() {
   code=$?
   set -e
   assert_exit_code "missing --after exits 1" 1 "$code"
-  assert_contains "error mentions both required" "both required" "$result"
+  assert_contains "error mentions after required" "--after is required" "$result"
 }
 test_table_missing_after
 
+test_table_visual_only() {
+  # New component: no previous state to show — single-column "Visuel" table.
+  local result
+  result=$(bash "$SCRIPTS_DIR/build_comparison_table.sh" --after "$AFTER_MD" --caption "Nouveau composant")
+  assert_exit_code "visual-only table exits 0" 0 $?
+  assert_contains "visual-only caption present" "**Nouveau composant :**" "$result"
+  local first_line
+  first_line=$(echo "$result" | grep -F '|' | head -1)
+  assert_eq "visual-only header is Visuel" "| Visuel |" "$first_line"
+  assert_contains "visual-only row contains after snippet" "| ${AFTER_MD} |" "$result"
+  local avant_left
+  avant_left=$(echo "$result" | grep -F '| Avant' || true)
+  assert_eq "no Avant column in visual-only mode" "" "$avant_left"
+}
+test_table_visual_only
+
+test_table_visual_only_custom_label() {
+  local result
+  result=$(bash "$SCRIPTS_DIR/build_comparison_table.sh" --after "$AFTER_MD" --after-label "Rendu final")
+  assert_exit_code "visual-only custom label exits 0" 0 $?
+  assert_contains "visual-only custom header" "| Rendu final |" "$result"
+}
+test_table_visual_only_custom_label
+
 test_table_empty_before() {
+  # Contract: empty --before == absent (new component) → single-column Visuel.
   local result code
   set +e
   result=$(bash "$SCRIPTS_DIR/build_comparison_table.sh" --before "" --after "$AFTER_MD" 2>&1)
   code=$?
   set -e
-  assert_exit_code "empty --before exits 1" 1 "$code"
+  assert_exit_code "empty --before treated as absent (visual-only) exits 0" 0 "$code"
+  local first_line
+  first_line=$(echo "$result" | grep -F '|' | head -1)
+  assert_eq "empty --before yields Visuel header" "| Visuel |" "$first_line"
 }
 test_table_empty_before
 
@@ -709,6 +737,41 @@ test_table_local_path_rejected() {
   assert_contains "error mentions upload snippet shape" "GitLab upload Markdown snippet" "$result"
 }
 test_table_local_path_rejected
+
+test_table_invalid_after() {
+  # Mono-column mode: the AFTER snippet is the only one — its fail-closed
+  # validation must be exercised too.
+  local result code
+  set +e
+  result=$(bash "$SCRIPTS_DIR/build_comparison_table.sh" --after "not a markdown snippet" 2>&1)
+  code=$?
+  set -e
+  assert_exit_code "invalid --after (visual-only) exits 1" 1 "$code"
+  assert_contains "error mentions after snippet shape" "--after does not look like a GitLab upload Markdown snippet" "$result"
+}
+test_table_invalid_after
+
+test_table_local_path_after_rejected() {
+  local result code
+  set +e
+  result=$(bash "$SCRIPTS_DIR/build_comparison_table.sh" --after "![apres](local-after.png)" 2>&1)
+  code=$?
+  set -e
+  assert_exit_code "local path --after (visual-only) exits 1" 1 "$code"
+}
+test_table_local_path_after_rejected
+
+test_table_pipe_in_after() {
+  local bad_after="![avant|apres](/uploads/hash/after.png)"
+  local result code
+  set +e
+  result=$(bash "$SCRIPTS_DIR/build_comparison_table.sh" --after "$bad_after" 2>&1)
+  code=$?
+  set -e
+  assert_exit_code "pipe in --after exits 1" 1 "$code"
+  assert_contains "error mentions table breaker" "pipe or a newline" "$result"
+}
+test_table_pipe_in_after
 
 test_table_truncated_option() {
   # An option without its value (last argument) must fail closed with the

@@ -20,7 +20,7 @@ l'utilisateur OpenCode et n'est jamais copié dans les dépôts.
 |-----------|---------------|------|
 | Skill | `skills/create-mr/SKILL.md` | Règles métier et cycle de création |
 | Scripts | `scripts/create-mr/*.sh` | Parties déterministes (détection, validation, upload) |
-| Tests | `scripts/create-mr/tests/test_all.sh` | 94 assertions |
+| Tests | `scripts/create-mr/tests/test_all.sh` | 107 assertions |
 
 ## Règles fondamentales
 
@@ -85,7 +85,7 @@ Les scripts globaux ne contiennent ni n'exécutent `git commit`, `git push`,
 | `validate_title.sh` | Valide le format Conventional Commit du titre |
 | `build_body.sh` | Assemble le body depuis template + variables ou format défaut |
 | `upload_media.sh` | Upload fichiers média vers GitLab, retourne le Markdown |
-| `build_comparison_table.sh` | Assemble le tableau Avant/Après depuis les Markdowns d'upload (aucun appel réseau) |
+| `build_comparison_table.sh` | Assemble le tableau Avant/Après (ou Visuel seul pour un nouveau composant) depuis les Markdowns d'upload (aucun appel réseau) |
 | `ensure_glab_token.sh` | Préflight : re-source un `GITLAB_TOKEN` frais depuis le disque si le token du process est périmé (401). À SOURCER (`source ... || exit 1`) dans le même shell que l'appel glab |
 | `push_branch.sh` | Push la branche courante si commits non pushés |
 | `create_mr.sh` | Crée la MR via `glab mr create` (ou dry-run) |
@@ -285,15 +285,18 @@ réunies, sinon skip silencieux (jamais bloquant, jamais inventé) :
 
 **Captures** :
 
+- **Nouveau composant / nouvelle page** (aucun état antérieur à montrer) :
+  pas d'état « Avant » — omettre `--before` : le script produit un tableau
+  mono-colonne **Visuel** avec la capture seule.
 - état « Après » : branche courante, servie localement ou en préprod ;
-- état « Avant », par ordre de préférence :
+- état « Avant » (composant existant modifié), par ordre de préférence :
   1. URL de l'environnement déployé de la branche cible (staging/preprod)
      si connue du contexte ;
   2. worktree jetable de la branche cible + dev server temporaire
      (`git worktree add`) — JAMAIS de `git stash` ni de checkout du
      workspace de travail actif ;
-  3. sinon : pas d'état « Avant » → pas de tableau ; utiliser l'upload
-     média simple (étape 8) pour l'image « Après » seule.
+  3. sinon : pas d'état « Avant » capturable → pas de tableau ; utiliser
+     l'upload média simple (étape 8) pour l'image « Après » seule.
 - Les captures sont enregistrées HORS du dépôt (ex. `$TMPDIR/mr-media-*`) :
   jamais commitées, jamais dans le workspace (qui doit rester propre pour
   `check_workspace.sh`).
@@ -303,14 +306,22 @@ réunies, sinon skip silencieux (jamais bloquant, jamais inventé) :
 **Séquence** (captures obtenues) :
 
 ```bash
-# 1. Upload des deux captures (un Markdown par ligne)
+# 1. Upload des captures (un Markdown par ligne)
+#    - Nouveau composant : uploader uniquement $AFTER_PNG
+#    - Composant modifié : uploader $BEFORE_PNG + $AFTER_PNG
 UPLOADS=$(bash "${SCRIPTS_DIR}/upload_media.sh" "$BEFORE_PNG" "$AFTER_PNG")
 BEFORE_MD=$(echo "$UPLOADS" | sed -n '1p')
 AFTER_MD=$(echo "$UPLOADS" | sed -n '2p')
 
 # 2. Assembler le tableau (aucun appel réseau dans ce script)
+#    - Composant existant modifié → tableau Avant/Après :
 COMPARISON=$(bash "${SCRIPTS_DIR}/build_comparison_table.sh" \
   --before "$BEFORE_MD" \
+  --after "$AFTER_MD" \
+  --caption "Nom du composant ou de la feature")
+
+#    - Nouveau composant → tableau mono-colonne « Visuel » (pas de --before) :
+COMPARISON=$(bash "${SCRIPTS_DIR}/build_comparison_table.sh" \
   --after "$AFTER_MD" \
   --caption "Nom du composant ou de la feature")
 
@@ -320,13 +331,22 @@ SOLUTION="${SOLUTION}
 ${COMPARISON}"
 ```
 
-Résultat dans la description (section Solution du template projet) :
+Résultat dans la description (section Solution du template projet) —
+composant existant modifié :
 
 **Nom du composant ou de la feature :**
 
 | Avant | Après |
 | ------ | ------ |
 | ![avant](/uploads/…/before.png) | ![après](/uploads/…/after.png) |
+
+Nouveau composant (pas d'état antérieur) :
+
+**Nom du composant ou de la feature :**
+
+| Visuel |
+| ------ |
+| ![nouveau composant](/uploads/…/after.png) |
 
 Le script `build_comparison_table.sh` est fail-closed : snippet d'upload
 vide, invalide ou contenant un pipe/newline → erreur (exit 1), jamais un

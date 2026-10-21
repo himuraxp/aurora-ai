@@ -32,6 +32,10 @@ RESULT_STATUSES = ("pass", "fail", "skipped", "not-run")  # structured check res
 # the same hard rule: exitCode must be 0.
 RESULT_STATUS_ALIASES = ("PASSED", "passed", "FAILED", "failed", "SKIPPED",
                          "BLOCKED", "WAITING_APPROVAL", "RUNNING", "PENDING")
+# Phase-7 MR evidence: how the merge-request description was produced.
+# "before-after" = 2-column Avant/Après table, "visual" = single-column
+# Visuel table (new component), "none" = no table (non-empty reason required).
+COMPARISON_MODES = ("before-after", "visual", "none")
 EVENT_TYPES = ("phase", "command", "decision", "incident", "recovery", "note")
 # Handoff takeover (Orca integration, strategy A): the state tracks the
 # transfer of execution from the originating session to the session running
@@ -309,7 +313,7 @@ def validate_state(state: Any, path: Optional[str] = None) -> List[str]:
     # machine status, it must be honest — a "pass" with a non-zero exitCode is
     # a lie the contract refuses. Entries without these fields stay valid
     # (v1 free-form results).
-    for key in ("testResults", "qaResults", "reviewResults"):
+    for key in ("testResults", "qaResults", "reviewResults", "mrResults"):
         entries = state.get(key, [])
         if not isinstance(entries, list):
             problems.append(f"{key} must be a list")
@@ -338,6 +342,24 @@ def validate_state(state: Any, path: Optional[str] = None) -> List[str]:
                     not isinstance(entry_signature, str) or not SHA1_RE.match(entry_signature)):
                 problems.append(
                     f"{key}[{index}].codeSignature must be a 40-char git sha1 when present")
+    # MR pipeline evidence (additive, Phase 7 guard): the MR proof must declare
+    # HOW the description was produced — templateUsed (applied template file or
+    # "none") and comparisonTable (before-after | visual | none). Declared
+    # facts, not proven ones: the guard cannot verify the template was applied,
+    # it forces the declaration so a pipeline bypass is visible and auditable.
+    # comparisonTable=none without a reason is a silent skip — exactly what
+    # the Phase 7 guard exists to prevent.
+    for index, entry in enumerate(state.get("mrResults") or []):
+        if not isinstance(entry, dict):
+            continue
+        template_used = entry.get("templateUsed")
+        if template_used is not None and (not isinstance(template_used, str) or not template_used.strip()):
+            problems.append(f"mrResults[{index}].templateUsed must be a non-empty string when present")
+        comparison = entry.get("comparisonTable")
+        if comparison is not None and comparison not in COMPARISON_MODES:
+            problems.append(f"mrResults[{index}].comparisonTable must be one of {list(COMPARISON_MODES)} when present")
+        if comparison == "none" and not str(entry.get("reason") or "").strip():
+            problems.append(f"mrResults[{index}]: comparisonTable=none requires a non-empty reason (a silent skip is not evidence)")
     # Handoff tracking (additive): a handoff block must be coherent — an
     # "accepted" takeover without a claimed session is an unverifiable mandate.
     handoff = state.get("handoff")
@@ -713,8 +735,9 @@ def _canonical_write_guard(path: str) -> Optional[str]:
     return None
 
 
-EVIDENCE_PHASES = {4: "testResults", 5: "qaResults", 6: "reviewResults"}
-EVIDENCE_RESULT_KEYS = ("testResults", "qaResults", "reviewResults")
+EVIDENCE_PHASES = {4: "testResults", 5: "qaResults", 6: "reviewResults",
+                   7: "mrResults"}
+EVIDENCE_RESULT_KEYS = ("testResults", "qaResults", "reviewResults", "mrResults")
 CHAIN_PHASES = (4, 5, 6, 7)  # code-bearing phases: their PASSED evidence must
 # all refer to the SAME code state — a validation validates the code it ran on.
 
@@ -750,6 +773,19 @@ def evidence_guard(state: dict, phase: int, status: str,
                 f"{key} attached to it ({{\"phase\": {phase}, \"name\", \"status\", ...}}) — "
                 f"a skipped/not-run entry needs a non-empty reason; an unrecorded "
                 f"control is never a passed one")
+    if phase == 7:
+        # MR evidence must DECLARE how the description was produced: a bare
+        # entry would satisfy the count while bypassing the declaration —
+        # templateUsed and comparisonTable are the whole point of the guard.
+        for entry in _attached_results(state, "mrResults", 7):
+            if not str(entry.get("templateUsed") or "").strip():
+                return ("mrResults entries attached to phase 7 must declare templateUsed "
+                        "(applied template file, or \"none\") — a bare entry bypasses the "
+                        "declaration the guard exists to force")
+            if entry.get("comparisonTable") not in COMPARISON_MODES:
+                return ("mrResults entries attached to phase 7 must declare comparisonTable "
+                        "(before-after | visual | none) — a bare entry bypasses the "
+                        "declaration the guard exists to force")
     if phase in CHAIN_PHASES:
         if not signature:
             return (f"phase {phase} PASSED requires --signature — evidence must carry "

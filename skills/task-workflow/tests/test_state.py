@@ -34,6 +34,7 @@ def valid_state(**overrides):
         "testResults": [],
         "qaResults": [],
         "reviewResults": [],
+        "mrResults": [],
         "mergeRequestUrl": None,
         "blockers": [],
     }
@@ -400,7 +401,8 @@ class TestEvidenceGuard(unittest.TestCase):
 
     def _advance_to(self, phase):
         sig = "a" * 40
-        evidence = {4: "testResults", 5: "qaResults", 6: "reviewResults"}
+        evidence = {4: "testResults", 5: "qaResults", 6: "reviewResults",
+                    7: "mrResults"}
         for p in range(1, phase + 1):
             self._run("mark", self.path, str(p), "RUNNING")
             if p in evidence:  # the guard requires recorded evidence for 4+
@@ -544,6 +546,154 @@ class TestEvidenceGuard(unittest.TestCase):
         self._run("mark", self.path, "2", "RUNNING")
         result = self._run("mark", self.path, "2", "PASSED", "--signature", "a" * 40)
         self.assertEqual(result.returncode, 0, result.stdout)
+
+
+class TestMrEvidenceGuard(unittest.TestCase):
+    """MR !602 post-mortem (2026-10-21): the description was published in the
+    skill's default format without the project template and without a
+    comparison table — the pipeline was bypassed and the skip was silent.
+    Phase 7 joins the evidence guard: a PASSED MR phase must carry mrResults[]
+    declaring templateUsed and comparisonTable. Transition-level guard
+    (cmd_mark only) — existing states stay valid."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.path = os.path.join(self.tmp.name, "tw-podcast-player--1a2b3c4d.json")
+        with open(self.path, "w", encoding="utf-8") as handle:
+            json.dump(valid_state(), handle)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _run(self, *args):
+        script = os.path.join(os.path.dirname(__file__), "..", "tw_state.py")
+        return subprocess.run(
+            [sys.executable, script, *args], capture_output=True, text=True, check=False,
+            env={**os.environ, "TW_STATE_STATE_DIR": self.tmp.name})
+
+    def _advance_to(self, phase):
+        sig = "a" * 40
+        evidence = {4: "testResults", 5: "qaResults", 6: "reviewResults",
+                    7: "mrResults"}
+        for p in range(1, phase + 1):
+            self._run("mark", self.path, str(p), "RUNNING")
+            if p in evidence:  # the guard requires recorded evidence for 4+
+                state = tw_state.load_state(self.path)
+                entry = {"phase": p, "name": f"check-{p}",
+                         "status": "pass", "exitCode": 0}
+                if p == 7:  # the guard requires the declared MR facts
+                    entry.update({"templateUsed": "default.md",
+                                  "comparisonTable": "visual"})
+                state[evidence[p]] = [entry]
+                tw_state.save_state(self.path, state)
+            self._run("mark", self.path, str(p), "PASSED", "--signature", sig)
+
+    def _with_mr_results(self, entry):
+        state = tw_state.load_state(self.path)
+        state["mrResults"] = [entry]
+        tw_state.save_state(self.path, state)
+
+    def test_phase7_passed_without_mr_results_refused(self):
+        self._advance_to(6)
+        self._run("mark", self.path, "7", "RUNNING")
+        result = self._run("mark", self.path, "7", "PASSED", "--signature", "a" * 40)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("ILLEGAL", result.stdout)
+        self.assertIn("mrResults", result.stdout)
+        state = tw_state.load_state(self.path)
+        self.assertEqual(state["phaseStatuses"]["7"]["status"], "RUNNING")
+
+    def test_phase7_passed_with_mr_results_persists(self):
+        self._advance_to(6)
+        self._with_mr_results({"phase": 7, "name": "create-mr", "status": "pass",
+                               "templateUsed": "default.md",
+                               "comparisonTable": "visual"})
+        self._run("mark", self.path, "7", "RUNNING")
+        result = self._run("mark", self.path, "7", "PASSED", "--signature", "a" * 40)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(
+            tw_state.load_state(self.path)["phaseStatuses"]["7"]["status"], "PASSED")
+
+    def test_bare_mr_results_entry_refused(self):
+        # An entry without templateUsed/comparisonTable satisfies the count
+        # while bypassing the declaration — the exact !602 bypass, refused.
+        self._advance_to(6)
+        self._with_mr_results({"phase": 7, "name": "create-mr", "status": "pass",
+                               "exitCode": 0})
+        self._run("mark", self.path, "7", "RUNNING")
+        result = self._run("mark", self.path, "7", "PASSED", "--signature", "a" * 40)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("templateUsed", result.stdout)
+
+    def test_comparison_none_without_reason_refused(self):
+        # The silent-skip hole this guard closes: declaring "no table" without
+        # a reason is the !602 failure mode (skip indistinguishable from a
+        # forgotten step). The entry is written after the RUNNING mark: the
+        # invalid one must be refused at the PASSED transition itself.
+        self._advance_to(6)
+        self._run("mark", self.path, "7", "RUNNING")
+        self._with_mr_results({"phase": 7, "name": "create-mr", "status": "pass",
+                               "templateUsed": "default.md",
+                               "comparisonTable": "none"})
+        result = self._run("mark", self.path, "7", "PASSED", "--signature", "a" * 40)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("comparisonTable=none requires a non-empty reason", result.stdout)
+        self.assertIn("state NOT saved", result.stdout)
+
+    def test_bad_comparison_mode_invalid(self):
+        problems = tw_state.validate_state(valid_state(mrResults=[
+            {"phase": 7, "name": "create-mr", "status": "pass",
+             "templateUsed": "default.md", "comparisonTable": "screenshot"}]))
+        self.assertTrue(any("comparisonTable" in p for p in problems))
+
+    def test_none_without_reason_invalid(self):
+        problems = tw_state.validate_state(valid_state(mrResults=[
+            {"phase": 7, "name": "create-mr", "status": "pass",
+             "templateUsed": "default.md", "comparisonTable": "none"}]))
+        self.assertTrue(any("comparisonTable=none" in p for p in problems))
+
+    def test_empty_template_used_invalid(self):
+        problems = tw_state.validate_state(valid_state(mrResults=[
+            {"phase": 7, "name": "create-mr", "status": "pass",
+             "templateUsed": "  ", "comparisonTable": "visual"}]))
+        self.assertTrue(any("templateUsed" in p for p in problems))
+
+    def test_none_with_reason_is_valid_evidence(self):
+        # A recorded, reasoned "none" is honest evidence — same philosophy as
+        # the phase-5 skipped QA entry: a legitimate skip is RECORDED.
+        problems = tw_state.validate_state(valid_state(mrResults=[
+            {"phase": 7, "name": "create-mr", "status": "pass",
+             "templateUsed": "default.md", "comparisonTable": "none",
+             "reason": "changement de données, pas de nouveau flux UI"}]))
+        self.assertEqual(problems, [])
+
+    def test_v1_state_without_mr_results_stays_valid(self):
+        # Transition-level guard: the check runs at mark time, never as a
+        # cold re-validation — v1 states without mrResults stay valid.
+        state = valid_state()
+        del state["mrResults"]
+        self.assertEqual(tw_state.validate_state(state), [])
+
+    def test_v1_state_with_phase7_already_passed_stays_valid(self):
+        # The !602 production scenario in reverse: a workflow created BEFORE
+        # this guard, whose phase 7 is already PASSED without any mrResults,
+        # resumes cleanly — the guard never re-validates history at rest.
+        state = valid_state(currentPhase=8)
+        del state["mrResults"]
+        for phase in range(1, 8):
+            passed(state, phase, signature="a" * 40)
+        self.assertEqual(tw_state.validate_state(state), [])
+
+    def test_phase7_invalidate_purges_mr_results(self):
+        # Evidence may not outlive the phase it proved: invalidating the MR
+        # phase purges its mrResults (no silent carry-over on re-run).
+        self._advance_to(7)
+        result = self._run("invalidate", self.path, "7")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("purged", result.stdout)
+        state = tw_state.load_state(self.path)
+        self.assertEqual(
+            [e for e in state["mrResults"] if str(e.get("phase")) == "7"], [])
 
 
 class TestNoOrcaFallback(unittest.TestCase):

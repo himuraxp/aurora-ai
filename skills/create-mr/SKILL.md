@@ -274,7 +274,8 @@ illustrer la solution avec un tableau **Avant / Après** dans la section
 « Proposition / Solution » du template projet.
 
 **Déclenchement** — le tableau est tenté UNIQUEMENT si les 3 conditions sont
-réunies, sinon skip silencieux (jamais bloquant, jamais inventé) :
+réunies, sinon skip **tracé** (voir Traçabilité ci-dessous ; jamais bloquant,
+jamais inventé) :
 
 1. le diff modifie des fichiers UI ;
 2. une URL capturable est identifiable (fournie dans le prompt, la carte
@@ -353,6 +354,22 @@ vide, invalide ou contenant un pipe/newline → erreur (exit 1), jamais un
 tableau cassé publié dans la MR. Le remplacement dans le template est
 newline-safe (`build_body.sh`) : une solution multi-ligne ne peut plus
 retomber silencieusement sur le template brut.
+
+**Règle anti-image (orchestrateur text-only)** : l'orchestrateur ne lit
+JAMAIS un fichier image — pas de `read` sur une capture (erreur
+`this model does not support image input`, observée en conditions réelles).
+Les captures sont produites par les MCP navigateur (browser-debug /
+chrome-devtools), uploadées via `upload_media.sh` sans être ouvertes, et
+toute vérification visuelle d'une capture est déléguée à un agent
+multimodal (Designer / Vision).
+
+**Traçabilité** : le résultat de cette étape n'est jamais silencieux.
+En conditions task-workflow, il est enregistré dans `mrResults[]` (garde
+fail-closed de la Phase 7) : tableau produit → `comparisonTable`
+(`before-after` ou `visual`) ; conditions non réunies → `comparisonTable:
+"none"` + raison non vide. Un skip sans trace est indistinguable d'un
+oubli — c'est le défaut qui a laissé publier la MR sans template ni
+tableau.
 
 ### 7. Assembler le body
 

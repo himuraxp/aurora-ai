@@ -36,6 +36,10 @@ RECENT_WINDOW_SECONDS = 48 * 3600                # au-delà : compteur d'archive
 
 BAR_WIDTH = 10
 
+# bornes partagées avec wd_orca.ensure (source de vérité du renderer)
+WATCH_MIN = 0.2
+WATCH_MAX = 86400
+
 ANSI = {
     "reset": "\033[0m",
     "bold": "\033[1m",
@@ -272,8 +276,8 @@ def _watch_interval(value: str) -> float:
         seconds = float(value)
     except ValueError:
         raise argparse.ArgumentTypeError(f"--watch must be a number (got {value!r})")
-    if not 0.2 <= seconds <= 86400:  # plancher propagation, plafond anti-Overflow
-        raise argparse.ArgumentTypeError("--watch must be in [0.2, 86400]")
+    if not WATCH_MIN <= seconds <= WATCH_MAX:  # plancher propagation, plafond anti-Overflow
+        raise argparse.ArgumentTypeError(f"--watch must be in [{WATCH_MIN}, {WATCH_MAX}]")
     return seconds
 
 

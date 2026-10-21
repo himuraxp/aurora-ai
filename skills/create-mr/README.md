@@ -53,6 +53,7 @@ glab auth status
 | `validate_title.sh` | Valide le format Conventional Commit |
 | `build_body.sh` | Assemble le body depuis template ou format défaut |
 | `upload_media.sh` | Upload fichiers média vers GitLab |
+| `build_comparison_table.sh` | Assemble le tableau Avant/Après depuis les Markdowns d'upload (aucun appel réseau) |
 | `push_branch.sh` | Push la branche si commits non pushés |
 | `create_mr.sh` | Crée la MR via `glab mr create` (`--dry-run` supporté) |
 
@@ -71,12 +72,13 @@ glab auth status
 4. `detect_template.sh` → template trouvé ?
 5. Générer titre (EN, Conventional Commit) depuis l'analyse
 6. Générer description (FR) depuis l'analyse
-7. `build_body.sh` → assemblage final
-8. `validate_title.sh` → format valide ?
-9. `upload_media.sh` → upload média (optionnel)
-10. `push_branch.sh` → push si nécessaire
-11. `create_mr.sh` → création de la MR
-12. Nettoyage
+7. Tableau Avant/Après (features front — optionnel) : `upload_media.sh` (captures) + `build_comparison_table.sh` → injecté dans la solution
+8. `build_body.sh` → assemblage final
+9. `validate_title.sh` → format valide ?
+10. `upload_media.sh` → upload média (optionnel)
+11. `push_branch.sh` → push si nécessaire
+12. `create_mr.sh` → création de la MR
+13. Nettoyage
 
 ## Dry-run
 
@@ -101,7 +103,7 @@ Ou passer `--dry-run` à `create_mr.sh` directement.
 bash "${OPENCODE_GLOBAL_DIR}/scripts/create-mr/tests/test_all.sh"
 ```
 
-57 cas de test. N'appelle jamais un vrai projet GitLab.
+94 assertions de test (fail-closed vérifié). N'appelle jamais un vrai projet GitLab.
 
 ## Règles de langue
 

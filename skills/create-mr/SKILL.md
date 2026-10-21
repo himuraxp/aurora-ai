@@ -20,7 +20,7 @@ l'utilisateur OpenCode et n'est jamais copié dans les dépôts.
 |-----------|---------------|------|
 | Skill | `skills/create-mr/SKILL.md` | Règles métier et cycle de création |
 | Scripts | `scripts/create-mr/*.sh` | Parties déterministes (détection, validation, upload) |
-| Tests | `scripts/create-mr/tests/test_all.sh` | 57 cas de test |
+| Tests | `scripts/create-mr/tests/test_all.sh` | 94 assertions |
 
 ## Règles fondamentales
 
@@ -85,13 +85,15 @@ Les scripts globaux ne contiennent ni n'exécutent `git commit`, `git push`,
 | `validate_title.sh` | Valide le format Conventional Commit du titre |
 | `build_body.sh` | Assemble le body depuis template + variables ou format défaut |
 | `upload_media.sh` | Upload fichiers média vers GitLab, retourne le Markdown |
+| `build_comparison_table.sh` | Assemble le tableau Avant/Après depuis les Markdowns d'upload (aucun appel réseau) |
 | `ensure_glab_token.sh` | Préflight : re-source un `GITLAB_TOKEN` frais depuis le disque si le token du process est périmé (401). À SOURCER (`source ... || exit 1`) dans le même shell que l'appel glab |
 | `push_branch.sh` | Push la branche courante si commits non pushés |
 | `create_mr.sh` | Crée la MR via `glab mr create` (ou dry-run) |
 
 Tous les scripts :
 - utilisent des chemins absolus (résolus via `BASH_SOURCE`) ;
-- refusent de fonctionner hors d'un dépôt Git ;
+- refusent de fonctionner hors d'un dépôt Git — sauf `build_comparison_table.sh`
+  (assemblage Markdown local, aucune dépendance git/glab/réseau) ;
 - n'effectuent jamais `git commit` ou `git push --force` ;
 - utilisent `git rev-parse --show-toplevel`.
 
@@ -260,6 +262,77 @@ L'agent génère automatiquement depuis l'analyse du diff :
 - Qu'a-t-on implémenté/modifié ?
 - Comment cela fonctionne-t-il ?
 - Décisions techniques clés
+
+### 6 bis. Tableau Avant/Après (features front — optionnel)
+
+À exécuter ici (entre les étapes 6 et 7) : le tableau est injecté à la fin de
+la `SOLUTION` **avant** l'assemblage du body de l'étape 7.
+
+Pour les changements d'interface visibles (le diff touche des fichiers UI :
+templates, `.html`, `.scss`, `.css`, pages, composants), la description peut
+illustrer la solution avec un tableau **Avant / Après** dans la section
+« Proposition / Solution » du template projet.
+
+**Déclenchement** — le tableau est tenté UNIQUEMENT si les 3 conditions sont
+réunies, sinon skip silencieux (jamais bloquant, jamais inventé) :
+
+1. le diff modifie des fichiers UI ;
+2. une URL capturable est identifiable (fournie dans le prompt, la carte
+   Trello/l'issue, ou un dev server local en cours) ;
+3. un navigateur est capturable : MCP `browser-debug` (navigateur réel,
+   port 9222, sessions/auth disponibles) en priorité, sinon MCP
+   `chrome-devtools` (navigateur headless isolé).
+
+**Captures** :
+
+- état « Après » : branche courante, servie localement ou en préprod ;
+- état « Avant », par ordre de préférence :
+  1. URL de l'environnement déployé de la branche cible (staging/preprod)
+     si connue du contexte ;
+  2. worktree jetable de la branche cible + dev server temporaire
+     (`git worktree add`) — JAMAIS de `git stash` ni de checkout du
+     workspace de travail actif ;
+  3. sinon : pas d'état « Avant » → pas de tableau ; utiliser l'upload
+     média simple (étape 8) pour l'image « Après » seule.
+- Les captures sont enregistrées HORS du dépôt (ex. `$TMPDIR/mr-media-*`) :
+  jamais commitées, jamais dans le workspace (qui doit rester propre pour
+  `check_workspace.sh`).
+- Confidentialité : capturer avec des données de test — jamais de données
+  personnelles ou clientes réelles dans une capture publiée.
+
+**Séquence** (captures obtenues) :
+
+```bash
+# 1. Upload des deux captures (un Markdown par ligne)
+UPLOADS=$(bash "${SCRIPTS_DIR}/upload_media.sh" "$BEFORE_PNG" "$AFTER_PNG")
+BEFORE_MD=$(echo "$UPLOADS" | sed -n '1p')
+AFTER_MD=$(echo "$UPLOADS" | sed -n '2p')
+
+# 2. Assembler le tableau (aucun appel réseau dans ce script)
+COMPARISON=$(bash "${SCRIPTS_DIR}/build_comparison_table.sh" \
+  --before "$BEFORE_MD" \
+  --after "$AFTER_MD" \
+  --caption "Nom du composant ou de la feature")
+
+# 3. Injecter à la fin de la SOLUTION (avant l'assemblage du body, étape 7)
+SOLUTION="${SOLUTION}
+
+${COMPARISON}"
+```
+
+Résultat dans la description (section Solution du template projet) :
+
+**Nom du composant ou de la feature :**
+
+| Avant | Après |
+| ------ | ------ |
+| ![avant](/uploads/…/before.png) | ![après](/uploads/…/after.png) |
+
+Le script `build_comparison_table.sh` est fail-closed : snippet d'upload
+vide, invalide ou contenant un pipe/newline → erreur (exit 1), jamais un
+tableau cassé publié dans la MR. Le remplacement dans le template est
+newline-safe (`build_body.sh`) : une solution multi-ligne ne peut plus
+retomber silencieusement sur le template brut.
 
 ### 7. Assembler le body
 

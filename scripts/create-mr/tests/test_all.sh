@@ -116,6 +116,10 @@ create_test_repo() {
   echo "$repo_dir"
 }
 
+# Shared test upload snippets (used by build_body + build_comparison_table tests)
+BEFORE_MD='![avant](/uploads/hash1/before.png)'
+AFTER_MD='![apres](/uploads/hash2/after.png)'
+
 # ─── Tests: validate_title.sh ─────────────────────────────────────────────────
 
 echo ""
@@ -389,6 +393,44 @@ test_build_body_default_resources() {
 }
 test_build_body_default_resources
 
+test_build_body_template_multiline_solution() {
+  # Regression pin: a multi-line solution (e.g. a Before/After comparison
+  # table appended to it) must be injected into a project template without
+  # silently falling back to the raw template (placeholders visible).
+  local repo
+  repo=$(create_test_repo "template-body-multiline")
+  cd "$repo"
+  printf '%s\n' \
+    '### Contexte' \
+    '' \
+    'Description de l'"'"'incrément ou du fix à insérer ici' \
+    '' \
+    '### Solution' \
+    '' \
+    'Description détaillée' > "$TMP_BASE/template-multiline.md"
+
+  local comparison solution result
+  comparison=$(bash "$SCRIPTS_DIR/build_comparison_table.sh" \
+    --before "$BEFORE_MD" --after "$AFTER_MD" --caption "Formulaire de qualité")
+  solution="Texte de la solution.
+
+${comparison}"
+
+  result=$(bash "$SCRIPTS_DIR/build_body.sh" \
+    --context "Contexte du fix" \
+    --solution "$solution" \
+    --template-file "$TMP_BASE/template-multiline.md" 2>&1)
+  assert_exit_code "multiline solution with template exits 0" 0 $?
+  assert_contains "placeholders fully replaced (context injected)" "Contexte du fix" "$result"
+  assert_contains "table injected into template" "**Formulaire de qualité :**" "$result"
+  assert_contains "table header present" "| Avant | Après |" "$result"
+  assert_contains "table row present" "| ${BEFORE_MD} | ${AFTER_MD} |" "$result"
+  local raw_left
+  raw_left=$(echo "$result" | grep -F 'Description détaillée' || true)
+  assert_eq "no raw template phrase left" "" "$raw_left"
+}
+test_build_body_template_multiline_solution
+
 # ─── Tests: push_branch.sh ─────────────────────────────────────────────────────
 
 echo ""
@@ -550,6 +592,170 @@ test_upload_nonexistent_file() {
   assert_contains "error mentions glab" "glab" "$result"
 }
 test_upload_nonexistent_file
+
+# ─── Tests: build_comparison_table.sh ────────────────────────────────────────
+
+echo ""
+echo "=== build_comparison_table.sh ==="
+
+test_table_basic() {
+  local result
+  result=$(bash "$SCRIPTS_DIR/build_comparison_table.sh" --before "$BEFORE_MD" --after "$AFTER_MD")
+  assert_exit_code "basic table exits 0" 0 $?
+  assert_contains "header has default labels" "| Avant | Après |" "$result"
+  assert_contains "separator row present" "| ------ | ------ |" "$result"
+  assert_contains "row contains before snippet" "$BEFORE_MD" "$result"
+  assert_contains "row contains after snippet" "$AFTER_MD" "$result"
+  assert_contains "before and after on the same row" "| ${BEFORE_MD} | ${AFTER_MD} |" "$result"
+  local first_line
+  first_line=$(echo "$result" | head -1)
+  assert_eq "first line is the table header (no caption)" "| Avant | Après |" "$first_line"
+}
+test_table_basic
+
+test_table_with_caption() {
+  local result
+  result=$(bash "$SCRIPTS_DIR/build_comparison_table.sh" --before "$BEFORE_MD" --after "$AFTER_MD" --caption "Formulaire de qualité")
+  assert_exit_code "table with caption exits 0" 0 $?
+  assert_contains "caption line present" "**Formulaire de qualité :**" "$result"
+  assert_contains "table still present after caption" "| Avant | Après |" "$result"
+}
+test_table_with_caption
+
+test_table_custom_labels() {
+  local result
+  result=$(bash "$SCRIPTS_DIR/build_comparison_table.sh" --before "$BEFORE_MD" --after "$AFTER_MD" --before-label "Before" --after-label "After")
+  assert_exit_code "custom labels exit 0" 0 $?
+  assert_contains "custom before label" "| Before | After |" "$result"
+}
+test_table_custom_labels
+
+test_table_missing_after() {
+  local result code
+  set +e
+  result=$(bash "$SCRIPTS_DIR/build_comparison_table.sh" --before "$BEFORE_MD" 2>&1)
+  code=$?
+  set -e
+  assert_exit_code "missing --after exits 1" 1 "$code"
+  assert_contains "error mentions both required" "both required" "$result"
+}
+test_table_missing_after
+
+test_table_empty_before() {
+  local result code
+  set +e
+  result=$(bash "$SCRIPTS_DIR/build_comparison_table.sh" --before "" --after "$AFTER_MD" 2>&1)
+  code=$?
+  set -e
+  assert_exit_code "empty --before exits 1" 1 "$code"
+}
+test_table_empty_before
+
+test_table_invalid_snippet() {
+  local result code
+  set +e
+  result=$(bash "$SCRIPTS_DIR/build_comparison_table.sh" --before "not a markdown snippet" --after "$AFTER_MD" 2>&1)
+  code=$?
+  set -e
+  assert_exit_code "non-upload snippet exits 1" 1 "$code"
+  assert_contains "error mentions snippet shape" "upload Markdown snippet" "$result"
+}
+test_table_invalid_snippet
+
+test_table_pipe_in_caption() {
+  local result code
+  set +e
+  result=$(bash "$SCRIPTS_DIR/build_comparison_table.sh" --before "$BEFORE_MD" --after "$AFTER_MD" --caption "bad | caption" 2>&1)
+  code=$?
+  set -e
+  assert_exit_code "pipe in caption exits 1" 1 "$code"
+  assert_contains "error mentions pipe" "pipe" "$result"
+}
+test_table_pipe_in_caption
+
+test_table_pipe_in_snippet() {
+  # GitLab alt-text derives from the file name: "avant|apres.png" is real.
+  local bad_before="![avant|apres](/uploads/hash/before.png)"
+  local result code
+  set +e
+  result=$(bash "$SCRIPTS_DIR/build_comparison_table.sh" --before "$bad_before" --after "$AFTER_MD" 2>&1)
+  code=$?
+  set -e
+  assert_exit_code "pipe in snippet exits 1" 1 "$code"
+  assert_contains "error mentions table breaker" "pipe or a newline" "$result"
+}
+test_table_pipe_in_snippet
+
+test_table_newline_in_snippet() {
+  local bad_before=$'![avant](/uploads/hash/before.png)\nextra line'
+  local result code
+  set +e
+  result=$(bash "$SCRIPTS_DIR/build_comparison_table.sh" --before "$bad_before" --after "$AFTER_MD" 2>&1)
+  code=$?
+  set -e
+  assert_exit_code "newline in snippet exits 1" 1 "$code"
+}
+test_table_newline_in_snippet
+
+test_table_local_path_rejected() {
+  # Only GitLab upload snippets are accepted: a local path would render
+  # as a broken image in the MR.
+  local result code
+  set +e
+  result=$(bash "$SCRIPTS_DIR/build_comparison_table.sh" --before "![avant](local-before.png)" --after "$AFTER_MD" 2>&1)
+  code=$?
+  set -e
+  assert_exit_code "local path snippet exits 1" 1 "$code"
+  assert_contains "error mentions upload snippet shape" "GitLab upload Markdown snippet" "$result"
+}
+test_table_local_path_rejected
+
+test_table_truncated_option() {
+  # An option without its value (last argument) must fail closed with the
+  # script's own message, not a cryptic bash "shift count out of range".
+  local result code
+  set +e
+  result=$(bash "$SCRIPTS_DIR/build_comparison_table.sh" --before "$BEFORE_MD" --after "$AFTER_MD" --caption 2>&1)
+  code=$?
+  set -e
+  assert_exit_code "truncated option exits 1" 1 "$code"
+  assert_contains "error mentions missing value" "Missing value" "$result"
+}
+test_table_truncated_option
+
+test_table_no_args() {
+  local result code
+  set +e
+  result=$(bash "$SCRIPTS_DIR/build_comparison_table.sh" 2>&1)
+  code=$?
+  set -e
+  assert_exit_code "no args exits 1" 1 "$code"
+}
+test_table_no_args
+
+test_table_unknown_arg() {
+  local result code
+  set +e
+  result=$(bash "$SCRIPTS_DIR/build_comparison_table.sh" --unknown x --before "$BEFORE_MD" --after "$AFTER_MD" 2>&1)
+  code=$?
+  set -e
+  assert_exit_code "unknown arg exits 1" 1 "$code"
+  assert_contains "error mentions unknown argument" "Unknown argument" "$result"
+}
+test_table_unknown_arg
+
+test_table_no_network_calls() {
+  # The assembler must never call glab: it must work in a non-Git directory.
+  local result code
+  cd "$TMP_BASE"
+  set +e
+  result=$(bash "$SCRIPTS_DIR/build_comparison_table.sh" --before "$BEFORE_MD" --after "$AFTER_MD" 2>&1)
+  code=$?
+  set -e
+  assert_exit_code "works outside a Git repo (no glab/network dependency)" 0 "$code"
+  assert_contains "table assembled outside a Git repo" "| Avant | Après |" "$result"
+}
+test_table_no_network_calls
 
 # ─── Summary ──────────────────────────────────────────────────────────────────
 

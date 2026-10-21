@@ -370,6 +370,37 @@ Une fois tous les contrôles bloquants verts : skill **`create-mr`**.
   *aucune MR publiée* — la voie honnête est alors `mark 7 SKIPPED` au niveau
   phase, jamais `PASSED` ; toute entrée `fail` d'une tentative ratée doit
   porter les mêmes déclarations (ou être purgée) avant un `PASSED`.
+- **Lien MR → carte Trello (étape 7 bis)** : si `taskUrls[]` contient une carte
+  Trello (`source: "trello"`) et qu'une `mergeRequestUrl` vient d'être créée,
+  poster un commentaire sur la carte avec le lien de la MR. **Cascade** :
+  1. `bash scripts/task-workflow/trello_comment.sh --card-url <url> --mr-url
+     <mergeRequestUrl> --branch <featureBranch>` — voie **API** (déterministe,
+     idempotente par GET-before-POST) si `TRELLO_API_KEY`/`TRELLO_TOKEN` sont
+     résolus (env, puis `~/.config/opencode/.env`). `posted`/`already` = fin.
+     Sortie `failed` (exit 1 — token expiré 401, carte inaccessible 404) :
+     **ne pas basculer silencieusement** — journaliser l'incident (`log`),
+     retry borné (1x), puis décider explicitement (demander à l'utilisateur
+     ou skip tracé).
+  2. Sortie `no-token` (exit 3) → voie **browser-debug** : navigateur réel
+     (port 9222) avec session Trello authentifiée — ouvrir la carte, vérifier
+     que l'URL de la MR n'est pas déjà dans les commentaires visibles
+     (dédoublon **best-effort** en lecture DOM), poster le même corps :
+     `🔗 Merge request liée : <mergeRequestUrl>` /
+     `📝 <titre>` (si connu) / `🌿 Branche : <featureBranch>` (si connu) /
+     `✔️ Prête pour revue humaine — jamais de merge automatique (task-workflow)`.
+  3. Session non authentifiée → demander à l'utilisateur de se connecter dans
+     le navigateur debug, puis reprendre au 2.
+  4. Navigateur non disponible ou utilisateur hors ligne → skip **tracé**.
+  Le résultat (quel que soit le canal) est enregistré via
+  `tw_state.py notify <state> --channel api|browser --status pass|skipped --mr-url <mergeRequestUrl> [--comment-id <id>] [--reason <texte>]`
+  dans `notifyResults[]`
+  (`{"channel": "api"|"browser", "status": "pass"|"skipped", "mergeRequestUrl": "...", "commentId"?: "...", "reason"?: "..."}`) —
+  jamais d'édition manuelle du JSON.
+  Cette étape est une **notification de courtoisie** : elle ne gate **jamais**
+  le `PASSED` de la Phase 7 (la garde porte sur `mrResults[]`, pas sur les
+  notifications) ; elle est **rejouée au `resume`** tant qu'aucun
+  `posted`/`already` n'existe pour la MR courante (sûr : le dédoublon API est
+  garanti, le dédoublon browser est best-effort).
 - **Ressources** : liens Trello et/ou GitLab issue + référence GitLab reliant
   l'issue à la MR **sans fermeture prématurée**.
 - Avant publication : vérifier source, cible, diff final, commits, résultats de
@@ -425,6 +456,8 @@ volumineux — référencer les preuves, ne pas les embarquer.
   "plan": { "objective": "...", "steps": [], "acceptanceCriteria": [] },
   "decisions": [{ "question": "...", "answer": "...", "source": "HUMAN|policy" }],
   "testResults": [], "qaResults": [], "reviewResults": [],
+  "mrResults": [],
+  "notifyResults": [],
   "designContract": null,
   "riskLevel": null,
   "implementationContract": null,
@@ -452,7 +485,12 @@ sections `observableBehaviors`/`invariants`/`acceptanceCriteria`/
 points ; validé quand présent, jamais requis pour un parcours `LOW`) ;
 entrées de `testResults[]`/`qaResults[]`/`reviewResults[]` avec `increment`
 (preuve intermédiaire d'un incrément) et `codeSignature` (sha1 du code que la
-preuve a validé).
+preuve a validé) ; `mrResults[]` (preuve de la Phase 7 — voir le bullet
+**Preuve (garde fail-closed)** de la Phase 7, champ **gated** par la garde de
+transition) et `notifyResults[]` (issue de l'étape 7 bis — notification de
+courtoisie, **jamais gating du PASSED**, écrite via
+`tw_state.py notify <state> --channel api|browser --status pass|skipped|... --mr-url <url>
+[--comment-id <id>] [--reason <texte>]`, raison **requise** sur un skip) ;
 
 **Résultats de contrôle structurés** (additif) : une entrée de `testResults[]`
 / `qaResults[]` / `reviewResults[]` porte

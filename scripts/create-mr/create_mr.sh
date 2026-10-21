@@ -60,12 +60,6 @@ if [ -z "$BODY_FILE" ] || [ ! -f "$BODY_FILE" ]; then
   exit 1
 fi
 
-# Ensure glab is available
-if ! command -v glab &>/dev/null; then
-  echo "ERROR: glab CLI not found." >&2
-  exit 1
-fi
-
 # Ensure we are in a Git repository
 if ! git rev-parse --show-toplevel &>/dev/null; then
   echo "ERROR: Not in a Git repository." >&2
@@ -76,6 +70,8 @@ TOPLEVEL="$(git rev-parse --show-toplevel)"
 cd "$TOPLEVEL"
 
 if [ "$DRY_RUN" = true ]; then
+  # Dry-run never invokes glab: the check below must stay AFTER this branch
+  # so --dry-run works on machines without glab (CI test suite requirement).
   echo "=== DRY RUN ==="
   echo "Target branch: $TARGET_BRANCH"
   echo "Title: $TITLE"
@@ -88,6 +84,12 @@ if [ "$DRY_RUN" = true ]; then
   echo ""
   echo "Would run: glab mr create -b \"$TARGET_BRANCH\" -t \"$TITLE\" -d \"\$(cat $BODY_FILE)\" -y"
   exit 0
+fi
+
+# Ensure glab is available (real run only — dry-run above exits before this)
+if ! command -v glab &>/dev/null; then
+  echo "ERROR: glab CLI not found." >&2
+  exit 1
 fi
 
 # Create the MR

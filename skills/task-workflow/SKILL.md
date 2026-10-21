@@ -352,6 +352,10 @@ Une fois tous les contrôles bloquants verts : skill **`create-mr`**.
 - **Template** : `.gitlab/merge_request_templates/` du projet — utiliser le plus
   pertinent, préserver structure et checklists, ne **cocher que ce qui a été
   réellement fait**.
+- **Feature front** : si le diff touche des fichiers UI, appliquer l'étape 8 bis
+  de `create-mr` (tableau Avant/Après) — réutiliser si possible les captures
+  navigateur de la Phase 5 (qaResults), sinon les recapturer selon les
+  stratégies du skill. Conditions non réunies → skip silencieux.
 - **Ressources** : liens Trello et/ou GitLab issue + référence GitLab reliant
   l'issue à la MR **sans fermeture prématurée**.
 - Avant publication : vérifier source, cible, diff final, commits, résultats de

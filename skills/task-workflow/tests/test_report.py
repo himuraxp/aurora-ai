@@ -134,6 +134,30 @@ class TestOperational(unittest.TestCase):
         self.assertIn("MR !570 prête", out)
         self.assertIn("revue humaine de la MR !570", out)
 
+    def test_mr_evidence_fragment_rendered_from_mr_results(self):
+        # Phase-7 evidence is visible on the MR line: template + table mode,
+        # never invented — no mrResults entry, no fragment.
+        state = rich_state(mrResults=[
+            {"phase": 7, "name": "create-mr", "status": "pass",
+             "templateUsed": "default.md", "comparisonTable": "visual"}])
+        out = tw_report.render_operational(state, [], CONTEXT)
+        self.assertIn("template `default.md`", out)
+        self.assertIn("tableau : `visual`", out)
+
+    def test_mr_evidence_none_reason_rendered(self):
+        state = rich_state(mrResults=[
+            {"phase": 7, "name": "create-mr", "status": "pass",
+             "templateUsed": "none", "comparisonTable": "none",
+             "reason": "changement de données, pas de nouveau flux UI"}])
+        out = tw_report.render_operational(state, [], CONTEXT)
+        self.assertIn("template `none`", out)
+        self.assertIn("tableau : non (changement de données", out)
+
+    def test_no_mr_results_no_fragment_never_invented(self):
+        out = tw_report.render_operational(rich_state(), [], CONTEXT)
+        self.assertNotIn("template", out)
+        self.assertNotIn("tableau :", out)
+
     def test_blocked_status_and_blocker_next_action(self):
         state = rich_state()
         state["phaseStatuses"]["4"] = {"status": "BLOCKED", "at": TS}

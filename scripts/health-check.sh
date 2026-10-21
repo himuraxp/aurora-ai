@@ -650,6 +650,16 @@ if [[ -f "$ROOT_DIR/skills/task-workflow/SKILL.md" ]]; then
   grep -qi 'jamais de merge automatique\|jamais.*merge automatique' "$ROOT_DIR/skills/task-workflow/SKILL.md" \
     && ok "task-workflow forbids automatic merge" \
     || fail "task-workflow must explicitly forbid automatic merge"
+  grep -q 'mrResults' "$ROOT_DIR/skills/task-workflow/SKILL.md" \
+    && grep -q 'templateUsed' "$ROOT_DIR/skills/task-workflow/SKILL.md" \
+    && ok "task-workflow phase-7 MR evidence guard documented (mrResults[])" \
+    || fail "task-workflow Phase 7 must document the mrResults[] evidence guard (templateUsed + comparisonTable)"
+  if [[ -f "$ROOT_DIR/skills/create-mr/SKILL.md" ]]; then
+    grep -q 'Règle anti-image' "$ROOT_DIR/skills/create-mr/SKILL.md" \
+      && grep -q 'JAMAIS un fichier image' "$ROOT_DIR/skills/create-mr/SKILL.md" \
+      && ok "create-mr step 6bis documents the orchestrator text-only image rule" \
+      || fail "create-mr step 6bis must document the text-only image rule (never read a capture)"
+  fi
 fi
 
 if [[ -f "$ROOT_DIR/skills/task-workflow/tw_state.py" ]]; then

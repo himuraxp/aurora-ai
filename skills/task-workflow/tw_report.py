@@ -178,6 +178,28 @@ def _check_line(entry: dict, default_label: str = "contrôle",
     return None
 
 
+def _mr_evidence_fragment(state: dict) -> str:
+    """Template + comparison table declared by the phase-7 MR evidence
+    (mrResults[]) — rendered only from recorded facts, never invented:
+    no mrResults entry, no fragment."""
+    entries = [e for e in (state.get("mrResults") or [])
+               if isinstance(e, dict) and str(e.get("phase", "")) == "7"]
+    if not entries:
+        return ""
+    last = entries[-1]
+    parts: List[str] = []
+    template = last.get("templateUsed")
+    if template:
+        parts.append(f"template `{template}`")
+    comparison = last.get("comparisonTable")
+    if comparison == "none":
+        reason = last.get("reason") or "raison non enregistrée"
+        parts.append(f"tableau : non ({_truncate(reason, 80)})")
+    elif comparison:
+        parts.append(f"tableau : `{comparison}`")
+    return f" · " + " · ".join(parts) if parts else ""
+
+
 def _controls_line(state: dict) -> str:
     items: List[str] = []
     defaults = {"testResults": "tests", "reviewResults": "review", "qaResults": "QA"}
@@ -331,6 +353,7 @@ def render_operational(state: dict, events: List[dict], context: Optional[dict] 
             mr += f" · commit `{context['head_commit']}`"
         if context.get("files_changed") is not None:
             mr += f" · {context['files_changed']} fichiers modifiés"
+        mr += _mr_evidence_fragment(state)
         lines.append(mr)
     lines.append(f"**Prochaine action** : {_next_action(state)}")
     if context.get("detail_path"):
@@ -372,8 +395,9 @@ def render_detailed(state: dict, events: List[dict], context: Optional[dict] = N
                 attempt = f" (tentative {event['attempt']})" if event.get("attempt") else ""
                 lines.append(f"- {_truncate(summary, 110)}{attempt} — {event.get('actor', '?')}")
         validations = []
-        defaults = {"testResults": "tests", "reviewResults": "review", "qaResults": "QA"}
-        for key in ("testResults", "reviewResults", "qaResults"):
+        defaults = {"testResults": "tests", "reviewResults": "review",
+                    "qaResults": "QA", "mrResults": "MR"}
+        for key in ("testResults", "reviewResults", "qaResults", "mrResults"):
             for check in state.get(key, []):
                 if isinstance(check, dict) and check.get("phase") == phase:
                     line = _check_line(check, defaults[key])

@@ -352,10 +352,24 @@ Une fois tous les contrôles bloquants verts : skill **`create-mr`**.
 - **Template** : `.gitlab/merge_request_templates/` du projet — utiliser le plus
   pertinent, préserver structure et checklists, ne **cocher que ce qui a été
   réellement fait**.
-- **Feature front** : si le diff touche des fichiers UI, appliquer l'étape 8 bis
-  de `create-mr` (tableau Avant/Après) — réutiliser si possible les captures
-  navigateur de la Phase 5 (qaResults), sinon les recapturer selon les
-  stratégies du skill. Conditions non réunies → skip silencieux.
+- **Feature front** : si le diff touche des fichiers UI, appliquer l'étape 6 bis
+  de `create-mr` (tableau Avant/Après ou Visuel) — réutiliser si possible les
+  captures navigateur de la Phase 5 (qaResults), sinon les recapturer selon les
+  stratégies du skill. Conditions non réunies → skip **tracé, jamais
+  silencieux** : `comparisonTable: "none"` + raison non vide dans `mrResults[]`
+  (un skip sans trace est indistinguable d'un oubli — post-mortem MR !602).
+- **Preuve (garde fail-closed)** : le `PASSED` de la Phase 7 exige au moins une
+  entrée `mrResults[]` attachée à la phase, déclarant `templateUsed` (fichier
+  du template appliqué, ou `"none"`) et `comparisonTable` (`before-after` |
+  `visual` | `none`, raison non vide si `none`) — ex.
+  `{"phase": 7, "name": "create-mr", "status": "pass", "templateUsed": "default.md", "comparisonTable": "visual"}`.
+  Le `mark` est refusé sans cette déclaration : pas de court-circuit du
+  pipeline MR. Les captures ne sont **jamais lues** par l'orchestrateur
+  (text-only) — upload via `upload_media.sh`, analyse déléguée à un agent
+  multimodal. Sémantique : une entrée `mrResults[]` en `skipped` signifie
+  *aucune MR publiée* — la voie honnête est alors `mark 7 SKIPPED` au niveau
+  phase, jamais `PASSED` ; toute entrée `fail` d'une tentative ratée doit
+  porter les mêmes déclarations (ou être purgée) avant un `PASSED`.
 - **Ressources** : liens Trello et/ou GitLab issue + référence GitLab reliant
   l'issue à la MR **sans fermeture prématurée**.
 - Avant publication : vérifier source, cible, diff final, commits, résultats de
@@ -557,7 +571,7 @@ Objectif : <résumé fonctionnel sur une ligne — enregistré en français en P
 **Contrôles** : <tests ✅/❌ avec exit codes> · base <branch> : <baseline> · bloqueurs : N
 **Phases** : Contexte·Worktree·Analyse·Code ✅ · QA ⏭️ non exécutée (raison) · Review·MR ○ à venir
 **Décisions** : «<réponse>» (validé humain) · **Vigilance** : QA : non exécutée — <raison>
-**MR** : [!N](url) → `base` · `feature` · commit `sha` · N fichiers modifiés
+**MR** : [!N](url) → `base` · `feature` · commit `sha` · N fichiers modifiés · template `default.md` · tableau : `before-after`
 **Prochaine action** : revue humaine de la MR !N (jamais de merge automatique)
 📄 Détail par phase : `~/.config/opencode/task-workflows/<workflowId>/report-detailed.md`
 ```

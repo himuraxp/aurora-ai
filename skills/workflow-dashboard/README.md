@@ -14,7 +14,7 @@ todowrite (plugin).
 | `wd_taskworkflow.py` | Adaptateur NATIF : traduit à la volée les états `task-workflow` (lecture seule, jamais écrit) |
 | `wd_publish.py` | CLI de publication (garantie DÉCLARATIVE) : create / step / add-step / set-steps / close / show / list |
 | `wd_dashboard.py` | Renderer terminal (LECTURE SEULE STRICTE) : 3 catégories, `--watch`, `--verbose` |
-| `wd_orca.py` | Intégration pane Orca (idempotent) : ensure / restart / close / status |
+| `wd_orca.py` | Intégration pane Orca (idempotent) : ensure / close / status |
 | `wd_relay.py` | Relais todowrite (RELAIS NATIF) : `reconcile <sessionID> <todos|->` |
 | `tests/` | 145 tests (contrat, verrous, concurrence multi-process, atomicité, adaptateur, renderer, Orca, relais, CLI e2e) |
 
@@ -102,8 +102,8 @@ python3 wd_dashboard.py [--watch 0.5] [--verbose] [--width N] [--session-id S]
 
 # Pane Orca (idempotent — un handle réutilisé, jamais de duplication) :
 python3 wd_orca.py ensure --worktree-path /path [--session-id S] [--watch 0.5]
-python3 wd_orca.py restart --worktree-path /path    # close + recreate explicite
 python3 wd_orca.py close --worktree-path /path && python3 wd_orca.py status
+# re-lance un pane : close puis ensure (nouveau handle, sans duplication)
 
 # Relais todowrite (appelé par le plugin ; utilisable manuellement) :
 python3 wd_relay.py reconcile <sessionID> '[{"content":"A","status":"in_progress"}]'
@@ -119,11 +119,25 @@ stderr, pattern `wd_publish`). Overrides d'environnement : `WD_PROGRESS_DIR`,
 
 `config/plugins/wd-relay.ts` — hook `tool.execute.after` filtré sur
 `todowrite` : payload par **stdin** vers `wd_relay.py` (argv-array + stdin :
-aucune injection, pas de limite ARG_MAX), try/catch **total** (handler ET
-setup) — aucun crash du relais n'interrompt jamais le workflow. Skip loggué
-sans payload exploitable ni `sessionID` : jamais de donnée fictive.
-Déployé par `install.sh` vers `~/.config/opencode/plugins/` (auto-load) ;
-le script `wd_relay.py` vers `~/.config/opencode/skills/workflow-dashboard/`.
+aucune injection, pas de limite ARG_MAX), try/catch **total** sur le handler —
+aucun crash du relais n'interrompt jamais le workflow. Skip loggué sans
+payload exploitable ni `sessionID` : jamais de donnée fictive. Déployé par
+`install.sh` vers `~/.config/opencode/plugins/` (auto-load) ; le script
+`wd_relay.py` vers `~/.config/opencode/skills/workflow-dashboard/`.
+
+**Preuve E2E du hook (sonde 2026-10-21, opencode v2.1.2)** : le hook
+`tool.execute.after` ne fire qu'en **format V1** (fonction plugin retournant
+l'objet Hooks) ; l'API v2 `ctx.tool.hook("execute.after")` s'enregistre
+**sans fire** (seul `execute.before` est routé). Shape runtime réelle :
+`input = {tool, sessionID, agent, messageID, id, input, status, result}` —
+`sessionID` présent, args du tool dans `input`. Le test d'intégration
+`tests/test_plugin_relay.py` rejoue ce chemin complet (payload → hook →
+`wd_relay.py` → store) à chaque suite.
+
+**Caveat v2.1.2** : le tool natif `todowrite` n'est plus exposé dans le
+catalogue des agents de cette version (le renderer TUI le connaît pour
+rétrocompat). Le relais reste câblé, testé, et s'activera sur toute
+version/fork exposant `todowrite` — aucune donnée fictive entre-temps.
 
 **Smoke E2E du relais** (critère E2E #2 — à exécuter après déploiement) :
 1. Ouvrir une session OpenCode, demander un plan (`todowrite` se déclenche).
@@ -146,5 +160,5 @@ le script `wd_relay.py` vers `~/.config/opencode/skills/workflow-dashboard/`.
 ## Tests
 
 ```bash
-python3 -m unittest discover -s skills/workflow-dashboard/tests   # 145 tests
+python3 -m unittest discover -s skills/workflow-dashboard/tests   # 146 tests
 ```

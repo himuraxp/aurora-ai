@@ -51,3 +51,20 @@ export const MyPlugin: Plugin = async ({ $ }) => {
   }
 }
 ```
+
+## Runtime hooks (vérifié par sonde E2E, 2026-10-21 — opencode v2.1.2)
+
+- **`tool.execute.after` ne fire qu'en format V1** (fonction plugin
+  retournant l'objet Hooks, ci-dessus). L'API v2
+  `ctx.tool.hook("execute.after", handler)` (pattern `rtk.ts`) s'enregistre
+  **sans erreur mais ne fire pas** — seul `execute.before` est routé par
+  `ctx.tool.hook`.
+- **Shape runtime réelle** du handler (1er argument) :
+  `{ tool, sessionID, agent, messageID, id, input, status, result }` —
+  `sessionID` présent ; les args du tool vivent dans `input` (pas de
+  `args` top-level comme dans le paquet npm `@opencode-ai/plugin >= 1.3.3`).
+- Les `console.log/error` des plugins ne sortent **ni** dans stderr du run
+  **ni** visiblement dans `opencode.log` — écrire dans un fichier pour
+  diagnostiquer (pattern sonde `wd-probe`).
+- Les plugins locaux se chargent via `msg="loading plugin"` (log serveur) —
+  une erreur de chargement y est tracée, le runtime continue sans le plugin.

@@ -26,7 +26,7 @@ AI agents (OpenCode, Cursor, Claude...) don't know which standard to follow unle
 **What you get:**
 
 - **19 specialized agents + 4 plugin agents** — engineering roles (reviewer, tester, security, architect, designer...), a Search & Growth team and a delegated product owner
-- **17 universal standards + 40 skills** — adversarial review, verification, commits, plus the 17-skill accessibility suite
+- **17 universal standards + 44 skills** — adversarial review, verification, commits, plus the 17-skill accessibility suite
 - **Persistent project memory** — 7 `docs/ai/` documents auto-read at session start: agents keep context across sessions
 - **14 models with automatic fallback** — 250k → 1M context, cost-based agent assignment
 - **Consistent across machines** — same setup and behavior everywhere, with ready-to-use examples (Angular, Node.js API, monorepo)
@@ -606,6 +606,10 @@ aurora-ai/
 │   ├── accessibility/         Accessibility suite (17 orchestrated sub-skills: aria, contrast, focus, keyboard, forms…)
 │   ├── ai-cowork/             Aurora ↔ ChatGPT co-working (autonomous review loop via browser-debug)
 │   ├── allow-command/         Pre-approve shell commands in opencode.json
+│   ├── antislop/               Anti-slop AI filter (38 rules, 3 tiers, Delivery Gate — vendored from miqdadbadjuber/anti-slop v3.2.21)
+│   ├── antislop-code/          Code comment hygiene (remove AI-slop comments, keep valuable ones, never touch code)
+│   ├── antislop-copywriting/   Copy & text anti-slop (headlines, CTAs, tone, anti-AI-writing patterns)
+│   ├── antislop-ui/            UI/visual anti-slop (color, layout, components, motion)
 │   ├── clonedeps/             Clone dependency sources to inspect library internals
 │   ├── code-review/           Adversarial code review
 │   ├── codemap/               Hierarchical code maps for unknown repos

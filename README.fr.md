@@ -26,7 +26,7 @@ Les agents IA (OpenCode, Cursor, Claude...) ne savent pas quel standard utiliser
 **Ce que vous obtenez :**
 
 - **19 agents spécialisés + 4 agents plugin** — rôles ingénierie (reviewer, tester, security, architect, designer...), équipe Search & Growth et product owner délégué
-- **17 standards universels + 40 skills** — review adversariale, vérification, commits, et la suite accessibilité de 17 sous-skills
+- **17 standards universels + 44 skills** — review adversariale, vérification, commits, et la suite accessibilité de 17 sous-skills
 - **Mémoire projet persistante** — 7 documents `docs/ai/` lus automatiquement en début de session : les agents gardent le contexte entre les sessions
 - **14 modèles avec fallback automatique** — contexte 250k → 1M, assignation des agents par coût
 - **Cohérent entre machines** — même setup et même comportement partout, avec des exemples prêts à l'emploi (Angular, API Node.js, monorepo)
@@ -607,6 +607,10 @@ aurora-ai/
 │   ├── accessibility/         Suite accessibilité (17 sous-skills orchestrés : aria, contraste, focus, clavier, formulaires…)
 │   ├── ai-cowork/             Co-working Aurora ↔ ChatGPT (boucle de review autonome via browser-debug)
 │   ├── allow-command/         Pré-approuver des commandes shell dans opencode.json
+│   ├── antislop/               Filtre anti-slop IA (38 règles, 3 tiers, Delivery Gate — vendu depuis miqdadbadjuber/anti-slop v3.2.21)
+│   ├── antislop-code/          Hygiène des commentaires de code (supprime le slop IA, préserve les porteurs, ne touche jamais au code)
+│   ├── antislop-copywriting/   Anti-slop copy & texte (titres, CTAs, ton, patterns d'écriture IA)
+│   ├── antislop-ui/            Anti-slop UI/visuel (couleur, layout, composants, motion)
 │   ├── clonedeps/             Cloner les sources des dépendances pour inspecter les internals des librairies
 │   ├── code-review/           Review adversariale de code
 │   ├── codemap/               Cartes de code hiérarchiques pour repos inconnus

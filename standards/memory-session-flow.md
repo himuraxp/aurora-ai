@@ -88,6 +88,16 @@ Certains documents ne sont pas lus systématiquement au démarrage, mais uniquem
 - **DECISIONS.md** : consulté en JIT si une décision structurante est nécessaire, si une règle projet semble contradictoire, ou si une modification d'architecture est envisagée.
 - **CHANGELOG.md** : consulté en JIT pour comprendre l'historique d'une zone, si une régression est suspectée, ou si l'utilisateur demande l'historique.
 
+### aurora-memory indisponible — auto-réparation (obligatoire, 2026-10-22)
+
+Le bridge mémoire avale les erreurs tool (`isError` avec texte vide — aucune indication). Un appel `aurora_memory` qui échoue ou renvoie une erreur vide ne signifie JAMAIS « mémoire vide » : c'est presque toujours l'infrastructure (conteneur PostgreSQL arrêté, engine docker coupé). Procédure obligatoire avant toute conclusion :
+
+1. `node ~/.config/opencode/scripts/check-aurora-memory.mjs` — diagnostic actionnable (read-only).
+2. Si le check identifie une réparation infra (conteneur arrêté, engine coupé, policy `no`) : `node ~/.config/opencode/scripts/check-aurora-memory.mjs --fix` — répare (docker start / open -a Docker / policy), re-vérifie, exit 0 si opérationnel. Opérations bénignes et bornées au conteneur `aurora-core-postgres` : jamais de stop/delete.
+3. Rejouer l'appel mémoire. N'informer l'utilisateur que si le `--fix` échoue (problème de données/config : `.env`, bundle absent — jamais auto-réparés par design).
+
+Ne pas déléguer cette procédure (tool `aurora_memory` + bridge = orchestrator-only). Le health-check du repo opencode-config branche le même check en lecture seule (CI-safe).
+
 ## Règles
 
 - Ne pas documenter les micro-corrections (unif, typo, formatage).

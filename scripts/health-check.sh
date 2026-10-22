@@ -931,6 +931,76 @@ if [[ -f "$ROOT_DIR/skills/design-qa/dq_contract.py" ]]; then
   fi
 fi
 
+# ─── aurora-memory liveness (2026-10-22 — silent-degradation fix) ────────────
+# The bridge spawns the memory server per call and tool errors surface as
+# EMPTY text: a stopped PostgreSQL container degraded every memory operation
+# silently for 8 days (observed 2026-10-14 → 2026-10-22). This check makes
+# the failure loud + actionable. SKIP (ok-level) when the bundle is absent:
+# aurora-core is optional infrastructure and CI runners have neither it nor
+# docker — a permanent WARN there would train alarm fatigue.
+
+echo ""
+echo "--- aurora-memory service ---"
+if ! command -v node >/dev/null 2>&1; then
+  warn "node absent — skip aurora-memory liveness check"
+else
+  # Classification harness first (fake MCP servers via AURORA_MEMORY_SERVER —
+  # CI-runnable, no docker/aurora-core needed): pins every failure shape.
+  if bash "$ROOT_DIR/scripts/tests/test-check-aurora-memory.sh" >/dev/null 2>&1; then
+    ok "aurora-memory classification harness (fake-server suite)"
+  else
+    fail "aurora-memory classification harness failed (run: bash scripts/tests/test-check-aurora-memory.sh)"
+  fi
+  if _am_out=$(node "$ROOT_DIR/scripts/check-aurora-memory.mjs" 2>&1); then
+    # Redact credentials from any echoed output (driver/env errors embed the DSN).
+    _am_out=$(printf '%s' "$_am_out" | sed -E 's|(//)[^@/[:space:]]+@|\1***@|g')
+    _am_had_warn=false
+    while IFS= read -r _am_line; do
+      case "$_am_line" in
+        WARN\ *) warn "${_am_line#WARN }"; _am_had_warn=true ;;
+        FAIL\ *) fail "aurora-memory check emitted FAIL but exited 0: ${_am_line#FAIL }" ;;
+      esac
+    done <<<"$_am_out"
+    if [[ "$_am_had_warn" == true ]]; then
+      ok "aurora-memory operational (goal_list OK, see warning above)"
+    else
+      ok "aurora-memory operational (server init + goal_list OK)"
+    fi
+  else
+    _am_rc=$?
+    _am_out=$(printf '%s' "$_am_out" | sed -E 's|(//)[^@/[:space:]]+@|\1***@|g')
+    case "$_am_rc" in
+      2)
+        _am_saw_fail=false
+        while IFS= read -r _am_line; do
+          case "$_am_line" in
+            FAIL\ *) fail "aurora-memory ${_am_line#FAIL }"; _am_saw_fail=true ;;
+          esac
+        done <<<"$_am_out"
+        if [[ "$_am_saw_fail" == false ]]; then
+          ok "aurora-memory not installed — liveness skipped (optional infra)"
+        fi
+        ;;
+      1)
+        _am_saw_fail=false
+        while IFS= read -r _am_line; do
+          case "$_am_line" in
+            FAIL\ *) fail "aurora-memory ${_am_line#FAIL }"; _am_saw_fail=true ;;
+            WARN\ *) warn "${_am_line#WARN }" ;;
+          esac
+        done <<<"$_am_out"
+        # Fail-closed: a rc=1 WITHOUT FAIL lines (uncaught exception, missing
+        # module, EPIPE crash) must never leave the health-check green.
+        if [[ "$_am_saw_fail" == false ]]; then
+          fail "aurora-memory check exited 1 without FAIL lines — crashed? $(printf '%s' "$_am_out" | head -c 200)"
+        fi
+        ;;
+      *) fail "aurora-memory check crashed (rc=$_am_rc): $(printf '%s' "$_am_out" | head -c 200)" ;;
+    esac
+  fi
+  unset _am_out _am_rc _am_line _am_had_warn _am_saw_fail
+fi
+
 # ─── Summary ─────────────────────────────────────────────────────────────────
 
 echo ""

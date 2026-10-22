@@ -21,6 +21,15 @@
  *         2 = skip — server bundle absent (aurora-core not installed; optional
  *             infrastructure, absent on CI runners too)
  *
+ * Repair mode (--fix): opt-in ONLY — the default run is read-only (CI safe).
+ * Repairs exactly what the classification identifies, nothing more:
+ *   - docker engine down (macOS)  → `open -a Docker` + wait for the engine
+ *   - container stopped           → `docker start` + wait for the DB port
+ *   - restart policy != unless-stopped/always → `docker update --restart`
+ * Data/config failures (missing .env, invalid DATABASE_URL) are NEVER
+ * auto-repaired — still displayed with their remediation. After a repair the
+ * full check re-runs once and the exit code reflects the SECOND verdict.
+ *
  * Never prints credentials: DATABASE_URL values are parsed to host:port only,
  * and any echoed stderr is redacted (user:password@ → ***@) — driver and
  * env-validation errors commonly embed the full DSN.
@@ -32,9 +41,11 @@
  *
  * Classification harness: scripts/tests/test-check-aurora-memory.sh injects
  * fake MCP servers via AURORA_MEMORY_SERVER to pin every classification
- * (CI-runnable, stdlib only, no docker required).
+ * (CI-runnable, stdlib only, no docker required). The --fix path is
+ * docker-dependent → proven live (stop container → --fix → repaired), not
+ * harness-pinned.
  *
- * Usage: node scripts/check-aurora-memory.mjs
+ * Usage: node scripts/check-aurora-memory.mjs [--fix]
  */
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -116,9 +127,9 @@ if (!existsSync(SERVER)) {
   process.exit(2);
 }
 
-// One server process handles both probes (stateless stdio, same pattern as
-// check-infomaniak-write-gate.mjs / the bridge plugin).
-const result = await new Promise((resolve) => {
+/** One server process handles both probes (stateless stdio, same pattern as
+ * check-infomaniak-write-gate.mjs / the bridge plugin). */
+const callServer = () => new Promise((resolve) => {
   const proc = spawn("node", [SERVER], { stdio: ["pipe", "pipe", "pipe"] });
   // The server may die between our writes (crash, early exit) — a write on a
   // dead stdin emits EPIPE → uncaught exception → exit 1 without FAIL lines
@@ -193,77 +204,171 @@ function classifyOk(text) {
   }
 }
 
-if (result.kind === "ok") {
-  pass("C1 server init", "bundle spawned, MCP initialize completed");
-  if (classifyOk(result.text)) {
-    pass("C2 goal_list", "cheap read returned non-error JSON content");
-  } else {
-    fail("C2 goal_list", `isError:false but payload is not JSON (${result.text ? `unexpected shape: ${redact(result.text).slice(0, 80)}` : "EMPTY content — new silent-degradation shape?"})`);
-  }
-} else {
-  if (result.kind === "tool-error") {
-    // Initialize succeeded — C1 holds, the failure is at the DB layer.
-    pass("C1 server init", "bundle spawned, MCP initialize completed");
-  }
-  const target = probeTarget();
-  const reachable = target ? await tcpProbe(target) : null;
-  const where = target ? `${target.host}:${target.port}` : "DATABASE_URL target";
-  const dbHint = reachable === false
-    ? `PostgreSQL ${where} unreachable`
-    : reachable === true
-      ? `PostgreSQL ${where} reachable but the query failed`
-      : `PostgreSQL ${where} status unknown`;
-  const dockerInfo = result.kind === "tool-error" ? await dockerInspect(PG_CONTAINER) : null;
-  const containerHint = dockerInfo === null
-    ? ""
-    : dockerInfo.running
-      ? ""
-      : ` — container '${PG_CONTAINER}' is STOPPED, run: docker start ${PG_CONTAINER} && docker update --restart unless-stopped ${PG_CONTAINER}`;
-  const stderrHead = result.stderr ? redact(result.stderr.trim().split("\n")[0]).slice(0, 200) : "";
+const WANT_FIX = process.argv.includes("--fix");
 
-  switch (result.kind) {
-    case "timeout":
-      fail("C1 server init", `no MCP response within ${CALL_TIMEOUT_MS}ms (DB connect hanging?)`);
-      break;
-    case "spawn-error":
-      fail("C1 server init", `cannot spawn node ${SERVER} — ${redact(result.detail)}`);
-      break;
-    case "server-exit":
-      fail(
-        "C1 server init",
-        result.answered === false
-          ? `exited cleanly (code 0) without answering tools/call — broken server?${stderrHead ? " — " + stderrHead : ""}`
-          : `exited code ${result.code}${stderrHead ? " — " + stderrHead : ""}`,
-      );
-      if (/Configuration invalide/.test(result.stderr ?? "")) {
-        fail("C1 env", "server env validation failed — check DATABASE_URL in the aurora-core repo-root .env");
-      }
-      break;
-    case "init-error":
-    case "rpc-error":
-      fail("C1 server init", `${result.kind}${result.detail ? " — " + redact(result.detail).slice(0, 200) : ""}`);
-      break;
-    case "tool-error":
-      fail("C2 goal_list", `tool returned isError with ${result.text ? "message" : "EMPTY message (known silent-degradation shape)"} — ${dbHint}${containerHint}`);
-      break;
-    default:
-      fail("C1 server init", `unexpected result kind ${result.kind}`);
+/** One full read-only pass: emits PASS/FAIL/WARN lines, returns the verdict. */
+async function runPass() {
+  const result = await callServer();
+  let fixable = false;
+
+  if (result.kind === "ok") {
+    pass("C1 server init", "bundle spawned, MCP initialize completed");
+    if (classifyOk(result.text)) {
+      pass("C2 goal_list", "cheap read returned non-error JSON content");
+    } else {
+      fail("C2 goal_list", `isError:false but payload is not JSON (${result.text ? `unexpected shape: ${redact(result.text).slice(0, 80)}` : "EMPTY content — new silent-degradation shape?"})`);
+    }
+  } else {
+    if (result.kind === "tool-error") {
+      // Initialize succeeded — C1 holds, the failure is at the DB layer.
+      pass("C1 server init", "bundle spawned, MCP initialize completed");
+    }
+    const target = probeTarget();
+    const reachable = target ? await tcpProbe(target) : null;
+    const where = target ? `${target.host}:${target.port}` : "DATABASE_URL target";
+    const dbHint = reachable === false
+      ? `PostgreSQL ${where} unreachable`
+      : reachable === true
+        ? `PostgreSQL ${where} reachable but the query failed`
+        : `PostgreSQL ${where} status unknown`;
+    const dockerInfo = result.kind === "tool-error" ? await dockerInspect(PG_CONTAINER) : null;
+    const containerHint = dockerInfo === null
+      ? ""
+      : dockerInfo.running
+        ? ""
+        : ` — container '${PG_CONTAINER}' is STOPPED, run: docker start ${PG_CONTAINER} && docker update --restart unless-stopped ${PG_CONTAINER}`;
+    const stderrHead = result.stderr ? redact(result.stderr.trim().split("\n")[0]).slice(0, 200) : "";
+    fixable = dockerInfo !== null && !dockerInfo.running;
+
+    switch (result.kind) {
+      case "timeout":
+        fail("C1 server init", `no MCP response within ${CALL_TIMEOUT_MS}ms (DB connect hanging?)`);
+        break;
+      case "spawn-error":
+        fail("C1 server init", `cannot spawn node ${SERVER} — ${redact(result.detail)}`);
+        break;
+      case "server-exit":
+        fail(
+          "C1 server init",
+          result.answered === false
+            ? `exited cleanly (code 0) without answering tools/call — broken server?${stderrHead ? " — " + stderrHead : ""}`
+            : `exited code ${result.code}${stderrHead ? " — " + stderrHead : ""}`,
+        );
+        if (/Configuration invalide/.test(result.stderr ?? "")) {
+          fail("C1 env", "server env validation failed — check DATABASE_URL in the aurora-core repo-root .env");
+        }
+        break;
+      case "init-error":
+      case "rpc-error":
+        fail("C1 server init", `${result.kind}${result.detail ? " — " + redact(result.detail).slice(0, 200) : ""}`);
+        break;
+      case "tool-error":
+        fail("C2 goal_list", `tool returned isError with ${result.text ? "message" : "EMPTY message (known silent-degradation shape)"} — ${dbHint}${containerHint}`);
+        break;
+      default:
+        fail("C1 server init", `unexpected result kind ${result.kind}`);
+    }
   }
+
+  // C3 — restart policy: prevents the silent stop that motivated this check.
+  // Only meaningful where docker exists (CI runners: dockerInspect → null, no line).
+  let policyNeedsFix = false;
+  if (result.kind === "ok" && classifyOk(result.text ?? "")) {
+    const info = await dockerInspect(PG_CONTAINER);
+    if (info !== null) {
+      if (!info.running) {
+        // Operational now but the container we probed says stopped — impossible
+        // in practice (goal_list just hit the DB); report defensively.
+        warn("C3 container state", `'${PG_CONTAINER}' reports stopped although goal_list succeeded — docker state desynchronized?`);
+      } else if (info.restartPolicy === "unless-stopped" || info.restartPolicy === "always") {
+        pass("C3 restart policy", `'${PG_CONTAINER}' survives host reboots (${info.restartPolicy})`);
+      } else {
+        warn("C3 restart policy", `'${PG_CONTAINER}' policy '${info.restartPolicy}' — a host reboot stops the memory silently; run: docker update --restart unless-stopped ${PG_CONTAINER}`);
+        policyNeedsFix = true;
+      }
+    }
+  }
+  return { result, fixable: fixable || policyNeedsFix };
 }
 
-// C3 — restart policy: prevents the silent stop that motivated this check.
-// Only meaningful where docker exists (CI runners: dockerInspect → null, no line).
-if (result.kind === "ok") {
+// ─── Repair mode (--fix, opt-in — default run is read-only) ─────────────────
+
+function runCmd(cmd, args, timeoutMs = 10_000) {
+  return new Promise((resolve) => {
+    const proc = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
+    let out = "";
+    const timer = setTimeout(() => { proc.kill("SIGKILL"); resolve({ code: null, out }); }, timeoutMs);
+    proc.stdout.on("data", (c) => { out += c; });
+    proc.stderr.on("data", (c) => { out += c; });
+    proc.on("error", () => { clearTimeout(timer); resolve({ code: null, out }); });
+    proc.on("close", (code) => { clearTimeout(timer); resolve({ code, out }); });
+  });
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Ensure the docker engine is reachable; on macOS launch Docker Desktop if
+ * needed (AutoStart usually covers this — this covers a manual quit). */
+async function ensureEngine() {
+  let info = await runCmd("docker", ["info"], 8000);
+  if (info.code === 0) return true;
+  if (process.platform !== "darwin") return false;
+  line("FIX", "docker engine", "unreachable — launching Docker Desktop (open -a Docker)");
+  await runCmd("open", ["-a", "Docker"], 15_000);
+  for (let waited = 0; waited < 30_000; waited += 2000) {
+    await sleep(2000);
+    info = await runCmd("docker", ["info"], 5000);
+    if (info.code === 0) return true;
+  }
+  return false;
+}
+
+async function repair() {
+  if (!(await ensureEngine())) {
+    fail("FIX docker engine", "unreachable and not auto-startable here — launch Docker Desktop manually");
+    return false;
+  }
   const info = await dockerInspect(PG_CONTAINER);
-  if (info !== null) {
-    if (!info.running) {
-      // Operational now but the container we probed says stopped — impossible
-      // in practice (goal_list just hit the DB); report defensively.
-      warn("C3 container state", `'${PG_CONTAINER}' reports stopped although goal_list succeeded — docker state desynchronized?`);
-    } else if (info.restartPolicy === "unless-stopped" || info.restartPolicy === "always") {
-      pass("C3 restart policy", `'${PG_CONTAINER}' survives host reboots (${info.restartPolicy})`);
-    } else {
-      warn("C3 restart policy", `'${PG_CONTAINER}' policy '${info.restartPolicy}' — a host reboot stops the memory silently; run: docker update --restart unless-stopped ${PG_CONTAINER}`);
+  if (info === null) {
+    fail("FIX container", `'${PG_CONTAINER}' not found — create it from the aurora-core compose setup (not auto-repairable)`);
+    return false;
+  }
+  if (!info.running) {
+    const started = await runCmd("docker", ["start", PG_CONTAINER], 30_000);
+    if (started.code !== 0) {
+      fail("FIX docker start", `docker start ${PG_CONTAINER} failed${started.out ? " — " + redact(started.out.trim().split("\n")[0]) : ""}`);
+      return false;
+    }
+    line("FIX", "container started", PG_CONTAINER);
+  }
+  if (info.restartPolicy !== "unless-stopped" && info.restartPolicy !== "always") {
+    const upd = await runCmd("docker", ["update", "--restart", "unless-stopped", PG_CONTAINER]);
+    if (upd.code !== 0) {
+      fail("FIX restart policy", `docker update failed${upd.out ? " — " + redact(upd.out.trim().split("\n")[0]) : ""}`);
+      return false;
+    }
+    line("FIX", "restart policy", `'${PG_CONTAINER}' → unless-stopped (survives reboots)`);
+  }
+  // Wait for the DB port before re-probing (PG needs a few seconds to accept).
+  const target = probeTarget();
+  if (target) {
+    for (let waited = 0; waited < 20_000; waited += 1000) {
+      if (await tcpProbe(target, 1500)) break;
+      await sleep(1000);
+    }
+  }
+  return true;
+}
+
+let verdict = await runPass();
+if (WANT_FIX && verdict.fixable) {
+  console.log("");
+  if (await repair()) {
+    console.log("");
+    failed = false;
+    verdict = await runPass(); // second full pass — the exit code reflects IT
+    if (!failed) {
+      line("FIX", "verified", "memory operational after repair (second full pass)");
     }
   }
 }

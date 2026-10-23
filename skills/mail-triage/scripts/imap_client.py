@@ -236,3 +236,248 @@ def logout(conn: imaplib.IMAP4_SSL) -> None:
         conn.logout()
     except Exception:
         pass
+
+
+# --- V4.1 : lecture bornée du début du corps (invariant révisé, ARCHITECTURE §10) ---
+# Lectures uniquement via BODY.PEEK (jamais \Seen), section text/plain ciblée via
+# BODYSTRUCTURE, fenêtre <0.max_bytes>. Fail-closed : toute structure illisible
+# → None (aperçu indisponible). Les pièces jointes ne sont JAMAIS lues.
+
+def _tokenize_bodystructure(text: str) -> list:
+    """Tokenise une S-expression BODYSTRUCTURE : '(', ')', ('str', v), ('atom', v),
+    ('num', n), ('nil', None)."""
+    tokens: list = []
+    i, n = 0, len(text)
+    while i < n:
+        c = text[i]
+        if c in " \t\r\n":
+            i += 1
+        elif c in "()":
+            tokens.append((c, c))
+            i += 1
+        elif c == '"':
+            j = i + 1
+            buf: list[str] = []
+            while j < n:
+                ch = text[j]
+                if ch == "\\" and j + 1 < n:
+                    buf.append(text[j + 1])
+                    j += 2
+                elif ch == '"':
+                    j += 1
+                    break
+                else:
+                    buf.append(ch)
+                    j += 1
+            tokens.append(("str", "".join(buf)))
+            i = j
+        else:
+            j = i
+            while j < n and text[j] not in ' \t\r\n()"':
+                j += 1
+            word = text[i:j]
+            if word.upper() == "NIL":
+                tokens.append(("nil", None))
+            elif word.isdigit():
+                tokens.append(("num", int(word)))
+            else:
+                tokens.append(("atom", word))
+            i = j
+    return tokens
+
+
+def _skip_balanced(tokens: list, i: int) -> int:
+    """Index après le ')' fermant le groupe ouvert à tokens[i] == '('."""
+    depth = 0
+    while i < len(tokens):
+        kind = tokens[i][0]
+        if kind == "(":
+            depth += 1
+        elif kind == ")":
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        i += 1
+    return i
+
+
+def _capture_balanced_text(tokens: list, i: int) -> tuple[str, int]:
+    """Texte approximatif d'un groupe équilibré (détection 'attachment')."""
+    depth = 0
+    parts: list[str] = []
+    while i < len(tokens):
+        kind, val = tokens[i]
+        if kind == "(":
+            depth += 1
+            parts.append("(")
+        elif kind == ")":
+            depth -= 1
+            parts.append(")")
+            if depth == 0:
+                return " ".join(parts), i + 1
+        elif val is not None:
+            parts.append(str(val))
+        i += 1
+    return " ".join(parts), i
+
+
+def _parse_bodystructure(tokens: list, i: int, path: list) -> tuple[dict, int]:
+    """Parse un corps (feuille ou multipart) depuis tokens[i] == '('.
+
+    Feuille : ("TYPE" "SUB" params id desc enc size [lines] md5 disp lang loc).
+    Multipart : ( enfant+ "SUBTYPE" params disp lang loc ).
+    message/rfc822 → ValueError (hors périmètre preview, fail-closed)."""
+    if i >= len(tokens) or tokens[i][0] != "(":
+        raise ValueError("structure invalide")
+    i += 1
+    if i < len(tokens) and tokens[i][0] == "(":
+        # multipart : enfants consécutifs puis sous-type puis extensions
+        parts: list[dict] = []
+        while i < len(tokens) and tokens[i][0] == "(":
+            child, i = _parse_bodystructure(tokens, i, path + [len(parts) + 1])
+            parts.append(child)
+        if i >= len(tokens) or tokens[i][0] != "str":
+            raise ValueError("multipart sans sous-type")
+        node = {"type": "multipart", "subtype": (tokens[i][1] or "").lower(), "parts": parts}
+        i += 1
+        # params puis disp/lang/loc
+        if i < len(tokens) and tokens[i][0] == "(":
+            i = _skip_balanced(tokens, i)
+        elif i < len(tokens) and tokens[i][0] == "nil":
+            i += 1
+        for _ in range(3):  # disposition, language, location
+            if i < len(tokens) and tokens[i][0] == "(":
+                i = _skip_balanced(tokens, i)
+            elif i < len(tokens) and tokens[i][0] != ")":
+                i += 1
+        while i < len(tokens) and tokens[i][0] == "nil":
+            i += 1  # variantes serveur : NIL traînants (jamais un enfant ni un sous-type)
+        if i < len(tokens) and tokens[i][0] == ")":
+            i += 1  # fermeture de CE corps multipart
+        return node, i
+    # feuille
+    if i + 1 >= len(tokens):
+        raise ValueError("feuille incomplète")
+    type_ = (tokens[i][1] or "").lower()
+    subtype = (tokens[i + 1][1] or "").lower()
+    i += 2
+    leaf: dict = {"type": type_, "subtype": subtype, "params": {}}
+    if i < len(tokens) and tokens[i][0] == "(":
+        i += 1
+        while i + 1 < len(tokens) and tokens[i][0] != ")":
+            key = str(tokens[i][1] or "").lower()
+            val = tokens[i + 1][1]
+            leaf["params"][key] = val if isinstance(val, str) else str(val)
+            i += 2
+        if i < len(tokens) and tokens[i][0] == ")":
+            i += 1
+    elif i < len(tokens) and tokens[i][0] == "nil":
+        i += 1
+    for _ in range(2):  # id, description (ignorés)
+        if i < len(tokens) and tokens[i][0] in ("str", "nil"):
+            i += 1
+    if i < len(tokens) and tokens[i][0] in ("str", "nil"):
+        leaf["encoding"] = (tokens[i][1] or "7bit").lower()
+        i += 1
+    if i < len(tokens) and tokens[i][0] == "num":
+        leaf["size"] = tokens[i][1]
+        i += 1
+    if type_ == "message":
+        # corps d'un email transféré imbriqué : parsing complet hors périmètre
+        raise ValueError("message/rfc822 imbriqué non supporté pour l'aperçu")
+    if i < len(tokens) and tokens[i][0] == "num":  # body-fld-lines (TEXT)
+        i += 1
+    # extensions BODYSTRUCTURE : md5, disposition, language, location
+    if i < len(tokens) and tokens[i][0] in ("str", "nil"):  # md5
+        i += 1
+    if i < len(tokens) and tokens[i][0] == "(":  # disposition
+        disp_text, i = _capture_balanced_text(tokens, i)
+        leaf["disposition"] = disp_text
+    elif i < len(tokens) and tokens[i][0] == "nil":
+        i += 1
+    for _ in range(2):  # language, location
+        if i < len(tokens) and tokens[i][0] == "(":
+            i = _skip_balanced(tokens, i)
+        elif i < len(tokens) and tokens[i][0] != ")":
+            i += 1
+    while i < len(tokens) and tokens[i][0] == "nil":
+        i += 1  # variantes serveur : NIL traînants
+    if i < len(tokens) and tokens[i][0] == ")":
+        i += 1  # fermeture de CE corps feuille
+    return leaf, i
+
+
+def _pick_text_plain(node: dict) -> dict | None:
+    """Première feuille text/plain (préférence : non attachée) + chemin RFC 3501."""
+    leaves: list[tuple[list, dict]] = []
+
+    def walk(n: dict, path: list) -> None:
+        if n.get("type") == "multipart":
+            for idx, child in enumerate(n.get("parts") or [], start=1):
+                walk(child, path + [idx])
+        else:
+            leaves.append((path, n))
+
+    walk(node, [])
+    plain = [(p, n) for p, n in leaves if n.get("type") == "text" and n.get("subtype") == "plain"]
+    if not plain:
+        return None
+
+    def attached(n: dict) -> bool:
+        if n.get("params", {}).get("name"):
+            return True
+        return "attachment" in (n.get("disposition") or "").lower()
+
+    preferred = [(p, n) for p, n in plain if not attached(n)]
+    chosen_path, chosen = (preferred or plain)[0]
+    return {
+        "section": ".".join(str(x) for x in chosen_path) or "1",
+        "encoding": chosen.get("encoding") or "7bit",
+        "size": chosen.get("size"),
+    }
+
+
+def fetch_body_structure(conn: imaplib.IMAP4_SSL, uid: int) -> dict | None:
+    """BODYSTRUCTURE → première section text/plain non attachée.
+
+    Retourne {"section": "1.1", "encoding": "quoted-printable", "size": n} ou
+    None (absente, illisible, HTML seul, message imbriqué → fail-closed)."""
+    try:
+        typ, data = conn.uid("fetch", str(uid), "(BODYSTRUCTURE)")
+        if typ != "OK" or not data:
+            return None
+        chunks: list[bytes] = []
+        for item in data:
+            if isinstance(item, bytes):
+                chunks.append(item)
+            elif isinstance(item, tuple):
+                chunks.extend(part for part in item if isinstance(part, bytes))
+        text = b"".join(chunks).decode("utf-8", errors="replace")
+        m = re.search(r"BODY(?:STRUCTURE)?\s*\(", text, re.IGNORECASE)
+        if not m:
+            return None
+        tokens = _tokenize_bodystructure(text[m.end() - 1:])
+        node, _ = _parse_bodystructure(tokens, 0, [])
+        return _pick_text_plain(node)
+    except Exception:
+        return None
+
+
+def fetch_body_preview(conn: imaplib.IMAP4_SSL, uid: int, max_bytes: int = 4096) -> dict | None:
+    """Début de la section text/plain ciblée — BODY.PEEK (jamais \\Seen),
+    fenêtre <0.max_bytes>. Retourne {"raw": bytes, "encoding": str} ou None."""
+    max_bytes = max(512, min(int(max_bytes), 65536))
+    structure = fetch_body_structure(conn, uid)
+    if structure is None:
+        return None
+    spec = f"(BODY.PEEK[{structure['section']}]<0.{max_bytes}>)"
+    try:
+        typ, data = conn.uid("fetch", str(uid), spec)
+        if typ != "OK" or not data:
+            return None
+        for item in data:
+            if isinstance(item, tuple) and len(item) >= 2 and isinstance(item[1], bytes) and item[1]:
+                return {"raw": item[1], "encoding": structure["encoding"]}
+    except Exception:
+        return None
+    return None

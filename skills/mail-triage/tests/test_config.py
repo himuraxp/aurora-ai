@@ -56,6 +56,27 @@ class ConfigLoadTestCase(unittest.TestCase):
         self.assertEqual(cfg["rules"], {"rules": [], "sensitive_senders": []})
         self.assertIn("_config_dir", cfg)
 
+    def test_enrichment_defaults_off(self) -> None:
+        # V4.1 (ARCHITECTURE §10) : l'enrichissement est OPT-IN, off par défaut
+        self.write(base_config())
+        cfg = config_mod.load(self.dir)
+        enr = cfg["digest"]["enrichment"]
+        self.assertFalse(enr["enabled"])
+        self.assertFalse(enr["gitlab_enrich"])
+        self.assertEqual(enr["max_fetch_bytes"], 4096)
+        self.assertEqual(enr["max_preview_chars"], 180)
+
+    def test_enrichment_bad_values_rejected(self) -> None:
+        self.write(base_config())
+        (self.dir / "config.json").write_text(json.dumps(
+            {**base_config(), "digest": {"enrichment": {"enabled": "oui"}}}), encoding="utf-8")
+        with self.assertRaises(config_mod.ConfigError):
+            config_mod.load(self.dir)
+        (self.dir / "config.json").write_text(json.dumps(
+            {**base_config(), "digest": {"enrichment": {"max_fetch_bytes": 10}}}), encoding="utf-8")
+        with self.assertRaises(config_mod.ConfigError):
+            config_mod.load(self.dir)
+
     def test_empty_allowlist_raises(self) -> None:
         cfg = base_config()
         cfg["destinations"]["allowlist"] = []

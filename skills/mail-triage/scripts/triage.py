@@ -487,11 +487,18 @@ def cmd_digest(cfg: dict, args) -> int:
     try:
         uidvalidity = _uidvalidity(conn, cfg["source"]["mailbox"])
         messages = _fetch_recent(cfg, conn, state, uidvalidity)
+        built = digest_mod.build_digest(state, messages, cfg, window, digest_id,
+                                        mailbox=cfg["source"]["mailbox"], uidvalidity=uidvalidity)
+
+        # V4.1 (opt-in digest.enrichment.enabled, ARCHITECTURE §10) : aperçus bornés.
+        # Gated off → enrich_previews ne fait AUCUN fetch. Sensibles jamais ciblés.
+        def _fetch_preview(uid: int, max_bytes: int):
+            return imap_mod.fetch_body_preview(conn, uid, max_bytes)
+
+        previews = digest_mod.enrich_previews(built, cfg, _fetch_preview)
     finally:
         imap_mod.logout(conn)
-
-    built = digest_mod.build_digest(state, messages, cfg, window, digest_id,
-                                    mailbox=cfg["source"]["mailbox"], uidvalidity=uidvalidity)
+    digest_mod.attach_previews(built, previews)
     markdown = digest_mod.render_markdown(built)
 
     if not args.send:

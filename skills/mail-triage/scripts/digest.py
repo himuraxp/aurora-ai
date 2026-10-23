@@ -2,11 +2,17 @@
 marqueur unique, idempotence (garde SQLite + réconciliation sans repost aveugle).
 
 Frontière : le digest contient expéditeurs/sujets lisibles (boîte pro → kChat pro,
-même organisation) MAIS jamais de corps ni de pièce jointe ; sujets sensibles masqués.
+même organisation) MAIS jamais de corps complet ni de pièce jointe ; sujets
+sensibles masqués. V4.1 (opt-in `digest.enrichment.enabled`, ARCHITECTURE §10) :
+extraits textuels BORNÉS (lecture ≤ 4 096 octets, publication ≤ 180 chars) des
+catégories autorisées, après contrôle de confidentialité et neutralisation —
+les messages sensibles (`never` / sujet masqué) ne donnent lieu à AUCUNE lecture.
 """
 
 from __future__ import annotations
 
+import base64
+import quopri
 import re
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -86,6 +92,11 @@ def build_digest(state, messages: list[dict], config: dict, window: dict, digest
         except policy.PolicyError as exc:
             decision = {"action": "keep", "rule_id": None, "mode": "never",
                         "folder": None, "reason": f"fail-closed: {exc}"}
+        # V4.1 (§10) : lecture de corps autorisée seulement pour les non-sensibles.
+        # "mode never" couvre 2 cas : garde sensible (rule_id présent → jamais lu)
+        # vs inconnu sans règle (rule_id None → cible d'aperçu valide).
+        is_sensitive = (decision.get("mode") == "never"
+                        and decision.get("rule_id") is not None)
         item = {
             "uid": msg["uid"],
             "from": msg.get("from") or "",
@@ -98,6 +109,7 @@ def build_digest(state, messages: list[dict], config: dict, window: dict, digest
             "mode": decision.get("mode"),
             "rule_id": decision.get("rule_id"),
             "decision_action": decision.get("action"),
+            "body_readable": not is_sensitive and not masked,
         }
         internal = msg.get("internaldate")
         in_window = False
@@ -342,6 +354,7 @@ def _section(lines: list[str], header: str, convs: list[dict], max_lines: int, t
     lines.append(header)
     for conv in convs[:max_lines]:
         lines.append(_conv_line(conv, tz_name))
+        lines.extend(_preview_lines(conv))
     if len(convs) > max_lines:
         lines.append(f"- + {_fr(len(convs) - max_lines, 'autre conversation', 'autres conversations')}")
     lines.append("")
@@ -397,6 +410,7 @@ def render_markdown(digest: dict) -> str:
             if item.get("subject_masked"):
                 subject = f"{subject} :lock:"
             lines.append(f"- **{item['from']}** — {subject}")
+            lines.extend(_preview_lines(item))
         lines.append("")
 
     moved = digest.get("moved_counts") or {}
@@ -426,6 +440,200 @@ def _conclusion(review: list[dict], unknown: list[dict], counters: dict) -> str:
     if unknown_n:
         return f"**:question: {_fr(unknown_n, 'message sans règle reste', 'messages sans règle restent')} dans l'Inbox**."
     return "**:thumbsup: Rien à décider — tous les nouveaux emails sont couverts par les règles de tri.**"
+
+
+# --- V4.1 : aperçus bornés (invariant révisé, ARCHITECTURE §10) ---
+
+_PREVIEW_MAX_NORMALIZED = 500  # texte normalisé avant neutralisation
+_PREVIEW_MAX_LINES = 2         # lignes publiées max par aperçu
+MAX_PREVIEW_FETCHES = 16       # plafond d'appels IMAP par digest (budget)
+_SANITIZE_URL_RE = re.compile(r"https?://[^\s)>\]]+", re.IGNORECASE)
+
+
+def _decode_section(raw: bytes, encoding: str) -> str | None:
+    """Décode le payload d'une section MIME (7bit/8bit/quoted-printable/base64)."""
+    try:
+        enc = (encoding or "7bit").strip().lower()
+        if enc == "base64":
+            data = base64.b64decode(raw + b"=" * (-len(raw) % 4), validate=False)
+        elif enc in ("quoted-printable", "quoted printable"):
+            data = quopri.decodestring(raw)
+        else:
+            data = raw
+        for charset in ("utf-8", "latin-1"):
+            try:
+                return data.decode(charset)
+            except UnicodeDecodeError:
+                continue
+        return data.decode("utf-8", errors="replace")
+    except Exception:
+        return None
+
+
+def _clean_preview(raw: bytes, encoding: str) -> str | None:
+    """Texte normalisé (≤ 500 chars) depuis le début d'une section text/plain :
+    décodage MIME, retrait citations « > » et signatures, caractères de contrôle
+    éliminés. HTML détecté → None (fail-closed : aperçu indisponible).
+    Les corps sont des données non fiables : aucune structure n'est interprétée."""
+    text = _decode_section(raw, encoding)
+    if not text:
+        return None
+    if re.search(r"<(?:html|body|div|table|p|br)\b", text[:400], re.IGNORECASE):
+        return None
+    kept: list[str] = []
+    for line in text.splitlines():
+        clean_line = line.strip()
+        if not clean_line:
+            if kept and kept[-1]:
+                kept.append("")
+            continue
+        if clean_line.startswith(">"):
+            continue  # citation d'un message précédent
+        if (clean_line.startswith("-- ") or re.fullmatch(r"[-_=]{2,}", clean_line)
+                or re.match(r"(?:sent|envoyé|envoyer)\s+(?:from|de|avec|via)\s",
+                            clean_line, re.IGNORECASE)):
+            break  # délimiteur/pied de signature : on s'arrête
+        kept.append(clean_line)
+        if len("\n".join(kept)) >= _PREVIEW_MAX_NORMALIZED:
+            break
+    joined = "\n".join(kept).strip()
+    if not joined or re.search(r"</?(?:html|body|div|table|tr|td|p)\b", joined, re.IGNORECASE):
+        return None
+    joined = "".join(" " if ch == "\t" else ch
+                     for ch in joined
+                     if ch == "\n" or ch == "\t" or (32 <= ord(ch) != 127))
+    joined = re.sub(r"\n{2,}", "\n", joined).strip()
+    if not joined:
+        return None
+    return joined[:_PREVIEW_MAX_NORMALIZED]
+
+
+def _sanitize_preview(text: str, sensitive_patterns: list, max_chars: int) -> dict:
+    """Neutralisation avant publication (données non fiables) : marqueur digest
+    falsifié → neutralisé, URL → [url-masquée] (jetons d'accès), markdown
+    neutralisé, contenu sensible (patterns digest) → aperçu SUPPRIMÉ.
+    ≤ max_chars / 2 lignes. Retourne {"preview", "suppressed"}."""
+    lowered = text.lower()
+    for pattern in sensitive_patterns or []:
+        pat = str(pattern or "").strip().lower()
+        if pat and pat in lowered:
+            return {"preview": None, "suppressed": "sensitive"}
+    out = text.replace("`", "'").replace("[", "\\[").replace("]", "\\]")
+    out = out.replace(MARKER_PREFIX, "[marqueur-neutralisé:")
+    out = _SANITIZE_URL_RE.sub("(url masquée)", out)
+    lines = [ln.strip() for ln in out.split("\n") if ln.strip()][:_PREVIEW_MAX_LINES]
+    out = " … ".join(lines)
+    if len(out) > max_chars:
+        out = out[: max_chars - 1].rstrip() + "…"
+    if not out.strip("_… "):
+        return {"preview": None, "suppressed": "empty"}
+    return {"preview": out, "suppressed": None}
+
+
+def build_preview(raw: bytes, encoding: str, sensitive_patterns: list, max_chars: int) -> dict:
+    """Extrait publiable (V4.1) depuis un payload de section text/plain.
+    Retourne {"preview": str|None, "suppressed": None|"sensitive"|"unavailable"|"empty"}."""
+    cleaned = _clean_preview(raw, encoding)
+    if not cleaned:
+        return {"preview": None, "suppressed": "unavailable"}
+    return _sanitize_preview(cleaned, sensitive_patterns, max_chars)
+
+
+def _body_readable(item: dict) -> bool:
+    """Autorisation de lecture du corps (ARCHITECTURE §10.2) : jamais les
+    sensibles (garde `never` avec règle/expéditeur, sujet masqué) ; un message
+    sans règle (inconnu) reste une cible valide. Les items construits par
+    build_digest portent `body_readable` ; fallback dérivé sinon (tests)."""
+    if "body_readable" in item:
+        return bool(item["body_readable"])
+    if item.get("subject_masked"):
+        return False
+    if item.get("mode") == "never" and item.get("rule_id") is not None:
+        return False
+    return True
+
+
+def preview_targets(built: dict, gitlab_enrich: bool = False) -> list[int]:
+    """UIDs autorisés pour l'enrichissement (ARCHITECTURE §10.2) : conversations
+    review/unknown + always_inbox ; notifications auto UNIQUEMENT si allowlist
+    d'enrichissement explicite (`gitlab_enrich`). JAMAIS les sensibles
+    (garde `never`, sujet masqué) — aucune lecture de corps pour eux."""
+    targets: list[int] = []
+    for conv in built.get("conversations", []):
+        cat = conversation_category(conv["items"])
+        if cat == "auto" and not gitlab_enrich:
+            continue
+        last = conv["items"][-1]
+        if not _body_readable(last):
+            continue
+        targets.append(last["uid"])
+    for item in built.get("always_inbox", []):
+        if not _body_readable(item):
+            continue
+        targets.append(item["uid"])
+    ordered: list[int] = []
+    seen: set[int] = set()
+    for uid in targets:
+        if uid not in seen:
+            seen.add(uid)
+            ordered.append(uid)
+    return ordered
+
+
+def enrich_previews(built: dict, cfg: dict, fetch_fn) -> dict:
+    """Collecte des aperçus pour les cibles autorisées. Gated :
+    `digest.enrichment.enabled=false` → AUCUN appel fetch_fn (retour {}).
+    fetch_fn(uid, max_bytes) → {"raw", "encoding"} | None ; toute exception →
+    aperçu indisponible (fail-closed, jamais une erreur de commande)."""
+    enrichment = (cfg.get("digest") or {}).get("enrichment") or {}
+    if not enrichment.get("enabled", False):
+        return {}
+    max_bytes = int(enrichment.get("max_fetch_bytes", 4096))
+    max_chars = int(enrichment.get("max_preview_chars", 180))
+    sensitive = (cfg.get("digest") or {}).get("sensitive_subject_patterns") or []
+    gitlab_enrich = bool(enrichment.get("gitlab_enrich", False))
+    previews: dict[int, dict] = {}
+    for uid in preview_targets(built, gitlab_enrich=gitlab_enrich)[:MAX_PREVIEW_FETCHES]:
+        try:
+            fetched = fetch_fn(uid, max_bytes)
+        except Exception:
+            fetched = None
+        if fetched and fetched.get("raw"):
+            previews[uid] = build_preview(fetched["raw"], fetched.get("encoding") or "7bit",
+                                          sensitive, max_chars)
+        else:
+            previews[uid] = {"preview": None, "suppressed": "unavailable"}
+    return previews
+
+
+def attach_previews(built: dict, previews: dict) -> None:
+    """Injecte les aperçus construits (clé = uid) dans conversations et
+    always_inbox. Aperçu indisponible → mention discrète ; contenu sensible →
+    RIEN (l'aperçu est supprimé, jamais même suggéré)."""
+    for conv in built.get("conversations", []):
+        _attach_one(conv, previews.get(conv["items"][-1]["uid"]))
+    for item in built.get("always_inbox", []):
+        _attach_one(item, previews.get(item["uid"]))
+
+
+def _attach_one(entry: dict, pv: dict | None) -> None:
+    if not pv:
+        return
+    if pv.get("preview"):
+        entry["preview"] = pv["preview"]
+    elif pv.get("suppressed") == "sensitive":
+        entry.pop("preview_unavailable", None)  # sensible : aucune trace
+    else:
+        entry["preview_unavailable"] = True
+
+
+def _preview_lines(entry: dict) -> list[str]:
+    """Ligne(s) d'aperçu sous une conversation / un item (rendu kChat)."""
+    if entry.get("preview"):
+        return [f"> _{entry['preview']}_"]
+    if entry.get("preview_unavailable"):
+        return ["> _(aperçu indisponible)_"]
+    return []
 
 
 def publish(kchat_client, bot_user_id: str, recipient_user_id: str, markdown: str) -> dict:

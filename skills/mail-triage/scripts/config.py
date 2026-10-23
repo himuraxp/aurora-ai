@@ -158,6 +158,24 @@ def _validate_config(data: dict) -> dict:
     digest.setdefault("timezone", "Europe/Paris")
     _require(isinstance(digest["sensitive_subject_patterns"], list), "digest.sensitive_subject_patterns doit être une liste")
     _require(isinstance(digest["timezone"], str) and digest["timezone"], "digest.timezone doit être une chaîne")
+    enrichment = digest.get("enrichment")
+    if enrichment is None:
+        enrichment = {}
+    _require(isinstance(enrichment, dict), "digest.enrichment doit être un objet")
+    # V4.1 : lecture bornée du début du corps (invariant révisé, cf. ARCHITECTURE §10).
+    # Off par défaut : déploiement initial avec publication des extraits désactivée.
+    enrichment.setdefault("enabled", False)
+    # notifications auto triables : lecture informative seulement si allowlist explicite
+    enrichment.setdefault("gitlab_enrich", False)
+    enrichment.setdefault("max_fetch_bytes", 4096)
+    enrichment.setdefault("max_preview_chars", 180)
+    _require(isinstance(enrichment["enabled"], bool), "digest.enrichment.enabled doit être un booléen")
+    _require(isinstance(enrichment["gitlab_enrich"], bool), "digest.enrichment.gitlab_enrich doit être un booléen")
+    _require(isinstance(enrichment["max_fetch_bytes"], int) and 512 <= enrichment["max_fetch_bytes"] <= 65536,
+             "digest.enrichment.max_fetch_bytes doit être un int entre 512 et 65536")
+    _require(isinstance(enrichment["max_preview_chars"], int) and 60 <= enrichment["max_preview_chars"] <= 500,
+             "digest.enrichment.max_preview_chars doit être un int entre 60 et 500")
+    digest["enrichment"] = enrichment
     data["digest"] = digest
 
     kchat = data.get("kchat", {})

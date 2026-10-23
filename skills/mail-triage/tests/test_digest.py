@@ -214,11 +214,12 @@ class RenderPublishTestCase(unittest.TestCase):
     @staticmethod
     def _conv(uid: int, frm: str, subject: str, internaldate: str | None, *,
               masked: bool = False, count: int = 1, label: str | None = None,
-              mode: str | None = None, action: str = "keep") -> dict:
+              mode: str | None = None, action: str = "keep",
+              rule_id: str | None = None) -> dict:
         items = [{"uid": uid + i, "from": frm, "subject": subject, "subject_masked": masked,
                   "message_id": f"<m{uid+i}@x>", "references": "",
                   "internaldate": internaldate, "seen": False,
-                  "mode": mode, "rule_id": None, "decision_action": action}
+                  "mode": mode, "rule_id": rule_id, "decision_action": action}
                  for i in range(count)]
         return {"items": items, "count": count, "title": subject,
                 "label": label, "last_time": internaldate}
@@ -330,6 +331,168 @@ class RenderPublishTestCase(unittest.TestCase):
     def test_marker_format(self) -> None:
         self.assertTrue(digest_mod.new_marker("abc123")
                         .startswith("[mail-triage-digest:"))
+
+
+class PreviewTestCase(unittest.TestCase):
+    """V4.1 — aperçus bornés (ARCHITECTURE §10) : nettoyage, neutralisation,
+    gate opt-in, cibles autorisées, rendu."""
+
+    def test_decode_quoted_printable(self) -> None:
+        raw = b"Bonjour,=20\nvoici le compte rendu de la r=C3=A9union."
+        text = digest_mod._decode_section(raw, "quoted-printable")
+        self.assertIn("voici le compte rendu de la réunion", text)
+
+    def test_decode_base64(self) -> None:
+        import base64
+        raw = base64.b64encode("Rapport hebdomadaire : tout est vert.".encode("utf-8"))
+        text = digest_mod._decode_section(raw, "base64")
+        self.assertEqual(text, "Rapport hebdomadaire : tout est vert.")
+
+    def test_clean_strips_quotes_and_signature(self) -> None:
+        body = ("Bonjour,\n\nPeux-tu valider la PR avant vendredi ?\n"
+                "\n> Le 22 oct., Alice a écrit :\n> merci d'avance\n"
+                "-- \nAlice Martin\nIngénieure\n\nSuite après la signature.")
+        cleaned = digest_mod._clean_preview(body.encode("utf-8"), "7bit")
+        self.assertIn("Peux-tu valider la PR avant vendredi ?", cleaned)
+        self.assertNotIn("Alice a écrit", cleaned)   # citations retirées
+        self.assertNotIn("Ingénieure", cleaned)      # signature → arrêt
+        self.assertNotIn("Suite après la signature", cleaned)
+
+    def test_clean_html_only_renounces(self) -> None:
+        html = "<html><body><div>Facture n°42 : 150 € TTC</div></body></html>"
+        self.assertIsNone(digest_mod._clean_preview(html.encode("utf-8"), "7bit"))
+
+    def test_clean_drops_control_characters(self) -> None:
+        body = "Ligne un\x00 avec octet nul\x07 et tab\tsauvegardé."
+        cleaned = digest_mod._clean_preview(body.encode("utf-8"), "7bit")
+        self.assertNotIn("\x00", cleaned)
+        self.assertNotIn("\x07", cleaned)
+        self.assertIn("tab sauvegardé", cleaned)  # tabulation → espace
+
+    def test_sanitize_forged_marker_neutralized(self) -> None:
+        result = digest_mod._sanitize_preview(
+            "voir [mail-triage-digest:d1] ci-dessous", [], 180)
+        self.assertNotIn("mail-triage-digest:d1", result["preview"])
+        self.assertIn("[marqueur-neutralisé:", result["preview"])
+
+    def test_sanitize_urls_masked(self) -> None:
+        result = digest_mod._sanitize_preview(
+            "clé : https://example.com/reset?token=SECRET123 merci", [], 180)
+        self.assertNotIn("SECRET123", result["preview"])
+        self.assertIn("(url masquée)", result["preview"])
+
+    def test_sanitize_sensitive_pattern_suppresses(self) -> None:
+        result = digest_mod._sanitize_preview(
+            "Contrat : salaire brut annuel 85 000 €", ["contrat", "salaire"], 180)
+        self.assertIsNone(result["preview"])
+        self.assertEqual(result["suppressed"], "sensitive")
+
+    def test_sanitize_truncates_to_max_chars(self) -> None:
+        long_text = ("Première ligne assez longue pour dépasser la limite." * 3
+                     + "\nDeuxième ligne.\nTroisième ligne.")
+        result = digest_mod._sanitize_preview(long_text, [], 180)
+        self.assertLessEqual(len(result["preview"]), 180)
+        self.assertNotIn("Troisième ligne", result["preview"])
+
+    def test_targets_exclude_sensibles_but_include_unknown(self) -> None:
+        # V4.1 : garde sensible (rule_id présent + never) et sujet masqué → JAMAIS ;
+        # inconnu sans règle (mode never, rule_id None) → cible d'aperçu valide
+        masked_conv = RenderPublishTestCase._conv(10, "a@x.com", "contrat", iso(NOW),
+                                                  masked=True, mode="propose")
+        garde = RenderPublishTestCase._conv(20, "b@x.com", "confidentiel", iso(NOW),
+                                            mode="never", rule_id="sensitive_sender")
+        inconnu = RenderPublishTestCase._conv(30, "c@x.com", "normal", iso(NOW), mode="never")
+        built = {"conversations": [masked_conv, garde, inconnu], "always_inbox": [
+            {"uid": 12, "subject_masked": True, "mode": "keep"},
+            {"uid": 13, "subject_masked": False, "mode": "never", "rule_id": None}]}
+        self.assertEqual(digest_mod.preview_targets(built), [30, 13])
+
+    def test_targets_auto_only_with_gitlab_enrich(self) -> None:
+        auto_conv = RenderPublishTestCase._conv(40, "gl@x.com", "MR !89", iso(NOW),
+                                                mode="auto", action="move")
+        built = {"conversations": [auto_conv], "always_inbox": []}
+        self.assertEqual(digest_mod.preview_targets(built, gitlab_enrich=False), [])
+        self.assertEqual(digest_mod.preview_targets(built, gitlab_enrich=True), [40])
+
+    def test_enrich_gate_off_means_no_fetch(self) -> None:
+        conv = RenderPublishTestCase._conv(10, "a@x.com", "s", iso(NOW), mode="propose")
+        built = {"conversations": [conv], "always_inbox": []}
+        calls = []
+
+        def fetch_fn(uid, max_bytes):
+            calls.append(uid)
+            return {"raw": b"contenu", "encoding": "7bit"}
+
+        cfg = {"digest": {"enrichment": {"enabled": False}}}
+        previews = digest_mod.enrich_previews(built, cfg, fetch_fn)
+        self.assertEqual(calls, [])            # gate off : AUCUN fetch
+        self.assertEqual(previews, {})
+
+    def test_enrich_gate_on_fetches_and_attaches(self) -> None:
+        conv = RenderPublishTestCase._conv(10, "a@x.com", "s", iso(NOW), mode="propose")
+        built = {"conversations": [conv], "always_inbox": []}
+        cfg = {"digest": {"enrichment": {"enabled": True, "max_fetch_bytes": 4096,
+                                         "max_preview_chars": 180},
+                          "sensitive_subject_patterns": []}}
+
+        def fetch_fn(uid, max_bytes):
+            return {"raw": b"Peux-tu relire la spec avant jeudi ? Merci.",
+                    "encoding": "7bit"}
+
+        previews = digest_mod.enrich_previews(built, cfg, fetch_fn)
+        self.assertIn(10, previews)
+        self.assertIn("relire la spec", previews[10]["preview"])
+        digest_mod.attach_previews(built, previews)
+        self.assertIn("relire la spec", conv["preview"])
+        text = digest_mod.render_markdown(self._render_digest([conv]))
+        self.assertIn("> _", text)             # ligne d'aperçu rendue
+
+    def test_enrich_fetch_exception_is_fail_closed(self) -> None:
+        conv = RenderPublishTestCase._conv(10, "a@x.com", "s", iso(NOW), mode="propose")
+        built = {"conversations": [conv], "always_inbox": []}
+        cfg = {"digest": {"enrichment": {"enabled": True}}}
+
+        def fetch_fn(uid, max_bytes):
+            raise RuntimeError("imap down")
+
+        previews = digest_mod.enrich_previews(built, cfg, fetch_fn)
+        digest_mod.attach_previews(built, previews)
+        self.assertTrue(conv["preview_unavailable"])
+        text = digest_mod.render_markdown(self._render_digest([conv]))
+        self.assertIn("(aperçu indisponible)", text)
+
+    def test_sensitive_target_gets_no_trace_at_all(self) -> None:
+        # aperçu sensible → ni extrait, ni mention (fail-silent volontaire)
+        conv = RenderPublishTestCase._conv(10, "a@x.com", "s", iso(NOW), mode="propose")
+        built = {"conversations": [conv], "always_inbox": []}
+        digest_mod.attach_previews(built, {10: {"preview": None, "suppressed": "sensitive"}})
+        self.assertNotIn("preview", conv)
+        self.assertNotIn("preview_unavailable", conv)
+        text = digest_mod.render_markdown(self._render_digest([conv]))
+        self.assertNotIn("aperçu", text)
+
+    def _render_digest(self, conversations: list[dict]) -> dict:
+        return {
+            "id": "d1", "marker": "[mail-triage-digest:d1]",
+            "window_start": iso(NOW - timedelta(hours=2)),
+            "window_end": iso(NOW),
+            "timezone": "Europe/Paris",
+            "conversations": conversations,
+            "counters": {"messages_received": 1, "unique_messages": 1,
+                         "duplicate_messages": 0, "conversations": 1,
+                         "auto_eligible": 0, "proposed": 1, "auto_moved": 0},
+            "always_inbox": [],
+            "moved_counts": {},
+        }
+
+    def test_preview_always_inbox_rendered(self) -> None:
+        digest_data = self._render_digest([])
+        digest_data["always_inbox"] = [{"uid": 12, "from": "c@x.com",
+                                        "subject": "Relance devis", "subject_masked": False,
+                                        "internaldate": None, "seen": False,
+                                        "preview": "Le devis expire fin octobre."}]
+        text = digest_mod.render_markdown(digest_data)
+        self.assertIn("Le devis expire fin octobre.", text)
 
 
 if __name__ == "__main__":

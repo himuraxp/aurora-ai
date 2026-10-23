@@ -15,7 +15,7 @@ import policy
 from kchat import KChatError
 
 MARKER_PREFIX = "mail-triage-digest:"
-DIGEST_FORMAT_VERSION = 2
+DIGEST_FORMAT_VERSION = 3
 
 _RE_PREFIX_RE = re.compile(r"^(?:\s*(?:re|fwd?|tr|aw)\s*(?:\[\d+\])?\s*:\s*)+", re.IGNORECASE)
 _GITLAB_ID_RE = re.compile(r"\(([!#]\d+)\)\s*$")
@@ -348,9 +348,10 @@ def _section(lines: list[str], header: str, convs: list[dict], max_lines: int, t
 
 
 def render_markdown(digest: dict) -> str:
-    """Rendu kChat V2 (format_version 2) : « En bref » en tête, conversations
-    regroupées (jamais 1 ligne par notification), budget éditorial ~15 lignes
-    utiles. Marqueur unique inclus (réconciliation).
+    """Rendu kChat V3 (format_version 3) : « En bref » en tête, conversations
+    regroupées (jamais 1 ligne par notification), conclusion actionnable
+    (style Muse : savoir d'un coup d'œil s'il faut agir), budget éditorial
+    ~15 lignes utiles. Marqueur unique inclus (réconciliation).
 
     Les sujets viennent d'emails (données non fiables) : toute occurrence du
     préfixe de marqueur y est neutralisée (anti-falsification de reconcile)."""
@@ -375,7 +376,7 @@ def render_markdown(digest: dict) -> str:
     if counters.get("auto_eligible"):
         brief.append(f":white_check_mark: {_fr(counters['auto_eligible'], 'nouvel email couvert par les règles automatiques', 'nouveaux emails couverts par les règles automatiques')}")
     if counters.get("auto_moved"):
-        brief.append(f":file_folder: {_fr(counters['auto_moved'], 'déplacé confirmé', 'déplacés confirmés')}")
+        brief.append(f":file_folder: {_fr(counters['auto_moved'], 'déplacé confirmé depuis le dernier digest', 'déplacés confirmés depuis le dernier digest')}")
     lines.append("**:sunny: En bref**")
     lines.extend(f"- {part}" for part in brief)
     lines.append("")
@@ -407,8 +408,24 @@ def render_markdown(digest: dict) -> str:
         lines.append(f"**:file_folder: Tri automatique confirmé** : {_fr(total, 'message déplacé', 'messages déplacés')} ({detail})")
         lines.append("")
 
+    lines.append(_conclusion(review, unknown, counters))
+    lines.append("")
+
     lines.append(digest["marker"])
     return "\n".join(lines)
+
+
+def _conclusion(review: list[dict], unknown: list[dict], counters: dict) -> str:
+    """Conclusion actionnable (style Muse) : l'utilisateur sait d'un coup d'œil
+    s'il doit décider. Factuel — le tri auto exige toujours un `apply --confirm-apply`
+    humain : le digest indique l'action MÉTIER (décider), jamais les commandes."""
+    proposed_n = counters.get("proposed", 0)
+    unknown_n = sum(c["count"] for c in unknown)
+    if proposed_n:
+        return f"**:warning: {_fr(proposed_n, 'message attend', 'messages attendent')} ta décision** — cf. « À examiner »."
+    if unknown_n:
+        return f"**:question: {_fr(unknown_n, 'message sans règle reste', 'messages sans règle restent')} dans l'Inbox**."
+    return "**:thumbsup: Rien à décider — tous les nouveaux emails sont couverts par les règles de tri.**"
 
 
 def publish(kchat_client, bot_user_id: str, recipient_user_id: str, markdown: str) -> dict:

@@ -298,6 +298,29 @@ class RenderPublishTestCase(unittest.TestCase):
         self.assertIn("+ 3 autres conversations", text)
         self.assertNotIn("sujet 10", text)  # condensé, pas affiché
 
+    def test_conclusion_actionnable(self) -> None:
+        # V2.1 (style Muse) : la digest conclut sur l'action requise
+        unknown = [self._conv(10, "a@x.com", "inconnu", iso(NOW), mode="never")]
+        counters_u = {"messages_received": 1, "unique_messages": 1, "duplicate_messages": 0,
+                      "conversations": 1, "auto_eligible": 0, "proposed": 0, "auto_moved": 0}
+        text_u = digest_mod.render_markdown(self._digest(unknown, counters_u))
+        self.assertIn("1 message sans règle reste dans l'Inbox", text_u)
+        self.assertIn(":question:", text_u)
+        self.assertNotIn("Rien à décider", text_u)
+
+        review = [self._conv(20, "b@x.com", "à valider", iso(NOW), mode="propose")]
+        counters_p = dict(counters_u, proposed=1, conversations=1)
+        text_p = digest_mod.render_markdown(self._digest(review, counters_p))
+        self.assertIn("1 message attend ta décision", text_p)
+        self.assertIn(":warning:", text_p)
+
+        covered = [self._conv(30, "c@x.com", "Player | x (!89)", iso(NOW), mode="auto", action="move")]
+        counters_c = dict(counters_u, auto_eligible=1)
+        text_c = digest_mod.render_markdown(self._digest(covered, counters_c))
+        self.assertIn(":thumbsup: Rien à décider", text_c)
+        self.assertIn("couverts par les règles de tri", text_c)
+        self.assertNotIn("apply --confirm-apply", text_c)  # pas de commandes techniques dans le recap
+
     def test_publish_returns_post_id(self) -> None:
         fake = FakeKChat()
         result = digest_mod.publish(fake, "bot1", "user1", "# digest")

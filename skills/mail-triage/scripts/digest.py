@@ -21,7 +21,8 @@ import policy
 from kchat import KChatError
 
 MARKER_PREFIX = "mail-triage-digest:"
-DIGEST_FORMAT_VERSION = 3
+DIGEST_FORMAT_VERSION = 4
+REF_EXPIRY_HOURS = 48  # durée de vie des références courtes (ARCHITECTURE §11.5)
 
 _RE_PREFIX_RE = re.compile(r"^(?:\s*(?:re|fwd?|tr|aw)\s*(?:\[\d+\])?\s*:\s*)+", re.IGNORECASE)
 _GITLAB_ID_RE = re.compile(r"\(([!#]\d+)\)\s*$")
@@ -130,6 +131,22 @@ def build_digest(state, messages: list[dict], config: dict, window: dict, digest
     conversations = group_conversations(unique_items)
     moved_counts = state.moved_counts_since(start.isoformat())
     counters = _counters(new_items, unique_items, conversations, moved_counts)
+    # Références courtes (V4, ARCHITECTURE §11.5) : 1 ref = 1 message (le dernier
+    # de la conversation), jamais une conversation entière. Auto = pas de ref
+    # (aucune décision humaine attendue sur les notifications triables).
+    review_n = unknown_n = 0
+    for conv in conversations:
+        cat = conversation_category(conv["items"])
+        if cat == "review":
+            review_n += 1
+            conv["ref"] = f"a{review_n}"
+        elif cat == "unknown":
+            unknown_n += 1
+            conv["ref"] = f"n{unknown_n}"
+        else:
+            conv["ref"] = None
+    for idx, item in enumerate(always, start=1):
+        item["ref"] = f"l{idx}"
     return {
         "id": digest_id,
         "marker": new_marker(digest_id),
@@ -338,14 +355,15 @@ def _conv_line(conv: dict, tz_name: str) -> str:
         subject = f"{subject} :lock:"
     time_part = _safe_local_hour(conv["last_time"], tz_name)
     n = conv["count"]
+    ref = f"**#{conv['ref']}** · " if conv.get("ref") else ""
     if conv["label"]:
         if n > 1:
-            return f"- **{conv['label']}** · {n} notif. ({time_part}) — {subject}"
-        return f"- **{conv['label']}** ({time_part}) — {subject}"
+            return f"- {ref}**{conv['label']}** · {n} notif. ({time_part}) — {subject}"
+        return f"- {ref}**{conv['label']}** ({time_part}) — {subject}"
     sender = conv["items"][-1].get("from") or ""
     if n > 1:
-        return f"- **{sender}** — {subject} · {n} notif. ({time_part})"
-    return f"- **{sender}** — {subject} ({time_part})"
+        return f"- {ref}**{sender}** — {subject} · {n} notif. ({time_part})"
+    return f"- {ref}**{sender}** — {subject} ({time_part})"
 
 
 def _section(lines: list[str], header: str, convs: list[dict], max_lines: int, tz_name: str) -> None:
@@ -409,7 +427,8 @@ def render_markdown(digest: dict) -> str:
             subject = item["subject"].replace(MARKER_PREFIX, "[marqueur-neutralisé:")
             if item.get("subject_masked"):
                 subject = f"{subject} :lock:"
-            lines.append(f"- **{item['from']}** — {subject}")
+            ref = f"**#{item['ref']}** · " if item.get("ref") else ""
+            lines.append(f"- {ref}**{item['from']}** — {subject}")
             lines.extend(_preview_lines(item))
         lines.append("")
 
@@ -656,6 +675,39 @@ def _preview_lines(entry: dict) -> list[str]:
     if entry.get("preview_unavailable"):
         return ["> _(aperçu indisponible)_"]
     return []
+
+
+def digest_ref_rows(digest: dict, mailbox: str, uidvalidity: int, created_at: str) -> list[dict]:
+    """Lignes de références à persister à la publication du digest (§11.5) :
+    immuables, liées au digest confirmé, expiration 48 h."""
+    try:
+        base = datetime.fromisoformat(created_at)
+    except ValueError:
+        return []
+    expires_at = (base + timedelta(hours=REF_EXPIRY_HOURS)).isoformat()
+    rows: list[dict] = []
+    for conv in digest.get("conversations", []):
+        ref = conv.get("ref")
+        if not ref:
+            continue
+        last = conv["items"][-1]
+        rows.append({
+            "digest_id": digest["id"], "ref": ref, "mailbox": mailbox,
+            "uidvalidity": uidvalidity, "uid": last["uid"],
+            "from_addr": last.get("from") or "", "subject": conv.get("title") or "",
+            "kind": conversation_category(conv["items"]),
+            "created_at": created_at, "expires_at": expires_at,
+        })
+    for item in digest.get("always_inbox", []):
+        if item.get("ref"):
+            rows.append({
+                "digest_id": digest["id"], "ref": item["ref"], "mailbox": mailbox,
+                "uidvalidity": uidvalidity, "uid": item["uid"],
+                "from_addr": item.get("from") or "", "subject": item.get("subject") or "",
+                "kind": "always",
+                "created_at": created_at, "expires_at": expires_at,
+            })
+    return rows
 
 
 def publish(kchat_client, bot_user_id: str, recipient_user_id: str, markdown: str) -> dict:

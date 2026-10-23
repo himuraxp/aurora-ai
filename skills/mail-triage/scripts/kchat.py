@@ -78,6 +78,16 @@ class KChatClient:
         posts = data.get("posts", {}) if isinstance(data, dict) else {}
         return list(posts.values()) if isinstance(posts, dict) else []
 
+    def channel_posts_before(self, channel_id: str, before: str, per_page: int = 30) -> list[dict]:
+        """Page de posts strictement antérieurs au post `before` (collecte
+        exhaustive du canal interactif, ARCHITECTURE §11.3)."""
+        data = self._request(
+            f"/channels/{urllib.request.quote(channel_id, safe='')}/posts"
+            f"?per_page={int(per_page)}&before={urllib.request.quote(before, safe='')}"
+        )
+        posts = data.get("posts", {}) if isinstance(data, dict) else {}
+        return list(posts.values()) if isinstance(posts, dict) else []
+
     def find_marker_in_channel(self, channel_id: str, marker: str, per_page: int = 60) -> str | None:
         """Retrouve un post contenant le marqueur (réconciliation des publications incertaines)."""
         for post in self.recent_channel_posts(channel_id, per_page=per_page):

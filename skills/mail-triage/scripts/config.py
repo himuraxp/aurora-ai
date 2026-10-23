@@ -187,6 +187,15 @@ def _validate_config(data: dict) -> dict:
     kchat.setdefault("timeout_seconds", 15)
     data["kchat"] = kchat
 
+    interactive = data.get("interactive", {})
+    _require(isinstance(interactive, dict), "interactive doit être un objet")
+    # Canal interactif MP (ARCHITECTURE §11) : lecture interactive OFF par défaut ;
+    # les mutations interactives auront leurs propres gates séparés (J4).
+    interactive.setdefault("enabled", False)
+    _require(isinstance(interactive.get("enabled"), bool),
+             "interactive.enabled doit être un booléen")
+    data["interactive"] = interactive
+
     plan = data.get("plan", {})
     plan.setdefault("expire_hours", 24)
     data["plan"] = plan

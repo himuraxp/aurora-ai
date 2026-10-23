@@ -28,6 +28,7 @@ import sqlite3
 
 import config as config_mod  # noqa: E402
 import digest as digest_mod  # noqa: E402
+import interact as interact_mod  # noqa: E402
 import imap_client as imap_mod  # noqa: E402
 import kchat as kchat_mod  # noqa: E402
 import policy  # noqa: E402
@@ -534,6 +535,12 @@ def cmd_digest(cfg: dict, args) -> int:
         state.create_digest(digest_id, built["window_start"], built["window_end"], marker,
                             _now_iso(), uidvalidity=uidvalidity, markdown=markdown,
                             msg_uids=",".join(str(m["uid"]) for m in built["new"]))
+        # Références courtes (V4, §11.5) : persistées à la PUBLICATION (digest
+        # confirmé), expiration 48 h — résolues par le canal interactif (J3).
+        ref_rows = digest_mod.digest_ref_rows(built, cfg["source"]["mailbox"],
+                                              uidvalidity, _now_iso())
+        if ref_rows:
+            state.store_digest_refs(ref_rows)
         try:
             client = _kchat_client(cfg)
             bot_id = client.me().get("id")
@@ -576,6 +583,20 @@ def cmd_digest(cfg: dict, args) -> int:
     })
 
 
+def cmd_listen(cfg: dict, args) -> int:
+    """Poller interactif (J2, ARCHITECTURE §11) : lecture seule des MP du
+    propriétaire, aide/statut, accusé des verbes de tri (sans exécution)."""
+    interactive = cfg.get("interactive", {})
+    if not interactive.get("enabled", False):
+        return _err("interactive_disabled", "interactive.enabled=false dans config.json", exit_code=2)
+    config_dir_path = config_mod.config_dir(cfg.get("_config_dir"))
+    state = state_mod.State(config_dir_path / "state.sqlite")
+    client = _kchat_client(cfg)
+    owner_user_id = _recipient_id(cfg, client)
+    result = interact_mod.run_once(cfg, state, config_dir_path, client, owner_user_id, audit)
+    return _out({"command": "listen", **result})
+
+
 # --- entrée -------------------------------------------------------------------
 
 def build_parser() -> argparse.ArgumentParser:
@@ -600,6 +621,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_dig = sub.add_parser("digest", help="résumé kChat du matin")
     p_dig.add_argument("--send", action="store_true")
     p_dig.add_argument("--force", action="store_true")
+
+    p_lis = sub.add_parser("listen", help="canal interactif MP kChat (J2 : lecture seule)")
+    p_lis.add_argument("--once", action="store_true",
+                       help="un seul tour du poller (mode manuel J2 ; launchd à venir en J5)")
     return parser
 
 
@@ -620,6 +645,7 @@ def main(argv: list[str] | None = None) -> int:
         "status": lambda: cmd_status(cfg),
         "reconcile": lambda: cmd_reconcile(cfg, args),
         "digest": lambda: cmd_digest(cfg, args),
+        "listen": lambda: cmd_listen(cfg, args),
     }
     try:
         return handlers[args.command]()

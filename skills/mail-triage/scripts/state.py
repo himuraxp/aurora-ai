@@ -74,6 +74,48 @@ CREATE TABLE IF NOT EXISTS plan_results (
   detail TEXT,
   PRIMARY KEY (plan_id, uid)
 );
+CREATE TABLE IF NOT EXISTS digest_refs (
+  digest_id TEXT NOT NULL,
+  ref TEXT NOT NULL,
+  mailbox TEXT NOT NULL,
+  uidvalidity INTEGER NOT NULL,
+  uid INTEGER NOT NULL,
+  from_addr TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  PRIMARY KEY (digest_id, ref)
+);
+CREATE TABLE IF NOT EXISTS interactive_commands (
+  post_id TEXT PRIMARY KEY,
+  channel_id TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  sender TEXT NOT NULL,
+  verb TEXT NOT NULL,
+  status TEXT NOT NULL,
+  reply_post_id TEXT,
+  processed_at TEXT
+);
+CREATE TABLE IF NOT EXISTS interactive_checkpoint (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  last_created_at INTEGER NOT NULL,
+  last_post_id TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS proposals (
+  proposal_id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  owner_user_id TEXT NOT NULL,
+  channel_id TEXT NOT NULL,
+  action TEXT NOT NULL,
+  target_version TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  source_post_id TEXT,
+  confirmation_post_id TEXT
+);
 """
 
 
@@ -376,3 +418,116 @@ class State:
         finally:
             conn.close()
         return [{"uid": r[0], "status": r[1], "detail": r[2]} for r in rows]
+
+    # --- canal interactif (ARCHITECTURE §11) ----------------------------------
+
+    def store_digest_refs(self, rows: list[dict]) -> None:
+        """Références courtes du digest publié (immuables, expirent en 48 h)."""
+        conn = sqlite3.connect(self.path)
+        try:
+            conn.executemany(
+                "INSERT OR REPLACE INTO digest_refs "
+                "(digest_id, ref, mailbox, uidvalidity, uid, from_addr, subject, kind, created_at, expires_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                [(r["digest_id"], r["ref"], r["mailbox"], r["uidvalidity"], r["uid"],
+                  r["from_addr"], r["subject"], r["kind"], r["created_at"], r["expires_at"])
+                 for r in rows],
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def resolve_digest_ref(self, ref: str, now_iso: str) -> dict | None:
+        """Résolution : la référence la plus récente non expirée gagne (§11.5)."""
+        conn = sqlite3.connect(self.path)
+        try:
+            row = conn.execute(
+                "SELECT digest_id, ref, mailbox, uidvalidity, uid, from_addr, subject, kind "
+                "FROM digest_refs WHERE ref=? AND expires_at > ? "
+                "ORDER BY created_at DESC, rowid DESC LIMIT 1",
+                (ref, now_iso),
+            ).fetchone()
+        finally:
+            conn.close()
+        if not row:
+            return None
+        return {"digest_id": row[0], "ref": row[1], "mailbox": row[2],
+                "uidvalidity": row[3], "uid": row[4], "from_addr": row[5],
+                "subject": row[6], "kind": row[7]}
+
+    def record_command(self, post_id: str, channel_id: str, created_at: int,
+                       sender: str, verb: str) -> bool:
+        """Registre post_id PRIMARY KEY : idempotence (rejeu impossible).
+        Retourne True si le post est NOUVEAU (à traiter), False si déjà connu."""
+        conn = sqlite3.connect(self.path)
+        try:
+            cur = conn.execute(
+                "INSERT OR IGNORE INTO interactive_commands "
+                "(post_id, channel_id, created_at, sender, verb, status) "
+                "VALUES (?,?,?,?,?, 'received')",
+                (post_id, channel_id, created_at, sender, verb),
+            )
+            conn.commit()
+            return cur.rowcount > 0
+        finally:
+            conn.close()
+
+    def set_command_result(self, post_id: str, status: str, reply_post_id: str | None,
+                           processed_at: str) -> None:
+        conn = sqlite3.connect(self.path)
+        try:
+            conn.execute(
+                "UPDATE interactive_commands SET status=?, reply_post_id=?, processed_at=? "
+                "WHERE post_id=?",
+                (status, reply_post_id, processed_at, post_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def interactive_checkpoint(self) -> dict | None:
+        conn = sqlite3.connect(self.path)
+        try:
+            row = conn.execute(
+                "SELECT last_created_at, last_post_id FROM interactive_checkpoint WHERE id=1"
+            ).fetchone()
+        finally:
+            conn.close()
+        if not row:
+            return None
+        return {"last_created_at": row[0], "last_post_id": row[1]}
+
+    def set_interactive_checkpoint(self, last_created_at: int, last_post_id: str,
+                                   updated_at: str) -> None:
+        conn = sqlite3.connect(self.path)
+        try:
+            conn.execute(
+                "INSERT INTO interactive_checkpoint (id, last_created_at, last_post_id, updated_at) "
+                "VALUES (1,?,?,?) ON CONFLICT(id) DO UPDATE SET "
+                "last_created_at=excluded.last_created_at, last_post_id=excluded.last_post_id, "
+                "updated_at=excluded.updated_at",
+                (last_created_at, last_post_id, updated_at),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def create_proposal(self, proposal: dict) -> None:
+        """Autorisation distante à usage unique (§11.4) — schema posé en J1,
+        rempli par J3/J4."""
+        conn = sqlite3.connect(self.path)
+        try:
+            conn.execute(
+                "INSERT OR REPLACE INTO proposals "
+                "(proposal_id, kind, owner_user_id, channel_id, action, target_version, "
+                " created_at, expires_at, status, source_post_id, confirmation_post_id) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (proposal["proposal_id"], proposal["kind"], proposal["owner_user_id"],
+                 proposal["channel_id"], proposal["action"], proposal["target_version"],
+                 proposal["created_at"], proposal["expires_at"],
+                 proposal.get("status", "pending"), proposal.get("source_post_id"),
+                 proposal.get("confirmation_post_id")),
+            )
+            conn.commit()
+        finally:
+            conn.close()

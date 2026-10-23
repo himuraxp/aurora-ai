@@ -146,3 +146,41 @@ C'est une **nouvelle capacité d'accès et de transmission** (kChat DM, même or
 Sensibles `never` → aucun corps lu/envoyé à l'IA ; pièces jointes jamais téléchargées ; `\Seen` jamais modifié ; instruction d'un email jamais exécutée ; secrets jamais dans requêtes/rendus/journaux ; **aucun corps/extrait/résultat nominatif dans aurora-memory** ; aucun texte brut ni prompt IA en journal ; idempotence kChat inchangée. Distinction de vérité : « Règles : rien à valider » (moteur) ≠ « Lecture : N actions probables » (propositions IA).
 
 **`body_readable` (V4.1, t5)** : politique de **LECTURE** (confidentialité) strictement indépendante des permissions de **déplacement** (`mode` propose/auto). Un message peut être lisible en aperçu sans être déplaçable (inconnu), et inversement. Garde sensible (`rule_id` présent + `never`) ou sujet masqué → jamais lisible. Notifs auto enrichies : plafond d'extrait réduit à 140 chars (vs 180 pour « à examiner »).
+
+## 11. Canal interactif MP kChat → moteur (niveau 1, cowork ChatGPT t9, 2026-10-23)
+
+Demande utilisateur : répondre au MP du bot Mail Triage pour guider le tri (typiquement les mails sans règle). **Niveau 1 : commandes en liste blanche stricte, zéro IA** ; le niveau 2 (langage libre → Aurora headless) se branchera sur la même fondation. Modèle cible : *kChat reçoit une intention → le moteur construit une proposition → le propriétaire confirme → policy.py autorise ou refuse → le moteur exécute et journalise*. Le MP n'est **jamais** une autorité supérieure à `policy.py` et ne contourne jamais le registre d'autorisations.
+
+### 11.1 Séquence d'exécution (J1–J5)
+
+| Jalon | Contenu | Statut |
+|---|---|---|
+| J1 | Contrat (cette section), tables SQLite, format digest V4 (refs courtes) | livré |
+| J2 | Poller read-only (`listen --once`) : pagination exhaustive, aide/statut | livré |
+| J3 | Propositions (grammaire complète, résolution refs/dossiers, non exécutables par défaut) | à venir |
+| J4 | Confirmations + règles (réutilisation plan/apply/reconcile, tests adversariaux de concurrence) | à venir |
+| J5 | Production contrôlée (launchd StartInterval 300, reprises crash, activation writes séparée) | à venir |
+
+### 11.2 Permissions séparées (P0, t9)
+
+Quatre gates indépendants : **lecture interactive** (`interactive.enabled` — aide/statut, read-only) ≠ **création de propositions** ≠ **écriture de règles** (`writes.interactive_rules`, J4) ≠ **déplacement IMAP** (`writes.imap_enabled`, existant). Le poller read-only fonctionne même quand les mutations sont désactivées. Toute mutation interactive exige `writes.enabled` ET le gate dédié.
+
+### 11.3 Collecte des commandes (P0, t9)
+
+Curseur **create_at seul interdit**. Algorithme : FileLock exclusif partagé → collecte **paginée exhaustive** (`before` chain, chevauchement de sécurité, cap MAX_PAGES) → tri `(create_at, post_id)` → filtre expéditeur `== recipient_id` exact + canal DM bot–propriétaire exact + post non édité (`edit_at == 0`) et non supprimé → **registre SQLite `post_id` PRIMARY KEY** (idempotence, rejeu impossible) → traitement ordonné → publication de la réponse → **checkpoint avancé seulement après traitement complet de la fenêtre** (pagination incomplète = checkpoint gelé, jamais d'avance sur un trou). Premier run = baseline sans traitement des messages antérieurs. Posts édités/supprimés : jamais porteurs d'autorisation ; une confirmation supprimée après exécution n'est pas une révocation rétroactive. Aucune pièce jointe ni réaction emoji interprétée comme commande. Audit : verbe + statut + post_id, jamais le texte intégral du MP.
+
+### 11.4 Autorisations à usage unique (P0, t9)
+
+Le `ok #p1` du propriétaire est une **autorisation distante validée** (pas un simple texte) : `proposal_id` opaque unique non réutilisé, `owner_user_id` exact, `channel_id` DM autorisé, `action` structurée et **figée**, `target` (UID ou règle), `target_version` (empreinte des préconditions — changement de règles entre proposition et confirmation → refus), `created_at`/`expires_at` (**30 min** déplacement ponctuel, **24 h** règle), `status` (pending/executing/applied/rejected/uncertain/expired), `source_post_id`, `confirmation_post_id`. La confirmation ne couvre **jamais** une opération plus large que la proposition. Réutilisation du même moteur d'autorisation que la CLI (`plans` + `authorizations` + `policy.py`) : le MP produit une autorisation traçable, jamais un apply direct.
+
+### 11.5 Références courtes (P0, t9)
+
+Format digest **V4** : chaque conversation « À examiner » → `#a1…`, « En attente » → `#n1…`, « Encore non lus » → `#l1…`. Une référence = **un seul message** (le dernier de la conversation — jamais un thread entier), liée à `(digest_id, mailbox, uidvalidity, uid, expéditeur, sujet)`, immuable, non réassignée, **expire 48 h** après publication. Résolution : la référence la plus récente non expirée gagne (le user répond au dernier digest). `#a1 → dossier` = déplacement **ponctuel** du message désigné ≠ `expediteur X → dossier` = création de **règle future** — jamais confondus, jamais de règle implicite déduite d'une réponse à une référence.
+
+### 11.6 Grammaire niveau 1 + destinations (P1, t9)
+
+Verbes : `aide`, `statut`, `#ref → dossier`, `expediteur <addr> → dossier`, `domaine <domaine> → dossier`, `ok #p1`, `annule #p1` — regex ancrées, ≤ 256 chars, tout le reste → réponse générique (jamais d'exécution de texte libre). Destinations : **alias stricts** résolus depuis la config (`corbeille` → chemin IMAP validé), allowlist imposée, dossier interdit → **refus immédiat sans proposition** (une confirmation humaine ne légitime jamais une destination interdite), jamais de chemin arbitraire ni de création de dossier implicite. Règles interactives : toujours **mode propose**, pas de promotion auto depuis le MP ; domaine = plus puissant que l'expéditeur exact (priorité expéditeur, portée du domaine confirmée explicitement). Limites (configurables, bornées moteur) : 5 règles interactives/jour, 10 propositions simultanées, 30 commandes/5 min, 256 chars/commande.
+
+### 11.7 Écriture des règles (P1, t9) + non-propriétaires
+
+Service **unique** de mutation `rules.json` : charger + valider schéma complet → vérifier plafonds → construire en mémoire → vérifier conflits → revérifier l'empreinte de la version initiale sous verrou → tmp 0600 + fsync + `os.replace` → backup de la dernière version valide (0600, même répertoire privé) → recharger et revalider. Réconciliation par `operation_id` stable (coupure après remplacement sans ambiguïté, pas de doublon). **Non-propriétaires : ignore total** — aucune réponse, aucune proposition, aucun détail des commandes ; compteur technique d'événements ignorés sans contenu.

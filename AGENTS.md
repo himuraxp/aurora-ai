@@ -11,7 +11,7 @@ config/      OpenCode configuration (opencode.json, plugins, .env.example — no
 agents/      Specialized personalities (aurora, aurora-heavy, reviewer, tester, security, cybersec, architect, spark, vision, atlas, crawler, sage, scribe, pulse, echo, beacon, designer, mobile, product-owner)
 standards/   Universal behaviors (workflow, communication, verification, memory, review, audit, anti-patterns, agent-output...)
 frameworks/  Per-stack technical rules (angular-20, nodejs, nestjs, astro)
-skills/      Reusable skills (accessibility, ai-cowork, allow-command, antislop, antislop-code, antislop-copywriting, antislop-ui, clonedeps, code-review, codemap, commit, council, create-mr, deepwork, deployment-changelog, design-qa, domain-language, figma-ds-sync, gitlab-ci, gitlab-feature-planner, gitlab-issues, gitlab-summary, goals, image-transparent-background, laravel-cruddy-by-design, loop-engineering, meeting, mr-review, mr-review-feedback, new-worktree, oh-my-opencode-slim, pre-mr-review, product-authority, radio-tag-genres, readme, reflect, release-smoke-test, review-gap-analyzer, simplify, task-workflow, translate-doc, user-stories, verification-planning, worktrees)
+skills/      Reusable skills (accessibility, ai-cowork, allow-command, antislop, antislop-code, antislop-copywriting, antislop-ui, clonedeps, code-review, codemap, commit, council, create-mr, deepwork, deployment-changelog, design-qa, domain-language, figma-ds-sync, gitlab-ci, gitlab-feature-planner, gitlab-issues, gitlab-summary, goals, image-transparent-background, laravel-cruddy-by-design, loop-engineering, mail-triage, meeting, mr-review, mr-review-feedback, new-worktree, oh-my-opencode-slim, pre-mr-review, product-authority, radio-tag-genres, readme, reflect, release-smoke-test, review-gap-analyzer, simplify, task-workflow, translate-doc, user-stories, verification-planning, worktrees)
 ```
 
 The `explorer`, `fixer`, `librarian` and `oracle` agents are provided by the **oh-my-opencode-slim** plugin (defined in `config/oh-my-opencode-slim.json`), not as `agents/*.md` files.
@@ -260,6 +260,7 @@ A team specialized in UX/UI, Mobile, Security, Architecture, Testing, Execution,
 | Request | Agent |
 |---------|-------|
 | "Audit the mobile rendering" | Designer + Mobile |
+| "Trie ma boîte mail" — "digest emails du matin" — "tri email kChat" | Aurora (skill `mail-triage` — moteur IMAP autonome, scan/plan/apply, digest kChat, validation humaine obligatoire avant apply) |
 | "Audit this page's UX" | Designer |
 | "Check that it's accessible" | Designer |
 | "Check the auth security" | Security |

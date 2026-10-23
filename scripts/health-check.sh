@@ -782,6 +782,51 @@ if [[ -f "$ROOT_DIR/skills/task-workflow/tw_state.py" ]]; then
     || fail "tw_state.py must validate the risk/contract/increment additive fields"
 fi
 
+# ─── 11bis. Mail-triage skill (moteur IMAP autonome + digest kChat) ─────────
+
+if [[ -f "$ROOT_DIR/skills/mail-triage/SKILL.md" ]]; then
+  grep -q '^name: "mail-triage"' "$ROOT_DIR/skills/mail-triage/SKILL.md" \
+    && ok "mail-triage skill present (frontmatter)" \
+    || fail "mail-triage frontmatter name missing or renamed"
+  # Invariant 5 : UID MOVE obligatoire, jamais de fallback COPY/EXPUNGE.
+  grep -q 'ensure_move_capability' "$ROOT_DIR/skills/mail-triage/scripts/imap_client.py" \
+    && grep -q 'ImcpableError' "$ROOT_DIR/skills/mail-triage/scripts/imap_client.py" \
+    && ok "mail-triage UID MOVE capability gate present (fail-closed)" \
+    || fail "mail-triage imap_client must gate writes behind the MOVE capability"
+  # Invariant 2 : jamais Corbeille/Spam, allowlist obligatoire.
+  grep -q 'FORBIDDEN_DESTINATION_PATTERNS' "$ROOT_DIR/skills/mail-triage/scripts/config.py" \
+    && grep -q 'destination_is_allowed' "$ROOT_DIR/skills/mail-triage/scripts/policy.py" \
+    && ok "mail-triage destination allowlist + forbidden-folder guard present" \
+    || fail "mail-triage must enforce the destination allowlist + forbidden-folder guard"
+  # Invariants 7+8 : fail-closed + emails = données non fiables.
+  grep -qi 'non fiable' "$ROOT_DIR/skills/mail-triage/scripts/policy.py" \
+    && grep -qi 'fail-closed' "$ROOT_DIR/skills/mail-triage/scripts/policy.py" \
+    && ok "mail-triage untrusted-email framing + fail-closed present" \
+    || fail "mail-triage policy must carry the untrusted-email + fail-closed framing"
+  # Invariant 9 : kill switches séparés, vérifiés avant mutation.
+  grep -q 'writes_disabled' "$ROOT_DIR/skills/mail-triage/scripts/triage.py" \
+    && grep -q 'digest_enabled' "$ROOT_DIR/skills/mail-triage/scripts/config.py" \
+    && ok "mail-triage kill switches enforced (writes/imap/digest)" \
+    || fail "mail-triage must enforce separate kill switches"
+  # Digest : réconciliation par marqueur, jamais de repost aveugle.
+  grep -q 'find_marker_in_channel' "$ROOT_DIR/skills/mail-triage/scripts/kchat.py" \
+    && grep -q 'confirm_required' "$ROOT_DIR/skills/mail-triage/scripts/triage.py" \
+    && ok "mail-triage digest reconcile-by-marker + apply confirm guard present" \
+    || fail "mail-triage must reconcile digests by marker and gate apply behind --confirm-apply"
+  # Jamais de secret en dur : les credentials viennent de l'env (noms seulement).
+  if grep -rn 'MAIL_TRIAGE_IMAP_PASSWORD' "$ROOT_DIR/skills/mail-triage/scripts/" \
+    | grep -v 'password_env\|login_env\|get_secret\|env.get\|environ.get\|secrets_present' >/dev/null 2>&1; then
+    fail "mail-triage scripts must never hardcode secret variable usage outside env indirection"
+  else
+    ok "mail-triage secrets stay behind env indirection (no hardcoded credentials)"
+  fi
+  if python3 -m unittest discover -s "$ROOT_DIR/skills/mail-triage/tests" >/dev/null 2>&1; then
+    ok "mail-triage tests passed (config/policy/state/digest/kchat/cli, zero network)"
+  else
+    fail "mail-triage tests FAILED"
+  fi
+fi
+
 # Software Fundamentals lot 1: verification-planning links to the
 # implementation contract (own existence block — fails loudly if the skill
 # disappears, never silently skipped).

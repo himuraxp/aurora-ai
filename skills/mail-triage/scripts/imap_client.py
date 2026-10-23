@@ -169,7 +169,7 @@ def fetch_recent_headers(conn: imaplib.IMAP4_SSL, mailbox: str, limit: int = 100
     idset = ",".join(str(u) for u in uids)
     typ, fetched = conn.uid(
         "fetch", idset,
-        "(FLAGS INTERNALDATE BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE MESSAGE-ID)])",
+        "(FLAGS INTERNALDATE BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE MESSAGE-ID REFERENCES IN-REPLY-TO)])",
     )
     if typ != "OK":
         raise ImapError("UID FETCH échoué")
@@ -203,6 +203,8 @@ def fetch_recent_headers(conn: imaplib.IMAP4_SSL, mailbox: str, limit: int = 100
                 "subject": _decode_header_value(msg.get("Subject")),
                 "date": _decode_header_value(msg.get("Date")),
                 "message_id": _decode_header_value(msg.get("Message-ID")),
+                "references": _decode_header_value(msg.get("References")),
+                "in_reply_to": _decode_header_value(msg.get("In-Reply-To")),
                 "internaldate": internaldate.isoformat() if internaldate else None,
                 "seen": "\\Seen" in flags,
                 "flags": flags,

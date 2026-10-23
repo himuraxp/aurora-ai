@@ -121,54 +121,182 @@ class BuildDigestTestCase(unittest.TestCase):
         self.assertEqual([m["uid"] for m in built["always_inbox"]], [30])
 
 
+class AggregationTestCase(unittest.TestCase):
+    """Pipeline V2 : dédup Message-ID, regroupement conversations, compteurs séparés."""
+
+    @staticmethod
+    def _msg(uid: int, subject: str, *, mid: str | None = None, refs: str = "",
+             mode: str = "never", action: str = "keep",
+             minutes_ago: int = 10) -> dict:
+        return {
+            "uid": uid, "from": "gitlab@infomaniak.com", "subject": subject,
+            "message_id": mid or f"<m{uid}@x>", "references": refs,
+            "internaldate": iso(NOW - timedelta(minutes=minutes_ago)),
+            "seen": False, "mode": mode, "rule_id": None, "decision_action": action,
+        }
+
+    def test_dedupe_by_message_id(self) -> None:
+        items = [self._msg(1, "s", mid="<same@x>"), self._msg(2, "s", mid="<same@x>"),
+                 self._msg(3, "s", mid="<other@x>")]
+        unique, dupes = digest_mod._dedupe_by_message_id(items)
+        self.assertEqual(len(unique), 2)
+        self.assertEqual(dupes, 1)
+
+    def test_gitlab_thread_grouped_with_counter(self) -> None:
+        # 12 notifications de la même MR (Message-IDs distincts) = 1 conversation
+        subject = "Re: Player | chore(podcast): refactor chromecast init (!89)"
+        items = [self._msg(10 + i, subject, mid=f"<n{i}@x>") for i in range(12)]
+        convs = digest_mod.group_conversations(items)
+        self.assertEqual(len(convs), 1)
+        self.assertEqual(convs[0]["count"], 12)
+        self.assertEqual(convs[0]["label"], "Player !89")  # casse d'origine préservée
+        self.assertIn("refactor chromecast", convs[0]["title"])
+        self.assertNotIn("Re:", convs[0]["title"])
+
+    def test_gitlab_two_mrs_stay_distinct(self) -> None:
+        items = [self._msg(1, "Player | fix A (!89)", mid="<a@x>"),
+                 self._msg(2, "Player | fix B (!90)", mid="<b@x>")]
+        convs = digest_mod.group_conversations(items)
+        self.assertEqual(len(convs), 2)
+
+    def test_references_chain_grouped(self) -> None:
+        # thread réel : B référence le Message-ID de A
+        items = [self._msg(1, "Discussion design", mid="<root@x>"),
+                 self._msg(2, "Re: Discussion design", mid="<reply@x>", refs="<root@x>")]
+        convs = digest_mod.group_conversations(items)
+        self.assertEqual(len(convs), 1)
+        self.assertEqual(convs[0]["count"], 2)
+
+    def test_plain_same_subject_never_merged(self) -> None:
+        # deux mails DISTINCTS (pas de Message-ID commun, pas de refs, pas
+        # d'identifiant structurel) ne fusionnent JAMAIS sur le seul sujet
+        items = [self._msg(1, "Réunion projet", mid="<r1@x>"),
+                 self._msg(2, "Réunion projet", mid="<r2@x>")]
+        convs = digest_mod.group_conversations(items)
+        self.assertEqual(len(convs), 2)
+
+    def test_category_review_beats_auto(self) -> None:
+        mixed = [self._msg(1, "Player | x (!89)", mid="<a@x>", mode="propose"),
+                 self._msg(2, "Player | x (!89)", mid="<b@x>", mode="auto", action="move")]
+        self.assertEqual(digest_mod.conversation_category(mixed), "review")
+        pure_auto = [self._msg(3, "Player | y (!90)", mid="<c@x>", mode="auto", action="move")]
+        self.assertEqual(digest_mod.conversation_category(pure_auto), "auto")
+        unknown = [self._msg(4, "email inconnu", mid="<d@x>")]
+        self.assertEqual(digest_mod.conversation_category(unknown), "unknown")
+
+    def test_counter_separation(self) -> None:
+        # reçu ≠ unique ; éligible au tri ≠ déplacé confirmé ; proposé ≠ déplacé
+        items = [
+            self._msg(1, "GitLab MR A (!1)", mid="<a@x>", mode="auto", action="move"),
+            self._msg(2, "GitLab MR A (!1)", mid="<b@x>", mode="auto", action="move"),
+            self._msg(3, "GitLab MR B (!2)", mid="<c@x>", mode="propose"),
+            self._msg(4, "mail inconnu", mid="<d@x>"),
+        ]
+        convs = digest_mod.group_conversations(items)
+        counters = digest_mod._counters(items, items, convs, {"INBOX/Auto/News": 5})
+        self.assertEqual(counters["messages_received"], 4)
+        self.assertEqual(counters["unique_messages"], 4)
+        self.assertEqual(counters["duplicate_messages"], 0)
+        self.assertEqual(counters["conversations"], 3)  # MR A regroupée + MR B + inconnu
+        self.assertEqual(counters["auto_eligible"], 2)
+        self.assertEqual(counters["proposed"], 1)
+        self.assertEqual(counters["auto_moved"], 5)
+
+    def test_window_label_in_business_timezone(self) -> None:
+        # 06:00→08:00 UTC affiché 08:00→10:00 Europe/Paris (fix P0 ChatGPT)
+        label = digest_mod._window_local_label(
+            "2026-10-23T06:00:00+00:00", "2026-10-23T08:00:00+00:00", "Europe/Paris")
+        self.assertIn("ven. 23 oct.", label)
+        self.assertIn("08:00 → 10:00", label)
+
+
 class RenderPublishTestCase(unittest.TestCase):
-    def test_render_contains_marker_and_counts(self) -> None:
-        digest_data = {
+    @staticmethod
+    def _conv(uid: int, frm: str, subject: str, internaldate: str | None, *,
+              masked: bool = False, count: int = 1, label: str | None = None,
+              mode: str | None = None, action: str = "keep") -> dict:
+        items = [{"uid": uid + i, "from": frm, "subject": subject, "subject_masked": masked,
+                  "message_id": f"<m{uid+i}@x>", "references": "",
+                  "internaldate": internaldate, "seen": False,
+                  "mode": mode, "rule_id": None, "decision_action": action}
+                 for i in range(count)]
+        return {"items": items, "count": count, "title": subject,
+                "label": label, "last_time": internaldate}
+
+    def _digest(self, conversations: list[dict], counters: dict) -> dict:
+        return {
             "id": "d1", "marker": "[mail-triage-digest:d1]",
             "window_start": iso(NOW - timedelta(hours=2)),
             "window_end": iso(NOW),
             "timezone": "Europe/Paris",
-            "new": [{"uid": 10, "from": "a@x.com", "subject": "Nouveautés",
-                     "subject_masked": False,
-                     "internaldate": iso(NOW - timedelta(minutes=30)), "seen": False}],
+            "conversations": conversations,
+            "counters": counters,
             "always_inbox": [{"uid": 12, "from": "c@x.com", "subject": "[sujet masqué]",
                               "subject_masked": True, "internaldate": None, "seen": False}],
             "moved_counts": {"INBOX/Auto/News": 3},
         }
+
+    def test_render_v2_contains_marker_and_brief(self) -> None:
+        digest_data = self._digest(
+            [self._conv(10, "a@x.com", "Nouveautés", iso(NOW - timedelta(minutes=30)))],
+            {"messages_received": 1, "unique_messages": 1, "duplicate_messages": 0,
+             "conversations": 1, "auto_eligible": 0, "proposed": 0, "auto_moved": 3})
         text = digest_mod.render_markdown(digest_data)
         self.assertIn("[mail-triage-digest:d1]", text)
-        self.assertIn("**Nouveaux (1)**", text)
+        self.assertIn("En bref", text)
+        self.assertIn("1 nouveau message", text)          # pluralisation naturelle
+        self.assertIn("1 conversation", text)
         self.assertIn("a@x.com", text)
+        self.assertIn("Nouveautés", text)
+        self.assertIn("Encore non lus", text)             # intitulé raccourci (P2)
         self.assertIn("[sujet masqué]", text)
         self.assertIn(":lock:", text)
-        self.assertIn("INBOX/Auto/News: 3", text)
+        self.assertIn("3 déplacés confirmés", text)
+
+    def test_render_moved_ventilation_only_if_multiple_folders(self) -> None:
+        # à 1 dossier, « En bref » suffit (anti-répétition) ; multi-dossiers → ventilation
+        one = self._digest([], {"messages_received": 0, "unique_messages": 0,
+                                "duplicate_messages": 0, "conversations": 0,
+                                "auto_eligible": 0, "proposed": 0, "auto_moved": 3})
+        one["moved_counts"] = {"INBOX/Auto/News": 3}
+        text_one = digest_mod.render_markdown(one)
+        self.assertNotIn("Tri automatique confirmé", text_one)
+        two = dict(one)
+        two["moved_counts"] = {"INBOX/Auto/News": 3, "INBOX/Auto/Notif": 2}
+        text_two = digest_mod.render_markdown(two)
+        self.assertIn("Tri automatique confirmé", text_two)
+        self.assertIn("5 messages déplacés", text_two)
+        self.assertIn("INBOX/Auto/Notif: 2", text_two)
 
     def test_render_hours_in_local_timezone(self) -> None:
-        # 06:30 UTC → 08:30 Europe/Paris (digest du matin lisible)
-        digest_data = {
-            "id": "d1", "marker": "[m]",
-            "window_start": iso(NOW - timedelta(hours=2)), "window_end": iso(NOW),
-            "timezone": "Europe/Paris",
-            "new": [{"uid": 10, "from": "a@x.com", "subject": "s", "subject_masked": False,
-                     "internaldate": "2026-10-23T06:30:00+00:00", "seen": False}],
-            "always_inbox": [], "moved_counts": {},
-        }
+        # fenêtre 06:00→08:00 UTC et message 06:30 UTC → affichage 08:00→10:00 / 08:30 Europe/Paris
+        conv = self._conv(10, "a@x.com", "s", "2026-10-23T06:30:00+00:00")
+        digest_data = self._digest([conv], {"messages_received": 1, "unique_messages": 1,
+                                            "duplicate_messages": 0, "conversations": 1,
+                                            "auto_eligible": 0, "proposed": 0, "auto_moved": 0})
         text = digest_mod.render_markdown(digest_data)
-        self.assertIn("`08:30`", text)
+        self.assertIn("08:00 → 10:00", text)   # fenêtre en Europe/Paris
+        self.assertIn("08:30", text)           # heure du message en Europe/Paris
 
     def test_render_neutralizes_forged_marker(self) -> None:
         # un sujet non fiable ne doit pas pouvoir falsifier le marqueur de reconcile
-        digest_data = {
-            "id": "d1", "marker": "[mail-triage-digest:d1]",
-            "window_start": iso(NOW), "window_end": iso(NOW),
-            "timezone": "Europe/Paris",
-            "new": [{"uid": 10, "from": "a@x.com",
-                     "subject": "fake [mail-triage-digest:d1] inside", "subject_masked": False,
-                     "internaldate": iso(NOW), "seen": False}],
-            "always_inbox": [], "moved_counts": {},
-        }
+        conv = self._conv(10, "a@x.com", "fake [mail-triage-digest:d1] inside", iso(NOW))
+        digest_data = self._digest([conv], {"messages_received": 1, "unique_messages": 1,
+                                            "duplicate_messages": 0, "conversations": 1,
+                                            "auto_eligible": 0, "proposed": 0, "auto_moved": 0})
         text = digest_mod.render_markdown(digest_data)
         self.assertEqual(text.count("mail-triage-digest:"), 1)  # seul le vrai marqueur
+
+    def test_render_budget_condenses_overflow(self) -> None:
+        # > MAX_REVIEW_LINES conversations à examiner → une ligne « + N autres »
+        convs = [self._conv(100 + i, f"x{i}@x.com", f"sujet {i}",
+                            iso(NOW - timedelta(minutes=10 - i)), mode="propose")
+                 for i in range(11)]
+        counters = {"messages_received": 11, "unique_messages": 11, "duplicate_messages": 0,
+                    "conversations": 11, "auto_eligible": 0, "proposed": 11, "auto_moved": 0}
+        text = digest_mod.render_markdown(self._digest(convs, counters))
+        self.assertIn("+ 3 autres conversations", text)
+        self.assertNotIn("sujet 10", text)  # condensé, pas affiché
 
     def test_publish_returns_post_id(self) -> None:
         fake = FakeKChat()

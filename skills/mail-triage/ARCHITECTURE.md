@@ -82,7 +82,9 @@ Sorties JSON garanties, exit 0/1/2 (0 OK, 1 erreur métier, 2 usage/config). Tou
 ## 7. Digest kChat
 
 - **Même moteur**, module de publication isolé ; un bot kChat **personnel** dédié (token bot, DM uniquement, destinataire allowlisté).
-- Contenu : nouveaux messages depuis la fenêtre confirmée + section « Toujours dans l'Inbox » (non lus plus anciens, plafonnée) + compteurs du tri effectué. Sujets sensibles masqués (patterns dans config). Jamais de corps, jamais de pièce jointe, jamais de lien public.
+- **Format V2** (`digest_format_version: 2`) : section « En bref » en tête (compteurs séparés : reçus / conversations / couverts par règles / à valider / déplacés confirmés), conversations **regroupées** (jamais 1 ligne par notification) via déduplication Message-ID + graphe References/In-Reply-To + clé applicative GitLab (projet + identifiant) — deux messages au même sujet sans identifiant structurel ne fusionnent jamais. Budget ~15 lignes utiles (« + N autres conversations » au-delà). Identité logique inchangée (digest_id + marqueur) : le déploiement du format ne republie pas un digest déjà envoyé.
+- Contenu : nouveaux messages depuis la fenêtre confirmée + section « Encore non lus » (non lus plus anciens, plafonnée) + compteurs du tri effectué. Sujets sensibles masqués (patterns dans config). Jamais de corps, jamais de pièce jointe, jamais de lien public.
+- Fenêtre affichée dans le fuseau métier `digest.timezone` (défaut Europe/Paris) — le MÊME fuseau que les horaires des messages (sinon le digest paraît contenir des messages postérieurs à sa fenêtre).
 - Confidentialité : boîte pro → kChat pro (même organisation) — expéditeurs/sujets lisibles assumés ; tout autre périmètre exige une décision explicite.
 - Fenêtre temporelle : dates de réception normalisées (UTC) + identifiants techniques — jamais uniquement un filtre IMAP `SINCE` (granularité journalière) ; la fenêtre suivante commence au dernier point de coupure confirmé.
 - Idempotence : garde SQLite (dernier digest confirmé) + marqueur unique dans le message ; une publication incertaine (timeout) est **réconciliée** (`reconcile --digest`), jamais repostée aveuglément.

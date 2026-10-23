@@ -7,6 +7,7 @@ même organisation) MAIS jamais de corps ni de pièce jointe ; sujets sensibles 
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -14,6 +15,20 @@ import policy
 from kchat import KChatError
 
 MARKER_PREFIX = "mail-triage-digest:"
+DIGEST_FORMAT_VERSION = 2
+
+_RE_PREFIX_RE = re.compile(r"^(?:\s*(?:re|fwd?|tr|aw)\s*(?:\[\d+\])?\s*:\s*)+", re.IGNORECASE)
+_GITLAB_ID_RE = re.compile(r"\(([!#]\d+)\)\s*$")
+_REF_SPLIT_RE = re.compile(r"\s+")
+
+_DAYS_FR = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."]
+_MONTHS_FR = ["janv.", "févr.", "mars", "avr.", "mai", "juin",
+              "juil.", "août", "sept.", "oct.", "nov.", "déc."]
+
+# Budget éditorial (lignes de contenu par section, hors titres)
+MAX_REVIEW_LINES = 8
+MAX_AUTO_LINES = 4
+MAX_UNKNOWN_LINES = 4
 
 
 def new_digest_id() -> str:
@@ -61,15 +76,28 @@ def build_digest(state, messages: list[dict], config: dict, window: dict, digest
 
     new_items: list[dict] = []
     always: list[dict] = []
+    rules_doc = config.get("rules") or {}
+    dest_cfg = config.get("destinations")
+    allowlist = dest_cfg.get("allowlist", []) if isinstance(dest_cfg, dict) else []
     for msg in messages:
         subject, masked = policy.mask_subject(msg.get("subject") or "", sensitive_patterns)
+        try:
+            decision = policy.evaluate(msg, rules_doc, allowlist, config)
+        except policy.PolicyError as exc:
+            decision = {"action": "keep", "rule_id": None, "mode": "never",
+                        "folder": None, "reason": f"fail-closed: {exc}"}
         item = {
             "uid": msg["uid"],
             "from": msg.get("from") or "",
             "subject": subject,
             "subject_masked": masked,
+            "message_id": msg.get("message_id") or "",
+            "references": msg.get("references") or "",
             "internaldate": msg.get("internaldate"),
             "seen": msg.get("seen", False),
+            "mode": decision.get("mode"),
+            "rule_id": decision.get("rule_id"),
+            "decision_action": decision.get("action"),
         }
         internal = msg.get("internaldate")
         in_window = False
@@ -86,15 +114,167 @@ def build_digest(state, messages: list[dict], config: dict, window: dict, digest
                 always.append(item)
 
     new_items.sort(key=lambda m: (m["internaldate"] or "", m["uid"]))
+    unique_items, duplicate_count = _dedupe_by_message_id(new_items)
+    conversations = group_conversations(unique_items)
+    moved_counts = state.moved_counts_since(start.isoformat())
+    counters = _counters(new_items, unique_items, conversations, moved_counts)
     return {
         "id": digest_id,
         "marker": new_marker(digest_id),
+        "format_version": DIGEST_FORMAT_VERSION,
         "window_start": start.isoformat(),
         "window_end": end.isoformat(),
         "timezone": config.get("digest", {}).get("timezone", "Europe/Paris"),
         "new": new_items,
+        "unique": unique_items,
+        "conversations": conversations,
+        "counters": counters,
         "always_inbox": always,
-        "moved_counts": state.moved_counts_since(start.isoformat()),
+        "moved_counts": moved_counts,
+    }
+
+
+def _dedupe_by_message_id(items: list[dict]) -> tuple[list[dict], int]:
+    """Déduplication forte : Message-ID identique = même message (multi-delivery).
+
+    Deux notifications GitLab d'une même MR ont des Message-ID DISTINCTS :
+    elles restent des messages uniques — le regroupement est la tâche de
+    group_conversations, jamais celle de la déduplication.
+    """
+    seen: set[str] = set()
+    unique: list[dict] = []
+    duplicates = 0
+    for item in items:
+        mid = (item.get("message_id") or "").strip()
+        if mid and mid in seen:
+            duplicates += 1
+            continue
+        if mid:
+            seen.add(mid)
+        unique.append(item)
+    return unique, duplicates
+
+
+def normalized_subject(subject: str) -> str:
+    stripped = _RE_PREFIX_RE.sub("", subject or "").strip().lower()
+    return re.sub(r"\s+", " ", stripped)
+
+
+def gitlab_key(subject: str) -> str | None:
+    """Clé applicative GitLab : projet + identifiant (!MR / #issue) en fin de sujet.
+
+    Ex. « Re: Player | chore(podcast): refactor (!89) » → « player|!89 ».
+    !89 seul n'est pas une clé globale : le projet est obligatoire.
+    """
+    m = _GITLAB_ID_RE.search(subject or "")
+    if not m:
+        return None
+    prefix = _RE_PREFIX_RE.sub("", (subject[:m.start()]).strip()).strip()
+    project = prefix.split("|", 1)[0].strip().lower() if "|" in prefix else prefix.lower()
+    if not project:
+        return None
+    return f"{project}|{m.group(1)}"
+
+
+def group_conversations(items: list[dict]) -> list[dict]:
+    """Regroupe les messages en conversations (union-find sur les clés fortes).
+
+    Clés : Message-ID + chaîne References/In-Reply-To (graphe de thread), puis
+    clé applicative GitLab projet+identifiant. Le sujet normalisé SANS
+    identifiant structurel ne fusionne jamais deux messages (jamais de fusion
+    de deux mails distincts au seul motif d'un sujet similaire).
+    """
+    parent: dict[str, str] = {}
+
+    def find(x: str) -> str:
+        parent.setdefault(x, x)
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(a: str, b: str) -> None:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[rb] = ra
+
+    item_keys: list[list[str]] = []
+    for idx, item in enumerate(items):
+        keys: list[str] = []
+        mid = (item.get("message_id") or "").strip()
+        if mid:
+            keys.append(f"id:{mid}")
+        for ref in _REF_SPLIT_RE.split(item.get("references") or ""):
+            if ref:
+                keys.append(f"id:{ref}")
+        gk = gitlab_key(item.get("subject") or "")
+        if gk:
+            keys.append(f"gl:{gk}")
+        if not keys:
+            keys = [f"idx:{idx}"]
+        item_keys.append(keys)
+        for k in keys[1:]:
+            union(keys[0], k)
+
+    groups: dict[str, list[int]] = {}
+    for idx, keys in enumerate(item_keys):
+        groups.setdefault(find(keys[0]), []).append(idx)
+
+    conversations: list[dict] = []
+    for idxs in groups.values():
+        members = [items[i] for i in idxs]
+        members.sort(key=lambda m: (m["internaldate"] or "", m["uid"]))
+        title_src = members[-1]["subject"] or ""
+        gk = gitlab_key(title_src)
+        label: str | None = None
+        title = _RE_PREFIX_RE.sub("", title_src).strip()
+        if gk:
+            _, ident = gk.split("|", 1)
+            title = _RE_PREFIX_RE.sub("", _GITLAB_ID_RE.sub("", title_src)).strip()
+            # affichage : casse d'origine du projet (la clé de regroupement est lowercase)
+            m = _GITLAB_ID_RE.search(title_src)
+            prefix_display = _RE_PREFIX_RE.sub("", title_src[:m.start()].strip()).strip()
+            project_display = (prefix_display.split("|", 1)[0].strip()
+                               if "|" in prefix_display else prefix_display)
+            label = f"{project_display} {ident}"
+            if len(label) > 40:
+                label = label[:37] + "…"
+        if len(title) > 70:
+            title = title[:67] + "…"
+        conversations.append({
+            "items": members,
+            "count": len(members),
+            "title": title,
+            "label": label,
+            "last_time": members[-1]["internaldate"],
+        })
+    conversations.sort(key=lambda c: (c["last_time"] or "", c["items"][-1]["uid"]), reverse=True)
+    return conversations
+
+
+def conversation_category(members: list[dict]) -> str:
+    """Catégorie de présentation : review (à examiner) > auto (tri automatique) > unknown."""
+    if any(m.get("mode") == "propose" for m in members):
+        return "review"
+    if all(m.get("decision_action") == "move" for m in members):
+        return "auto"
+    return "unknown"
+
+
+def _counters(new_items: list[dict], unique_items: list[dict],
+              conversations: list[dict], moved_counts: dict | None) -> dict:
+    """Compteurs séparés — les termes ne sont pas interchangeables :
+    reçu ≠ unique, éligible au tri ≠ déplacé confirmé, proposé ≠ déplacé."""
+    moved = moved_counts or {}
+    return {
+        "messages_received": len(new_items),
+        "unique_messages": len(unique_items),
+        "duplicate_messages": len(new_items) - len(unique_items),
+        "conversations": len(conversations),
+        "auto_eligible": sum(1 for i in unique_items
+                             if i.get("mode") == "auto" and i.get("decision_action") == "move"),
+        "proposed": sum(1 for i in unique_items if i.get("mode") == "propose"),
+        "auto_moved": sum(moved.values()),
     }
 
 
@@ -114,35 +294,103 @@ def _safe_local_hour(iso_ts: str | None, tz_name: str) -> str:
         return "??:??"
 
 
+def _window_local_label(iso_start: str, iso_end: str, tz_name: str) -> str:
+    """Fenêtre affichée dans le fuseau métier (digest.timezone) — MÊME fuseau que
+    les horaires des messages (sinon le digest paraît contenir des messages
+    postérieurs à sa fenêtre). Fallback : heures brutes si tz inconnue."""
+    def to_local(iso_ts: str) -> datetime:
+        dt = datetime.fromisoformat(iso_ts)
+        try:
+            from zoneinfo import ZoneInfo
+            dt = dt.astimezone(ZoneInfo(tz_name))
+        except Exception:
+            pass
+        return dt
+    try:
+        s = to_local(iso_start)
+        e = to_local(iso_end)
+        return (f"{_DAYS_FR[s.weekday()]} {s.day:02d} {_MONTHS_FR[s.month - 1]}, "
+                f"{s:%H:%M} → {e:%H:%M}")
+    except (ValueError, TypeError):
+        return f"{iso_start[:16].replace('T', ' ')} → {iso_end[:16].replace('T', ' ')}"
+
+
+def _fr(n: int, singular: str, plural: str) -> str:
+    """Pluralisation française naturelle (« 1 nouveau message » / « 19 nouveaux messages »)."""
+    return f"{n} {singular if n == 1 else plural}"
+
+
+def _conv_line(conv: dict, tz_name: str) -> str:
+    subject = conv["title"].replace(MARKER_PREFIX, "[marqueur-neutralisé:")
+    if any(m.get("subject_masked") for m in conv["items"]):
+        subject = f"{subject} :lock:"
+    time_part = _safe_local_hour(conv["last_time"], tz_name)
+    n = conv["count"]
+    if conv["label"]:
+        if n > 1:
+            return f"- **{conv['label']}** · {n} notif. ({time_part}) — {subject}"
+        return f"- **{conv['label']}** ({time_part}) — {subject}"
+    sender = conv["items"][-1].get("from") or ""
+    if n > 1:
+        return f"- **{sender}** — {subject} · {n} notif. ({time_part})"
+    return f"- **{sender}** — {subject} ({time_part})"
+
+
+def _section(lines: list[str], header: str, convs: list[dict], max_lines: int, tz_name: str) -> None:
+    if not convs:
+        return
+    lines.append(header)
+    for conv in convs[:max_lines]:
+        lines.append(_conv_line(conv, tz_name))
+    if len(convs) > max_lines:
+        lines.append(f"- + {_fr(len(convs) - max_lines, 'autre conversation', 'autres conversations')}")
+    lines.append("")
+
+
 def render_markdown(digest: dict) -> str:
-    """Rendu kChat (Mattermost markdown). Marqueur unique inclus (réconciliation).
+    """Rendu kChat V2 (format_version 2) : « En bref » en tête, conversations
+    regroupées (jamais 1 ligne par notification), budget éditorial ~15 lignes
+    utiles. Marqueur unique inclus (réconciliation).
 
     Les sujets viennent d'emails (données non fiables) : toute occurrence du
     préfixe de marqueur y est neutralisée (anti-falsification de reconcile)."""
+    tz_name = digest.get("timezone", "Europe/Paris")
+    counters = digest.get("counters", {})
+    conversations = digest.get("conversations", [])
     lines: list[str] = []
-    window_start = digest["window_start"][:16].replace("T", " ")
-    window_end = digest["window_end"][:16].replace("T", " ")
-    lines.append(f"**:incoming_envelope: Digest emails — {window_start} → {window_end}**")
+
+    window_label = _window_local_label(digest["window_start"], digest["window_end"], tz_name)
+    lines.append(f"**:incoming_envelope: Digest emails — {window_label}**")
     lines.append("")
 
-    new_items = digest.get("new", [])
-    if new_items:
-        lines.append(f"**Nouveaux ({len(new_items)})**")
-        for item in new_items:
-            time_part = _safe_local_hour(item.get("internaldate"),
-                                         digest.get("timezone", "Europe/Paris"))
-            subject = item["subject"].replace(MARKER_PREFIX, "[marqueur-neutralisé:")
-            if item.get("subject_masked"):
-                subject = f"{subject} :lock:"
-            lines.append(f"- `{time_part}` **{item['from']}** — {subject}")
-        lines.append("")
-    else:
-        lines.append("**Nouveaux** : aucun.")
-        lines.append("")
+    brief: list[str] = []
+    received = counters.get("messages_received", 0)
+    brief.append(_fr(received, "nouveau message", "nouveaux messages"))
+    if counters.get("duplicate_messages"):
+        brief.append(_fr(counters["duplicate_messages"], "doublon ignoré", "doublons ignorés"))
+    if counters.get("conversations"):
+        brief.append(_fr(counters["conversations"], "conversation", "conversations"))
+    if counters.get("proposed"):
+        brief.append(f":warning: {_fr(counters['proposed'], 'message à valider', 'messages à valider')}")
+    if counters.get("auto_eligible"):
+        brief.append(f":white_check_mark: {_fr(counters['auto_eligible'], 'nouvel email couvert par les règles automatiques', 'nouveaux emails couverts par les règles automatiques')}")
+    if counters.get("auto_moved"):
+        brief.append(f":file_folder: {_fr(counters['auto_moved'], 'déplacé confirmé', 'déplacés confirmés')}")
+    lines.append("**:sunny: En bref**")
+    lines.extend(f"- {part}" for part in brief)
+    lines.append("")
+
+    review = [c for c in conversations if conversation_category(c["items"]) == "review"]
+    auto = [c for c in conversations if conversation_category(c["items"]) == "auto"]
+    unknown = [c for c in conversations if conversation_category(c["items"]) == "unknown"]
+
+    _section(lines, f"**:warning: À examiner — proposés à validation**", review, MAX_REVIEW_LINES, tz_name)
+    _section(lines, "**:repeat: Notifications regroupées (tri automatique)**", auto, MAX_AUTO_LINES, tz_name)
+    _section(lines, "**:question: En attente (conservés dans l'Inbox)**", unknown, MAX_UNKNOWN_LINES, tz_name)
 
     always = digest.get("always_inbox", [])
     if always:
-        lines.append(f"**Toujours dans l'Inbox (non lus, plus anciens) ({len(always)})**")
+        lines.append(f"**Encore non lus ({len(always)})**")
         for item in always:
             subject = item["subject"].replace(MARKER_PREFIX, "[marqueur-neutralisé:")
             if item.get("subject_masked"):
@@ -151,10 +399,12 @@ def render_markdown(digest: dict) -> str:
         lines.append("")
 
     moved = digest.get("moved_counts") or {}
-    if moved:
+    if len(moved) > 1:
+        # ventilation multi-dossiers utile ; à 1 seul dossier, « En bref » suffit
+        # (anti-répétition, retour ChatGPT P2)
         total = sum(moved.values())
         detail = ", ".join(f"{folder}: {count}" for folder, count in sorted(moved.items()))
-        lines.append(f"**:file_folder: Tri automatique** : {total} message(s) déplacé(s) ({detail})")
+        lines.append(f"**:file_folder: Tri automatique confirmé** : {_fr(total, 'message déplacé', 'messages déplacés')} ({detail})")
         lines.append("")
 
     lines.append(digest["marker"])

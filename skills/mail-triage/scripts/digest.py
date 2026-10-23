@@ -446,23 +446,32 @@ def _conclusion(review: list[dict], unknown: list[dict], counters: dict) -> str:
 
 _PREVIEW_MAX_NORMALIZED = 500  # texte normalisé avant neutralisation
 _PREVIEW_MAX_LINES = 2         # lignes publiées max par aperçu
+_PREVIEW_MAX_CHARS_AUTO = 140  # plafond réduit pour les notifications auto enrichies
 MAX_PREVIEW_FETCHES = 16       # plafond d'appels IMAP par digest (budget)
 _SANITIZE_URL_RE = re.compile(r"https?://[^\s)>\]]+", re.IGNORECASE)
 
 
-def _decode_section(raw: bytes, encoding: str) -> str | None:
-    """Décode le payload d'une section MIME (7bit/8bit/quoted-printable/base64)."""
+def _decode_section(raw: bytes, encoding: str, charset: str | None = None) -> str | None:
+    """Décode le payload d'une section MIME. Le charset DÉCLARÉ est prioritaire
+    (reconnu uniquement — un charset inconnu retombe sur utf-8 → latin-1)."""
     try:
         enc = (encoding or "7bit").strip().lower()
         if enc == "base64":
-            data = base64.b64decode(raw + b"=" * (-len(raw) % 4), validate=False)
+            # validate=True : un base64 corrompu → renonciation (jamais un texte fabriqué)
+            data = base64.b64decode(b"".join(raw.split()), validate=True)
         elif enc in ("quoted-printable", "quoted printable"):
             data = quopri.decodestring(raw)
         else:
             data = raw
-        for charset in ("utf-8", "latin-1"):
+        declared = (charset or "").strip().lower()
+        if declared:
             try:
-                return data.decode(charset)
+                return data.decode(declared)
+            except (UnicodeDecodeError, LookupError):
+                pass  # charset inconnu ou texte incohérent : fallback ci-dessous
+        for fallback in ("utf-8", "latin-1"):
+            try:
+                return data.decode(fallback)
             except UnicodeDecodeError:
                 continue
         return data.decode("utf-8", errors="replace")
@@ -470,12 +479,13 @@ def _decode_section(raw: bytes, encoding: str) -> str | None:
         return None
 
 
-def _clean_preview(raw: bytes, encoding: str) -> str | None:
+def _clean_preview(raw: bytes, encoding: str, charset: str | None = None) -> str | None:
     """Texte normalisé (≤ 500 chars) depuis le début d'une section text/plain :
-    décodage MIME, retrait citations « > » et signatures, caractères de contrôle
-    éliminés. HTML détecté → None (fail-closed : aperçu indisponible).
-    Les corps sont des données non fiables : aucune structure n'est interprétée."""
-    text = _decode_section(raw, encoding)
+    décodage MIME, retrait citations « > », signatures et lignes image
+    décoratives, caractères de contrôle éliminés. HTML détecté → None
+    (fail-closed : aperçu indisponible). Les corps sont des données non
+    fiables : aucune structure n'est interprétée."""
+    text = _decode_section(raw, encoding, charset)
     if not text:
         return None
     if re.search(r"<(?:html|body|div|table|p|br)\b", text[:400], re.IGNORECASE):
@@ -496,6 +506,10 @@ def _clean_preview(raw: bytes, encoding: str) -> str | None:
         kept.append(clean_line)
         if len("\n".join(kept)) >= _PREVIEW_MAX_NORMALIZED:
             break
+    # lignes décoratives (image markdown seule, ex. logo Trello) écartées
+    # dès qu'une autre candidate utile existe — sélection déterministe
+    while len(kept) > 1 and kept[0].startswith("!["):
+        kept = kept[1:]
     joined = "\n".join(kept).strip()
     if not joined or re.search(r"</?(?:html|body|div|table|tr|td|p)\b", joined, re.IGNORECASE):
         return None
@@ -530,10 +544,11 @@ def _sanitize_preview(text: str, sensitive_patterns: list, max_chars: int) -> di
     return {"preview": out, "suppressed": None}
 
 
-def build_preview(raw: bytes, encoding: str, sensitive_patterns: list, max_chars: int) -> dict:
+def build_preview(raw: bytes, encoding: str, charset: str | None, sensitive_patterns: list,
+                  max_chars: int) -> dict:
     """Extrait publiable (V4.1) depuis un payload de section text/plain.
     Retourne {"preview": str|None, "suppressed": None|"sensitive"|"unavailable"|"empty"}."""
-    cleaned = _clean_preview(raw, encoding)
+    cleaned = _clean_preview(raw, encoding, charset)
     if not cleaned:
         return {"preview": None, "suppressed": "unavailable"}
     return _sanitize_preview(cleaned, sensitive_patterns, max_chars)
@@ -592,15 +607,22 @@ def enrich_previews(built: dict, cfg: dict, fetch_fn) -> dict:
     max_chars = int(enrichment.get("max_preview_chars", 180))
     sensitive = (cfg.get("digest") or {}).get("sensitive_subject_patterns") or []
     gitlab_enrich = bool(enrichment.get("gitlab_enrich", False))
+    # notifications auto enrichies : plafond d'extrait réduit (retour t5 P2)
+    auto_uids: set[int] = set()
+    if gitlab_enrich:
+        for conv in built.get("conversations", []):
+            if conversation_category(conv["items"]) == "auto":
+                auto_uids.add(conv["items"][-1]["uid"])
     previews: dict[int, dict] = {}
     for uid in preview_targets(built, gitlab_enrich=gitlab_enrich)[:MAX_PREVIEW_FETCHES]:
+        effective_max = min(max_chars, _PREVIEW_MAX_CHARS_AUTO) if uid in auto_uids else max_chars
         try:
             fetched = fetch_fn(uid, max_bytes)
         except Exception:
             fetched = None
         if fetched and fetched.get("raw"):
             previews[uid] = build_preview(fetched["raw"], fetched.get("encoding") or "7bit",
-                                          sensitive, max_chars)
+                                          fetched.get("charset"), sensitive, effective_max)
         else:
             previews[uid] = {"preview": None, "suppressed": "unavailable"}
     return previews

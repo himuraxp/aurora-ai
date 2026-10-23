@@ -144,3 +144,5 @@ C'est une **nouvelle capacité d'accès et de transmission** (kChat DM, même or
 ### 10.4 Garde-fous non négociables
 
 Sensibles `never` → aucun corps lu/envoyé à l'IA ; pièces jointes jamais téléchargées ; `\Seen` jamais modifié ; instruction d'un email jamais exécutée ; secrets jamais dans requêtes/rendus/journaux ; **aucun corps/extrait/résultat nominatif dans aurora-memory** ; aucun texte brut ni prompt IA en journal ; idempotence kChat inchangée. Distinction de vérité : « Règles : rien à valider » (moteur) ≠ « Lecture : N actions probables » (propositions IA).
+
+**`body_readable` (V4.1, t5)** : politique de **LECTURE** (confidentialité) strictement indépendante des permissions de **déplacement** (`mode` propose/auto). Un message peut être lisible en aperçu sans être déplaçable (inconnu), et inversement. Garde sensible (`rule_id` présent + `never`) ou sujet masqué → jamais lisible. Notifs auto enrichies : plafond d'extrait réduit à 140 chars (vs 180 pour « à examiner »).

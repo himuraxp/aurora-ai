@@ -342,6 +342,50 @@ class PreviewTestCase(unittest.TestCase):
         text = digest_mod._decode_section(raw, "quoted-printable")
         self.assertIn("voici le compte rendu de la réunion", text)
 
+    def test_decode_declared_charset_wins(self) -> None:
+        # t5 P2 : le charset DÉCLARÉ est prioritaire sur le fallback utf-8→latin-1
+        raw = b"caf\x92 fin"  # 0x92 = apostrophe courbe en windows-1252
+        declared = digest_mod._decode_section(raw, "8bit", "windows-1252")
+        self.assertEqual(declared, "caf\u2019 fin")
+        undeclared = digest_mod._decode_section(raw, "8bit")
+        self.assertNotEqual(declared, undeclared)
+
+    def test_decode_unknown_charset_falls_back(self) -> None:
+        raw = "créé à midi".encode("utf-8")
+        text = digest_mod._decode_section(raw, "8bit", "x-machin-inconnu")
+        self.assertEqual(text, "créé à midi")
+
+    def test_decode_truncated_base64_renounces(self) -> None:
+        # base64 invalide (padding cassé) → renonciation, jamais un texte fabriqué
+        self.assertIsNone(digest_mod._decode_section(b"!!!pas-du-base64!!!", "base64"))
+
+    def test_decode_truncated_quoted_printable_robust(self) -> None:
+        # séquence utf-8 coupée en fin de fenêtre de lecture → robuste, sans crash
+        text = digest_mod._decode_section(b"caf=C3", "quoted-printable")
+        self.assertIsNotNone(text)
+
+    def test_clean_skips_decorative_image_line(self) -> None:
+        # t5 P1 : le logo Trello (image markdown seule) n'est pas un aperçu utile
+        body = "![Logo Trello](https://ci.example.com/logo.png)\n\nBonjour, la carte a changé de colonne."
+        cleaned = digest_mod._clean_preview(body.encode("utf-8"), "7bit")
+        self.assertNotIn("Logo Trello", cleaned)
+        self.assertIn("la carte a changé de colonne", cleaned)
+
+    def test_enrich_auto_capped_at_140_chars(self) -> None:
+        # t5 P2 : notifications auto enrichies plafonnées à 140 chars (vs 180)
+        auto = RenderPublishTestCase._conv(40, "gl@x.com", "MR !89", iso(NOW),
+                                           mode="auto", action="move")
+        built = {"conversations": [auto], "always_inbox": []}
+        cfg = {"digest": {"enrichment": {"enabled": True, "gitlab_enrich": True,
+                                         "max_fetch_bytes": 4096, "max_preview_chars": 180},
+                          "sensitive_subject_patterns": []}}
+        long_body = ("Phrase très informative numéro une pour remplir largement l'aperçu "
+                     "de cette notification automatique GitLab, avec plein de détails utiles "
+                     "et une longueur bien supérieure au plafond attendu.")
+        previews = digest_mod.enrich_previews(built, cfg, lambda uid, mb: {
+            "raw": long_body.encode("utf-8"), "encoding": "7bit"})
+        self.assertLessEqual(len(previews[40]["preview"]), 140)
+
     def test_decode_base64(self) -> None:
         import base64
         raw = base64.b64encode("Rapport hebdomadaire : tout est vert.".encode("utf-8"))

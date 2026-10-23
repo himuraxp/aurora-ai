@@ -434,6 +434,7 @@ def _pick_text_plain(node: dict) -> dict | None:
         "section": ".".join(str(x) for x in chosen_path) or "1",
         "encoding": chosen.get("encoding") or "7bit",
         "size": chosen.get("size"),
+        "charset": chosen.get("params", {}).get("charset"),
     }
 
 
@@ -477,7 +478,8 @@ def fetch_body_preview(conn: imaplib.IMAP4_SSL, uid: int, max_bytes: int = 4096)
             return None
         for item in data:
             if isinstance(item, tuple) and len(item) >= 2 and isinstance(item[1], bytes) and item[1]:
-                return {"raw": item[1], "encoding": structure["encoding"]}
+                return {"raw": item[1], "encoding": structure["encoding"],
+                        "charset": structure.get("charset")}
     except Exception:
         return None
     return None

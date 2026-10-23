@@ -18,6 +18,10 @@ import {
   getInstallInfoTool,
   getChangelogTool,
 } from "./modules/elements.js";
+import { validateStartupConfig } from "./client.js";
+
+// Fail-closed startup: a misconfigured endpoint never reaches the network layer (F-01).
+validateStartupConfig();
 
 const allTools = [
   listComponentsTool,

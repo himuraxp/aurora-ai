@@ -59,23 +59,43 @@ Every setting is resolved in this order:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `GITLAB_TOKEN` | ✅ | GitLab private token — create a **dedicated** one (scope `read_api`, with expiry) at `https://<your-gitlab-host>/-/profile/personal_access_tokens` |
+| `ANGULAR_ELEMENTS_GITLAB_TOKEN` | ✅ | GitLab private token (nominal) — create a **dedicated** one (scope `read_api`, with expiry) at `https://<your-gitlab-host>/-/profile/personal_access_tokens` |
+| `GITLAB_TOKEN` | — | Deprecated transitional fallback for the token. It is the canonical variable of other tooling (e.g. `glab`) and usually carries a broader scope — a one-time startup warning is logged; removal planned in a future release |
 | `ANGULAR_ELEMENTS_GITLAB_API` | ✅ | GitLab API base, e.g. `https://gitlab.example.com/api/v4` |
 | `ANGULAR_ELEMENTS_PROJECT_ID` | ✅ | Numeric id of the GitLab project hosting the design system sources |
 | `ANGULAR_ELEMENTS_STORYBOOK_BASE` | ✅ | Base URL exposing the built Storybook `index.json` |
+| `ANGULAR_ELEMENTS_ALLOWED_ORIGINS` | ✅ | Comma-separated exact HTTPS origins the MCP may contact (startup allowlist) |
 | `ANGULAR_ELEMENTS_REF` | — | Git ref to read (default: `master`) |
+| `ANGULAR_ELEMENTS_ENV_FILE` | — | Advanced: override of the `.env` file path (tests, custom setups) |
 
 Example `~/.config/opencode/.env` — the client reads this file directly, no `env` block needed in `opencode.json`:
 
 ```sh
-GITLAB_TOKEN=<your-personal-access-token>
+ANGULAR_ELEMENTS_GITLAB_TOKEN=<your-personal-access-token>
 ANGULAR_ELEMENTS_GITLAB_API=https://gitlab.example.com/api/v4
 ANGULAR_ELEMENTS_PROJECT_ID=1234
 ANGULAR_ELEMENTS_STORYBOOK_BASE=https://<your-gitlab-host>/front/angular-elements
+ANGULAR_ELEMENTS_ALLOWED_ORIGINS=https://gitlab.example.com,https://<your-pages-host>
 # ANGULAR_ELEMENTS_REF=master   # optional
+# GITLAB_TOKEN=...             # deprecated fallback — avoid it (broader scope, shared tooling)
 ```
 
-Missing required variables fail with an explicit error listing the variable name.
+Missing required variables fail closed at startup with an explicit error listing the variable name.
+
+## Security policy
+
+Enforced at startup, fail-closed — a misconfigured server never reaches the network layer:
+
+- **Endpoint allowlist** — both endpoints must be exact HTTPS origins listed in `ANGULAR_ELEMENTS_ALLOWED_ORIGINS`, without embedded credentials; the GitLab API path must be exactly `/api/v4` and the Storybook base must not be the host root.
+- **Token scoping** — the nominal `ANGULAR_ELEMENTS_GITLAB_TOKEN` is a dedicated, least-privilege token (scope `read_api`); the legacy `GITLAB_TOKEN` is only a deprecated transitional fallback and logs a warning.
+- **Token confinement** — the token is sent only to the validated GitLab API origin (explicit guard), in the request header, never in URLs; HTTP redirects are refused (`redirect: "error"`) so it cannot leak to another destination.
+- **Injection-resistant URLs** — refs and paths are encoded once via `URLSearchParams`/`encodeURIComponent`; the project id must be numeric.
+
+### Tests
+
+```bash
+npm test  # compiles src/ then runs node:test suites (allowlist, URL encoding, token resolution)
+```
 
 ### OpenCode config
 

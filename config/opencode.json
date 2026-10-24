@@ -907,5 +907,8 @@
       "~/.config/opencode/.env*": "deny",
       "~/.config/opencode/secrets/*": "deny"
     }
+  },
+  "experimental": {
+    "todo": true
   }
 }

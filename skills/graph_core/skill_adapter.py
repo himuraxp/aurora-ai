@@ -135,7 +135,9 @@ def build_executors(specs: List[Dict[str, Any]],
                 return {"output": {"stdout": completed.stdout[-2000:]},
                         "evidences": [{"evidenceId": f"ev-{_node_id}",
                                        "kind": "technical",
-                                       "exitCode": 0,
+                                       # The REAL return code, never a literal
+                                       # (review F5 — honest by construction).
+                                       "exitCode": completed.returncode,
                                        "artifactRef": f"stdout:{_node_id}"}],
                         "artifactRefs": []}
 
@@ -160,7 +162,14 @@ def run_skill_graph(graph_id: str, specs: List[Dict[str, Any]], run_dir: str,
                     ) -> dict:
     """Build the graph from the task specs and run it in SHADOW mode
     (sandbox dispatcher, zero real emission). Returns the shadow result in
-    the same shape as the M5 pilot."""
+    the same shape as the M5 pilot (graphId, runId, metrics — without the
+    pilot's build-report artifact key).
+
+    Bounded passes cap (review F4): at most 4 scheduling passes — a
+    technicalBudget >= 3 would never exhaust within this cap (the node
+    stays failed with remaining budget, silently). Keep budgets <= 2 in
+    M7 specs, or run the scheduler directly for higher budgets.
+    """
     graph = build_graph_from_specs(graph_id, specs)
     dispatcher = SandboxEffectDispatcher()
     scheduler = GraphScheduler(graph, run_dir, lock_path,

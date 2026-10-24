@@ -69,12 +69,31 @@ Avant chaque merge d'une itération de branchement :
 
 1. `git diff <base>..HEAD` vide hors `skills/graph_core/` +
    `docs/graph-engineering/` ;
-2. suites vertes : core (73) + pilote (16) + adaptateur (11) = 84 tests
+2. suites vertes : core (57) + pilote (16) + adaptateur (11) = **84 tests**
    sous `-W error::ResourceWarning` ;
 3. `tw_state.py validate` sur les états de workflow existants : `state
    valid` (coexistence M1, jamais modifié).
 
 ## 6. Limites connues de l'adaptateur (M7)
+
+**Frontière de confiance du NO-GO (lecture obligatoire)** : le NO-GO est
+**structurel** (aucun effet d'écriture n'est *journalisable* via le
+protocole §7.2), pas un sandbox :
+
+- un executor `analysis` fourni via `extra_executors` exécute du Python
+  avec les pleins privilèges du process — c'est du code de confiance
+  appelant, équivalent à un skill existant ;
+- une commande `process` faussement déclarée « read-only » par son auteur
+  agit **réellement** (l'adaptateur exécute ce qu'on lui donne) ;
+- `realEffectEmissions: 0` décrit le **protocole d'effet** (aucun dispatch
+  d'écriture journalisé), pas les effets de bord subprocess : un graphe
+  dont la commande écrirait réellement afficherait `successRate 1.0` /
+  `0 émission`. La lecture des métriques ne prouve pas l'innocuité des
+  commandes, elle prouve l'absence d'effet d'écriture *encadré*.
+
+Le flip futur (dispatcher réel) reste conditionné à l'apparition
+reviewable d'un dispatcher non-sandbox (grep dans le diff) + GO PO + QA
+avant/après (§4).
 
 - Les executors `analysis` du M7 sont des **stubs** : l'analyse LLM-grade
   reste le travail du système actuel ; M7 mesure le squelette d'exécution
@@ -88,3 +107,11 @@ Avant chaque merge d'une itération de branchement :
 - Le couplage skill→Core inverse (un skill qui **invoque** le Core) reste
   réservé à une itération ultérieure : M7 est Core→skills, additif et
   réversible.
+- Backlog pré-flip (re-review M7, non bloquants) : coercions de spec
+  strictes (`id` str, `command` liste — F3), cap de passes dérivé du
+  budget (F4), `artifactRef` journal-relatif documenté + `returncode`
+  réel dans l'evidence (F5, appliqué), override sur nœud process →
+  `SkillSpecError` (F6), tests cycle/specs vides/budget 0 (F7),
+  extraction de `SandboxEffectDispatcher`/`collect_metrics` vers un
+  module core `metrics.py` (F8 — le pilote M5 est devenu load-bearing
+  pour M7).

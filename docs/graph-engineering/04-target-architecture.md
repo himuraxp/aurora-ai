@@ -86,7 +86,8 @@ NodeExecution {
   status           // pending | running | blocked | completed | failed | cancelled
   executorId?, leaseToken?   // réservation exclusive + fencing
   startedAt?, completedAt?
-  inputFingerprint           // réconciliation d'effets externes
+  inputFingerprint           // fraîcheur des entrées et des preuves (P0.3) —
+                             // composant d'invalidation, pas un mécanisme de réconciliation
   outputArtifactRefs[], evidenceRefs[]
   error?
 }
@@ -129,7 +130,7 @@ Enrichissement du contrat de preuve attendu en RFC : `EvidenceRecord` et `Effect
 
 ## 4. Effets externes — la règle de réconciliation (héritage ADR-017)
 
-Scénario de référence (validé dans le débat) : effet externe confirmé par l'API, worker plante avant enregistrement du succès → **jamais de rejeu aveugle**. Au redémarrage : identifier l'opération (`idempotencyKey`), **réconcilier** (GET-before-POST — pattern déjà implémenté pour Trello dans `trello_comment.sh`, à généraliser à GitLab et aux écritures Infomaniak) ; si réconciliation impossible → `blocked` à résultat incertain. Classification actuelle des effets externes : cf. synthèse du brainstorming §3 (Q7) — **les écritures Infomaniak et la création de MR GitLab sont les zones sans idempotence à couvrir en priorité**.
+Scénario de référence (validé dans le débat) : effet externe confirmé par l'API, worker plante avant enregistrement du succès → **jamais de rejeu aveugle, et GET-before-POST n'est pas une garantie universelle d'idempotence** : il ne fonctionne que si l'opération externe est **identifiable de façon fiable** (clé d'idempotence, id retourné, signature de contenu). Au redémarrage : identifier l'opération (`idempotencyKey`), **réconcilier** (GET-before-POST — pattern déjà implémenté pour Trello dans `trello_comment.sh`, à généraliser à GitLab et aux écritures Infomaniak) ; si l'opération n'est pas identifiable ou si le résultat reste incertain après réconciliation → **`blocked` sans rejeu automatique** (intervention humaine requise). Classification actuelle des effets externes : cf. synthèse du brainstorming §3 (Q7) — **les écritures Infomaniak et la création de MR GitLab sont les zones sans idempotence à couvrir en priorité**.
 
 ## 5. Adoption progressive — stratégie de convergence (sans dénaturation)
 

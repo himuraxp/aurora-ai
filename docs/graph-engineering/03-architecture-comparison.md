@@ -1,7 +1,7 @@
 # Comparatif des architectures d'exécution pour Aurora
 
 > Carte Trello `DuTvF4fZ` · Itération 1 · 2026-10-24 · Livrable 3/5
-> Version 1 — à challenger dans le brainstorming Aurora ↔ ChatGPT avant consolidation.
+> Version 1 — position de départ élaborée avant le brainstorming, puis consolidée : les conclusions du débat ratifié (tour 3, APPROVED) prévalent sur toute formulation restée historique ci-dessus. Voir `02-brainstorming-chatgpt-synthesis.md` pour le débat et `04-target-architecture.md` pour l'architecture retenue.
 
 ## Candidats évalués
 
@@ -20,7 +20,7 @@
 2. **Complexité non justifiée interdite** — la solution la plus simple qui couvre les besoins réels.
 3. **Compatibilité skills/workflows existants** — `task-workflow`, `deepwork`, `council`, `meeting`, `ai-cowork` continuent de fonctionner.
 4. **KG ≠ EG** — pas de fusion mémoire sémantique / état d'exécution.
-5. **Frontière déterministe / LLM** — les transitions et validations sont déterministes ; seuls les nœuds d'exécution sont LLM.
+5. **Frontière déterministe / LLM** — les transitions et les autorisations de contrôle sont déterministes ; les nœuds d'exécution **et les évaluations sémantiques** (review, council) peuvent être LLM — l'évaluation sémantique produit alors un verdict structuré machine-vérifiable (cf. `04-target-architecture.md` §2).
 6. **Pas de modification structurelle sans validation explicite** — évolution incrémentale réversible.
 
 ## Analyse
@@ -60,7 +60,7 @@ Contrat de nœud (id, dépendances, entrées/sorties, permissions, critères de 
 ### E. LangGraph
 
 - **+** : primitives de graphe matures (nodes, edges, state, checkpointing, human-in-the-loop) ; communauté active ; accélère un prototype.
-- **−** : **incompatibilité d'architecture profonde** — Aurora orchestre des processus OpenCode (CLI, MCP, sessions, skills) pas des fonctions Python in-process ; le bridging LangGraph→processus OpenCode réintroduit tout le travail que le moteur natif ferait, avec une dépendance lourde ; le state LangGraph vit dans son runtime, pas dans les structures Aurora (tw_state/PostgreSQL) ; conflit avec la contrainte « compatibilité skills existants » et « réutilisation plutôt que réécriture ».
+- **−** : **coût d'intégration et duplication des responsabilités** (affiné dans le débat — LangGraph est techniquement capable d'orchestrer des processus externes, mais son adoption comme moteur central n'est pas justifiée par rapport aux responsabilités déjà couvertes par Aurora) : le bridging LangGraph→processus OpenCode réintroduit tout le travail que le moteur natif ferait, avec une dépendance lourde ; le state LangGraph vit dans son runtime, pas dans les structures Aurora (tw_state/PostgreSQL) ; conflit avec la contrainte « compatibilité skills existants » et « réutilisation plutôt que réécriture ». Cas d'usage retenu : sous-graphes cognitifs internes à un nœud, jamais l'orchestrateur global.
 - **Verdict** : **rejeté pour le cœur** ; source d'inspiration pour les primitives (interrupt, checkpointer).
 
 ### F. Temporal
@@ -83,8 +83,8 @@ Contrat de nœud (id, dépendances, entrées/sorties, permissions, critères de 
 | Dépendance externe nouvelle | ●●● | ●●● | ●●● | ●●● | ● (lourde) | ● (serveur) |
 | Observabilité unifiée | ● | ●● | ●● | ●●● | ●● | ●●● |
 
-## Recommandation (pré-brainstorming)
+## Recommandation — décision ratifiée dans le débat (affinée depuis la V1)
 
-**Hybride D + A + B + C** : un **moteur de transitions natif** (base D, construit sur `tw_state.py` + PostgreSQL, séparé du KG) qui exécute des **graphes DAG bornés** (B) avec des **boucles Evaluator/Optimizer** (C) comme primitives de correction, le tout coordonné par le **Supervisor** actuel (A) qui reste l'interface conversationnelle. LangGraph et Temporal sont écartés pour le cœur, réévaluables ponctuellement.
+**Hybride D + A + B + C** (décision ratifiée dans le débat) : un **moteur de transitions natif** (base D, logique métier de `tw_state.py`) exécutant des **graphes DAG bornés** (B) avec des **boucles Evaluator/Optimizer** (C) comme primitives de correction, le tout coordonné par le **Supervisor** actuel (A) qui reste l'interface conversationnelle. **Backend du pilote : JSON mono-exécuteur** (garde canonique + verrouillage exclusif) ; **PostgreSQL est la cible conditionnelle** — requise avant tout DAG multi-worker durable, pas une migration immédiate. LangGraph et Temporal sont écartés du cœur, réévaluables ponctuellement.
 
-*Ce comparatif est une position de départ à challenger dans la conversation de référence (Phase 2 de la carte) — voir `02-brainstorming-chatgpt-synthesis.md` pour le débat réel et ses conclusions.*
+*Note de lecture (post-débat) : les sections E et F ci-dessus mélangent des arguments d'époque et les conclusions ratifiées — en cas de divergence, prévalent le tableau de synthèse du débat (`02-brainstorming-chatgpt-synthesis.md` §4) et l'architecture cible (`04-target-architecture.md`).*

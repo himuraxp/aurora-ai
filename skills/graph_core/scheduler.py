@@ -123,6 +123,7 @@ class GraphScheduler:
             raise ValueError(f"invalid GraphDefinition: {'; '.join(problems)}")
         self.graph = graph
         self.nodes: Dict[str, dict] = {n["id"]: n for n in graph["nodes"]}
+        self._explicit_run_id = run_id is not None
         self.run_id = run_id or new_run_id()
         # Run adoption (review F-14 ergonomics): resuming an existing run-dir
         # WITHOUT an explicit run_id adopts the persisted identity — the
@@ -399,6 +400,16 @@ class GraphScheduler:
 
     # ------------------------------------------------------------- resume
 
+    def _write_identity_file(self, path: str, content: str) -> None:
+        """Identity files (run-id, plan.json) are durable (review R-03): a
+        machine crash must not resurrect a mutated plan or a fresh runId."""
+        directory = os.path.dirname(os.path.abspath(path))
+        os.makedirs(directory, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+
     def start(self) -> None:
         """Resume/start protocol (RFC §5): acquire lock, persist run identity
         and plan (I6/F18 — review F-09), reconcile the journal, re-apply the
@@ -406,7 +417,10 @@ class GraphScheduler:
         freshness (I7/§5.4) — THEN pick up the execution."""
         self.acquire_lock()
         os.makedirs(self.run_dir, exist_ok=True)
-        # Run identity: unique, immutable (§2.3, review F-14).
+        # Run identity: unique, immutable (§2.3, review F-14). If the run-id
+        # file was lost (machine crash, R-03) but the JOURNAL has records,
+        # the identity is adopted from the source of truth — never silently
+        # restarted as a new run in a populated directory.
         run_id_path = os.path.join(self.run_dir, "run-id")
         if os.path.isfile(run_id_path):
             with open(run_id_path, "r", encoding="utf-8") as handle:
@@ -417,8 +431,18 @@ class GraphScheduler:
                     f"run-dir belongs to run {persisted!r}, refusing to resume it "
                     f"as {self.run_id!r} (runId is immutable, review F-14)")
         else:
-            with open(run_id_path, "w", encoding="utf-8") as handle:
-                handle.write(self.run_id + "\n")
+            records, _problems = self.log.read()
+            if records:
+                journal_run_id = str(records[0].get("runId", ""))
+                if journal_run_id and journal_run_id != self.run_id:
+                    if self._explicit_run_id:
+                        self.release_lock()
+                        raise PlanMismatch(
+                            f"run-dir holds journal records of run {journal_run_id!r} "
+                            f"but no run-id file (lost, R-03) — refusing to start "
+                            f"{self.run_id!r} over them")
+                    self.run_id = journal_run_id  # adopt from the journal
+            self._write_identity_file(run_id_path, self.run_id + "\n")
         # Plan identity: (graphId, version, plan hash) persisted and revalidated
         # at resume (review F-09).
         plan_path = os.path.join(self.run_dir, "plan.json")
@@ -434,12 +458,11 @@ class GraphScheduler:
                     f"version={persisted_plan.get('version')}) vs resumed graph "
                     f"— a run is immutable (I6, review F-09)")
         else:
-            with open(plan_path, "w", encoding="utf-8") as handle:
-                handle.write(canonical_json({
-                    "graphId": self.graph.get("graphId"),
-                    "version": self.graph.get("version"),
-                    "planHash": plan_digest,
-                }) + "\n")
+            self._write_identity_file(plan_path, canonical_json({
+                "graphId": self.graph.get("graphId"),
+                "version": self.graph.get("version"),
+                "planHash": plan_digest,
+            }) + "\n")
         # Journal reconciliation — the chain comes from the LOCK FILE (F-01),
         # never from the rebuildable snapshot.
         chain = self.generation_chain()
@@ -644,6 +667,20 @@ class GraphScheduler:
             # (running → cancelled); no completion, no evidence persisted.
             return {"nodeId": node_id, "status": "invalidated",
                     "reason": "node invalidated during execution (I5)"}
+        # I2 evidence guard (review F-04) BEFORE the effect protocol: a work
+        # whose proof is non-conforming NEVER gets its external effect
+        # emitted (the pilot test caught this ordering bug), and the proof
+        # is never persisted as valid.
+        if not self._evidence_guards_ok(node_id, node, result):
+            count_failure(state, node_id, "invalidEvidence")
+            mark_transition(state, node_id, "blocked", attempt=attempt)
+            self._journal("transition", node_id, attempt, "blocked",
+                          from_status="running",
+                          payload={"reason": "evidence does not satisfy evidencePolicy (I2)",
+                                   "failureClass": "invalidEvidence"})
+            self.repository.save(state)
+            return {"nodeId": node_id, "status": "blocked",
+                    "reason": "evidence guard refused the completion (I2)"}
         # Effect protocol (§7.2) BEFORE completion — a write node completes
         # only with a concluded effect.
         if (node.get("effectPolicy") or {}).get("mode") == "write":
@@ -657,18 +694,6 @@ class GraphScheduler:
                 self.repository.save(state)
                 return {"nodeId": node_id, "status": "blocked",
                         "reason": "effect uncertain — human intervention required"}
-        # I2 evidence guard (review F-04) — BEFORE any evidence is persisted
-        # as valid: a non-conforming proof is never recorded.
-        if not self._evidence_guards_ok(node_id, node, result):
-            count_failure(state, node_id, "invalidEvidence")
-            mark_transition(state, node_id, "blocked", attempt=attempt)
-            self._journal("transition", node_id, attempt, "blocked",
-                          from_status="running",
-                          payload={"reason": "evidence does not satisfy evidencePolicy (I2)",
-                                   "failureClass": "invalidEvidence"})
-            self.repository.save(state)
-            return {"nodeId": node_id, "status": "blocked",
-                    "reason": "evidence guard refused the completion (I2)"}
         evidence_ids = []
         for evidence in result.get("evidences", []):
             stamped = self.evidence.append(evidence)
@@ -782,11 +807,15 @@ class GraphScheduler:
             max_nodes: Optional[int] = None) -> List[Dict[str, Any]]:
         """Sequential execution in topo-order (reviews F-07): pending nodes
         run; failed nodes are re-filed under remaining technical budget;
-        blocked nodes are NEVER auto-resolved (I8)."""
+        blocked nodes are NEVER auto-resolved (I8). A heartbeat is appended
+        to the lock file before every node (review R-06 — detection only,
+        RFC §4.2; a frozen owner stops heartbeating and the documented
+        escalation is HUMAN)."""
         executed: List[Dict[str, Any]] = []
         for node_id in self.topo_order():
             if max_nodes is not None and len(executed) >= max_nodes:
                 break
+            self.beat()  # heartbeat per scheduling decision (R-06)
             state = self._state()
             status = node_status(state, node_id)
             node = self.nodes[node_id]

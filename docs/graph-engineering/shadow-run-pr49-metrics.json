@@ -1,0 +1,79 @@
+{
+  "graphId": "mr-analysis-himuraxp/aurora-ai-49",
+  "metrics": {
+    "durationsSeconds": {
+      "analyze-diff": 0.0,
+      "build-report": 0.0,
+      "check-conventions": 1.0,
+      "fetch-diff": 2.0,
+      "post-comment": 0.0
+    },
+    "effects": {
+      "phases": [
+        "prepared",
+        "dispatched",
+        "confirmed"
+      ],
+      "realExternalCalls": 0,
+      "records": 3,
+      "simulatedDispatches": 1
+    },
+    "humanInterventions": 0,
+    "journalProblems": [],
+    "journalRecords": 13,
+    "mode": "shadow-run/sandbox",
+    "nodes": {
+      "blocked": 0,
+      "completed": 5,
+      "failed": 0,
+      "successRate": 1.0,
+      "total": 5
+    },
+    "perNode": {
+      "analyze-diff": {
+        "attempts": 1,
+        "completedAt": "2026-10-24T10:33:42+00:00",
+        "effects": 0,
+        "startedAt": "2026-10-24T10:33:42+00:00",
+        "status": "completed",
+        "transitions": 2
+      },
+      "build-report": {
+        "attempts": 1,
+        "completedAt": "2026-10-24T10:33:43+00:00",
+        "effects": 0,
+        "startedAt": "2026-10-24T10:33:43+00:00",
+        "status": "completed",
+        "transitions": 2
+      },
+      "check-conventions": {
+        "attempts": 1,
+        "completedAt": "2026-10-24T10:33:43+00:00",
+        "effects": 0,
+        "startedAt": "2026-10-24T10:33:42+00:00",
+        "status": "completed",
+        "transitions": 2
+      },
+      "fetch-diff": {
+        "attempts": 1,
+        "completedAt": "2026-10-24T10:33:42+00:00",
+        "effects": 0,
+        "startedAt": "2026-10-24T10:33:40+00:00",
+        "status": "completed",
+        "transitions": 2
+      },
+      "post-comment": {
+        "attempts": 1,
+        "completedAt": "2026-10-24T10:33:43+00:00",
+        "effects": 3,
+        "startedAt": "2026-10-24T10:33:43+00:00",
+        "status": "completed",
+        "transitions": 2
+      }
+    },
+    "retries": 0,
+    "totalDurationSeconds": 3.0
+  },
+  "output": [],
+  "runId": "run-0c889bd6bc51"
+}

@@ -44,7 +44,11 @@ def _non_empty_str(value: Any) -> bool:
 
 def validate_effect_policy(policy: Any, node_type: str, node_id: str) -> List[str]:
     """effectPolicy rules (RFC §2.2, §7.1): mandatory write rules, I9 for agents,
-    write reserved to tool nodes (review F-19)."""
+    write reserved to tool nodes (review F-19). Absence of effectPolicy is
+    legal on any node (implicit read — re-review R-05: RFC §2.2 makes it
+    mandatory for WRITING nodes only)."""
+    if policy is None:
+        return []  # implicit read-only node
     problems: List[str] = []
     if not isinstance(policy, dict):
         return [f"nodes[{node_id}].effectPolicy must be an object"]

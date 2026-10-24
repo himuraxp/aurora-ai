@@ -1,6 +1,6 @@
 {
   "name": "aurora-ai",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Aurora — Reference OpenCode configuration for production AI workflows",
   "license": "MIT",
   "private": true,

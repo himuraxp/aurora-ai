@@ -733,7 +733,10 @@ class GraphScheduler:
             descendants=descendants)
         # The record carries the POST-mutation attempt (back to pending = a
         # new attempt was filed) so the projection replays it faithfully.
-        attempt = int((state["nodeExecutions"][node_id]).get("attempt", 1))
+        # Defensive read (review R-02): a never-executed node has no entry —
+        # the invalidation is still traced, nothing crashes.
+        attempt = int((state.get("nodeExecutions") or {})
+                      .get(node_id, {}).get("attempt", 1))
         invalidated_evidence_ids = list(
             (state.get("nodeExecutions") or {}).get(node_id, {}).get("evidenceIds", []))
         for descendant in outcome["descendants"]:

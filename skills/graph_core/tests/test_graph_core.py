@@ -390,6 +390,22 @@ class TestPersistence(unittest.TestCase):
         state = repo.rebuild("r", self.log, ["gen-1"])
         self.assertEqual(node_status(state, "down"), "cancelled")  # faithful (F-05)
 
+    def test_projection_replays_attempt_after_retry(self):
+        """R-01: each record carries its attempt — a rebuilt projection is
+        faithful after a re-filed retry."""
+        repo = StateRepository(os.path.join(self.run_dir, "snapshot.json"))
+        self.log.append({**self.base, "transitionId": "t1", "to": "running",
+                         "attempt": 1})
+        self.log.append({**self.base, "transitionId": "t2", "to": "failed",
+                         "attempt": 1,
+                         "payload": {"failureClass": "technical"}})
+        self.log.append({**self.base, "transitionId": "t3", "to": "pending",
+                         "from": "failed", "attempt": 2})
+        self.log.append({**self.base, "transitionId": "t4", "to": "running",
+                         "attempt": 2})
+        state = repo.rebuild("r", self.log, ["gen-1"])
+        self.assertEqual(state["nodeExecutions"]["a"]["attempt"], 2)  # faithful
+
     def test_snapshot_atomic_write(self):
         repo = StateRepository(os.path.join(self.run_dir, "snapshot.json"))
         repo.save({"runId": "r"})
@@ -523,6 +539,13 @@ class TestSchedulerScenarios(unittest.TestCase):
         # A different runId on the same run-dir is refused too (F-14).
         with self.assertRaises(PlanMismatch):
             self._scheduler(run_id="run-somethingelse")
+
+    def test_invalidate_never_executed_node_does_not_crash(self):
+        """R-02: an invalidation requested on a node with no execution entry
+        is traced, never a KeyError."""
+        scheduler = self._scheduler()
+        outcome = scheduler.invalidate("never-ran", "scope test")
+        self.assertTrue(outcome.get("skipped"))  # nothing consumable to invalidate
 
     def test_s3_transitive_invalidation_marks_never_deletes(self):
         graph = two_branch_graph()

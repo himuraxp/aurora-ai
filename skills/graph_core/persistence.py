@@ -235,6 +235,9 @@ class StateRepository:
             entry["effectPhase"] = str(payload.get("effectPhase") or record.get("to"))
         elif kind == "transition":
             entry["status"] = str(record.get("to") or entry.get("status"))
+            # Each record describes the attempt it journalizes — the replay
+            # stays faithful after a retry (review R-01).
+            entry["attempt"] = int(record.get("attempt", entry.get("attempt", 1)))
             if record.get("to") == "running":
                 entry["startedRevision"] = record.get("_revision", 0)
                 # The input fingerprint travels in the running record (§6.2,

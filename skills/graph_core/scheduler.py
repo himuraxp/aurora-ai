@@ -123,6 +123,7 @@ class GraphScheduler:
             raise ValueError(f"invalid GraphDefinition: {'; '.join(problems)}")
         self.graph = graph
         self.nodes: Dict[str, dict] = {n["id"]: n for n in graph["nodes"]}
+        self._explicit_run_id = run_id is not None
         self.run_id = run_id or new_run_id()
         # Run adoption (review F-14 ergonomics): resuming an existing run-dir
         # WITHOUT an explicit run_id adopts the persisted identity — the
@@ -207,6 +208,7 @@ class GraphScheduler:
         self._lock_handle.seek(0, os.SEEK_END)
         self._lock_handle.write(canonical_json({
             "event": "heartbeat", "generationToken": self.generationToken,
+            "pid": os.getpid(), "session": self.session,  # §4.2 identity (R4-07)
             "at": self._now(),
         }) + "\n")
         self._lock_handle.flush()
@@ -229,14 +231,18 @@ class GraphScheduler:
             raise RuntimeError("lock must be acquired before any state write")
         handle = self._lock_handle
         handle.seek(0)
+        lines = handle.read().splitlines()
         last_token = None
-        for line in handle.read().splitlines():
+        for index, line in enumerate(lines):
             if not line.strip():
                 continue
             try:
                 payload = json.loads(line)
             except ValueError:
-                last_token = None  # torn lock file — treat as mismatch
+                if index == len(lines) - 1:
+                    continue  # torn tail — ignored like the journal's (I3,
+                    # review R4-06): a crash mid-append must not brick the run
+                last_token = None  # torn MIDDLE line — treat as mismatch
                 break
             if payload.get("event") == "acquire":
                 last_token = payload.get("generationToken")
@@ -399,6 +405,16 @@ class GraphScheduler:
 
     # ------------------------------------------------------------- resume
 
+    def _write_identity_file(self, path: str, content: str) -> None:
+        """Identity files (run-id, plan.json) are durable (review R-03): a
+        machine crash must not resurrect a mutated plan or a fresh runId."""
+        directory = os.path.dirname(os.path.abspath(path))
+        os.makedirs(directory, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+
     def start(self) -> None:
         """Resume/start protocol (RFC §5): acquire lock, persist run identity
         and plan (I6/F18 — review F-09), reconcile the journal, re-apply the
@@ -406,51 +422,91 @@ class GraphScheduler:
         freshness (I7/§5.4) — THEN pick up the execution."""
         self.acquire_lock()
         os.makedirs(self.run_dir, exist_ok=True)
-        # Run identity: unique, immutable (§2.3, review F-14).
-        run_id_path = os.path.join(self.run_dir, "run-id")
-        if os.path.isfile(run_id_path):
-            with open(run_id_path, "r", encoding="utf-8") as handle:
-                persisted = handle.read().strip()
+        try:
+            # Run identity: unique, immutable (§2.3, review F-14). A LOST or
+            # TORN-EMPTY run-id file (machine crash between truncate and write,
+            # review R4-01) must NOT silently restart the run: the JOURNAL is
+            # the source of truth (I3) — the identity is adopted from its
+            # records, and a mismatched EXPLICIT run_id is refused.
+            run_id_path = os.path.join(self.run_dir, "run-id")
+            persisted = ""
+            if os.path.isfile(run_id_path):
+                with open(run_id_path, "r", encoding="utf-8") as handle:
+                    persisted = handle.read().strip()
+            # The JOURNAL is the source of truth (I3) — read once, then
+            # cross-checked against the run-id file in BOTH branches below
+            # (reviews R4-01 / R4-01b).
+            records, _problems = self.log.read()
+            journal_run_id = str(records[0].get("runId", "")) if records else ""
             if persisted and persisted != self.run_id:
                 self.release_lock()  # a refusal never keeps the lock held
                 raise PlanMismatch(
                     f"run-dir belongs to run {persisted!r}, refusing to resume it "
                     f"as {self.run_id!r} (runId is immutable, review F-14)")
-        else:
-            with open(run_id_path, "w", encoding="utf-8") as handle:
-                handle.write(self.run_id + "\n")
-        # Plan identity: (graphId, version, plan hash) persisted and revalidated
-        # at resume (review F-09).
-        plan_path = os.path.join(self.run_dir, "plan.json")
-        plan_digest = hashlib.sha256(canonical_json(self.graph).encode("utf-8")).hexdigest()
-        if os.path.isfile(plan_path):
-            with open(plan_path, "r", encoding="utf-8") as handle:
-                persisted_plan = json.load(handle)
-            if persisted_plan.get("planHash") != plan_digest:
-                self.release_lock()  # a refusal never keeps the lock held
-                raise PlanMismatch(
-                    f"plan mismatch for run {self.run_id}: persisted "
-                    f"(graphId={persisted_plan.get('graphId')}, "
-                    f"version={persisted_plan.get('version')}) vs resumed graph "
-                    f"— a run is immutable (I6, review F-09)")
-        else:
-            with open(plan_path, "w", encoding="utf-8") as handle:
-                handle.write(canonical_json({
+            if not persisted:
+                if journal_run_id and journal_run_id != self.run_id:
+                    if self._explicit_run_id:
+                        self.release_lock()
+                        raise PlanMismatch(
+                            f"run-dir holds journal records of run {journal_run_id!r} "
+                            f"but no readable run-id file (lost or torn, R-03/R4-01) "
+                            f"— refusing to start {self.run_id!r} over them")
+                    self.run_id = journal_run_id  # adopt from the journal
+                self._write_identity_file(run_id_path, self.run_id + "\n")
+            elif journal_run_id and journal_run_id != self.run_id:
+                # Review R4-01b: a PARTIALLY torn run-id file (non-empty
+                # garbage) was adopted verbatim by __init__ — but the JOURNAL
+                # remains the source of truth (I3). A populated journal whose
+                # identity differs is never silently restarted cold: the
+                # garbage identity is dropped (implicit resumption adopts the
+                # journal's), an explicit one is refused.
+                if self._explicit_run_id:
+                    self.release_lock()
+                    raise PlanMismatch(
+                        f"run-dir holds journal records of run {journal_run_id!r} "
+                        f"but its run-id file reads {persisted!r} (partially torn "
+                        f"or foreign, R4-01b) — refusing to start "
+                        f"{self.run_id!r} over them")
+                self.run_id = journal_run_id  # adopt from the journal
+                self._write_identity_file(run_id_path, self.run_id + "\n")
+            # Plan identity: (graphId, version, plan hash) persisted and revalidated
+            # at resume (review F-09).
+            plan_path = os.path.join(self.run_dir, "plan.json")
+            plan_digest = hashlib.sha256(canonical_json(self.graph).encode("utf-8")).hexdigest()
+            if os.path.isfile(plan_path):
+                with open(plan_path, "r", encoding="utf-8") as handle:
+                    persisted_plan = json.load(handle)
+                if persisted_plan.get("planHash") != plan_digest:
+                    self.release_lock()  # a refusal never keeps the lock held
+                    raise PlanMismatch(
+                        f"plan mismatch for run {self.run_id}: persisted "
+                        f"(graphId={persisted_plan.get('graphId')}, "
+                        f"version={persisted_plan.get('version')}) vs resumed graph "
+                        f"— a run is immutable (I6, review F-09)")
+            else:
+                self._write_identity_file(plan_path, canonical_json({
                     "graphId": self.graph.get("graphId"),
                     "version": self.graph.get("version"),
                     "planHash": plan_digest,
                 }) + "\n")
-        # Journal reconciliation — the chain comes from the LOCK FILE (F-01),
-        # never from the rebuildable snapshot.
-        chain = self.generation_chain()
-        if self.generationToken and self.generationToken not in chain:
-            chain.append(self.generationToken)
-        self._cached_state = self.repository.rebuild(self.run_id, self.log, chain)
-        self._cached_state["knownGenerations"] = chain
-        self.repository.save(self._cached_state)
-        self._reapply_evidence_markers()
-        self._pin_orphan_runnings()
-        self._refresh_fingerprints()
+            # Journal reconciliation — the chain comes from the LOCK FILE (F-01),
+            # never from the rebuildable snapshot.
+            chain = self.generation_chain()
+            if self.generationToken and self.generationToken not in chain:
+                chain.append(self.generationToken)
+            self._cached_state = self.repository.rebuild(self.run_id, self.log, chain)
+            self._cached_state["knownGenerations"] = chain
+            self.repository.save(self._cached_state)
+            self._reapply_evidence_markers()
+            self._pin_orphan_runnings()
+            self._refresh_fingerprints()
+        except BaseException:
+            # Review R4-08: a failure during the resume protocol (an OSError
+            # on the identity files, a corrupted snapshot, ...) never leaves
+            # the lock held — the next session must be able to take over.
+            # Idempotent: refusals above already released.
+            self.release_lock()
+            raise
 
     def _reapply_evidence_markers(self) -> None:
         """Re-apply evidence invalidation markers from the journal alone
@@ -644,21 +700,10 @@ class GraphScheduler:
             # (running → cancelled); no completion, no evidence persisted.
             return {"nodeId": node_id, "status": "invalidated",
                     "reason": "node invalidated during execution (I5)"}
-        # Effect protocol (§7.2) BEFORE completion — a write node completes
-        # only with a concluded effect.
-        if (node.get("effectPolicy") or {}).get("mode") == "write":
-            effect = self._perform_effect(node_id, node, attempt)
-            if effect.get("effect") in ("uncertain", "blocked"):
-                mark_transition(state, node_id, "blocked", attempt=attempt)
-                self._journal("transition", node_id, attempt, "blocked",
-                              from_status="running",
-                              payload={"reason": "unconcluded effect — no rejeu on "
-                                                 "uncertainty (§7.2)"})
-                self.repository.save(state)
-                return {"nodeId": node_id, "status": "blocked",
-                        "reason": "effect uncertain — human intervention required"}
-        # I2 evidence guard (review F-04) — BEFORE any evidence is persisted
-        # as valid: a non-conforming proof is never recorded.
+        # I2 evidence guard (review F-04) BEFORE the effect protocol: a work
+        # whose proof is non-conforming NEVER gets its external effect
+        # emitted (the pilot test caught this ordering bug), and the proof
+        # is never persisted as valid.
         if not self._evidence_guards_ok(node_id, node, result):
             count_failure(state, node_id, "invalidEvidence")
             mark_transition(state, node_id, "blocked", attempt=attempt)
@@ -669,6 +714,25 @@ class GraphScheduler:
             self.repository.save(state)
             return {"nodeId": node_id, "status": "blocked",
                     "reason": "evidence guard refused the completion (I2)"}
+        # Effect protocol (§7.2) BEFORE completion — a write node completes
+        # only with a concluded effect.
+        if (node.get("effectPolicy") or {}).get("mode") == "write":
+            effect = self._perform_effect(node_id, node, attempt)
+            if effect.get("effect") in ("uncertain", "blocked"):
+                # NOTE (ADR M6 input, review R4-10): the proofs of THIS
+                # attempt are deliberately NOT persisted — an unconcluded
+                # effect voids the attempt (§7.2); persisting its evidences
+                # would present a non-completed work as evidenced. The
+                # attempt is recoverable by re-execution after the human
+                # reconciliation, which produces fresh proofs.
+                mark_transition(state, node_id, "blocked", attempt=attempt)
+                self._journal("transition", node_id, attempt, "blocked",
+                              from_status="running",
+                              payload={"reason": "unconcluded effect — no rejeu on "
+                                                 "uncertainty (§7.2)"})
+                self.repository.save(state)
+                return {"nodeId": node_id, "status": "blocked",
+                        "reason": "effect uncertain — human intervention required"}
         evidence_ids = []
         for evidence in result.get("evidences", []):
             stamped = self.evidence.append(evidence)
@@ -782,11 +846,15 @@ class GraphScheduler:
             max_nodes: Optional[int] = None) -> List[Dict[str, Any]]:
         """Sequential execution in topo-order (reviews F-07): pending nodes
         run; failed nodes are re-filed under remaining technical budget;
-        blocked nodes are NEVER auto-resolved (I8)."""
+        blocked nodes are NEVER auto-resolved (I8). A heartbeat is appended
+        to the lock file before every node (review R-06 — detection only,
+        RFC §4.2; a frozen owner stops heartbeating and the documented
+        escalation is HUMAN)."""
         executed: List[Dict[str, Any]] = []
         for node_id in self.topo_order():
             if max_nodes is not None and len(executed) >= max_nodes:
                 break
+            self.beat()  # heartbeat per scheduling decision (R-06)
             state = self._state()
             status = node_status(state, node_id)
             node = self.nodes[node_id]

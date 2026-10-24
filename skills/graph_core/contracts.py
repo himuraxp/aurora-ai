@@ -44,7 +44,11 @@ def _non_empty_str(value: Any) -> bool:
 
 def validate_effect_policy(policy: Any, node_type: str, node_id: str) -> List[str]:
     """effectPolicy rules (RFC §2.2, §7.1): mandatory write rules, I9 for agents,
-    write reserved to tool nodes (review F-19)."""
+    write reserved to tool nodes (review F-19). Absence of effectPolicy is
+    legal on any node (implicit read — re-review R-05: RFC §2.2 makes it
+    mandatory for WRITING nodes only)."""
+    if policy is None:
+        return []  # implicit read-only node
     problems: List[str] = []
     if not isinstance(policy, dict):
         return [f"nodes[{node_id}].effectPolicy must be an object"]
@@ -99,6 +103,16 @@ def validate_node_definition(node: Any, index: int) -> List[str]:
     elif node.get("type") == "agent" and any(str(p).startswith("write:") for p in permissions):
         problems.append(
             f"nodes[{node_id}]: agent nodes cannot carry a write permission (invariant I9)")
+    if isinstance(permissions, list) and any(
+            str(p).startswith("write:") for p in permissions):
+        # I9 RECIPROCAL rule (review R4-02): a write permission WITHOUT a
+        # write effectPolicy would bypass the journaled effect protocol —
+        # fail-closed at contract level.
+        policy = node.get("effectPolicy") or {}
+        if policy.get("mode") != "write":
+            problems.append(
+                f"nodes[{node_id}]: a write: permission requires "
+                f"effectPolicy.mode=write (invariant I9 — journaled effect protocol)")
     evidence_policy = node.get("evidencePolicy")
     if not isinstance(evidence_policy, dict):
         problems.append(f"nodes[{node_id}].evidencePolicy must be an object")

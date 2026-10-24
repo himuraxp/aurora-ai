@@ -27,6 +27,7 @@ AI agents (OpenCode, Cursor, Claude...) don't know which standard to follow unle
 
 - **19 specialized agents + 4 plugin agents** — engineering roles (reviewer, tester, security, architect, designer...), a Search & Growth team and a delegated product owner
 - **17 universal standards + 44 skills** — adversarial review, verification, commits, plus the 17-skill accessibility suite
+- **Execution graph core (new in v1.4.0)** — stdlib Python package `skills/graph_core/`: transition engine, transactional journal, fenced scheduler — spec-first (RFC), 84 tests, running as a shadow pilot; full docs in [docs/graph-engineering/](docs/graph-engineering/)
 - **Persistent project memory** — 7 `docs/ai/` documents auto-read at session start: agents keep context across sessions
 - **14 models with automatic fallback** — 250k → 1M context, cost-based agent assignment
 - **Consistent across machines** — same setup and behavior everywhere, with ready-to-use examples (Angular, Node.js API, monorepo)

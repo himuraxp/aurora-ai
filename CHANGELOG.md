@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.4.0](https://github.com/himuraxp/aurora-ai/compare/v1.3.0...v1.4.0) (2026-10-24)
+
+
+### Features
+
+* **graph-engineering:** add execution graph core M1-M4 — transition engine (legal-state table, transitive invalidation, journal-revision staleness), transactional JSONL persistence (checksummed, fsync, rebuildable projection), fenced scheduler (positional fencing, journaled effect protocol), contracts with two-level I9 ([#49](https://github.com/himuraxp/aurora-ai/pull/49))
+* **graph-engineering:** add M5 MR-analysis pilot running in shadow-run of the current system — sandbox effects, realEffectEmissions: 0, millisecond metrics ([#50](https://github.com/himuraxp/aurora-ai/pull/50))
+* **graph-engineering:** add shadow-read-first skill adapter M7 — forced read-only permissions, effectPolicy refused fail-closed, additive and reversible ([#52](https://github.com/himuraxp/aurora-ai/pull/52))
+* **config:** enable experimental todo tool for in-session task visibility ([#56](https://github.com/himuraxp/aurora-ai/pull/56))
+
+
+### Documentation
+
+* **graph-engineering:** add the binding execution-graph RFC ([#48](https://github.com/himuraxp/aurora-ai/pull/48))
+* **graph-engineering:** add ADR for execution graph core decisions (D1-D9, known limitations L1-L3 with PO verdicts) ([#51](https://github.com/himuraxp/aurora-ai/pull/51))
+* **graph-engineering:** add final QA report before main PR — before/after comparison, executed gates with artifacts, S1-S7 coverage ([#53](https://github.com/himuraxp/aurora-ai/pull/53))
+
+
 ## [1.3.0](https://github.com/himuraxp/aurora-ai/compare/v1.2.0...v1.3.0) (2026-10-23)
 
 

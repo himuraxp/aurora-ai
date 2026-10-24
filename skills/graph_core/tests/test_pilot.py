@@ -195,6 +195,23 @@ class TestShadowRun(unittest.TestCase):
                          "completed")  # the run was NOT restarted cold
         scheduler.release_lock()
 
+    def test_partially_torn_runid_never_restarts_cold(self):
+        """R4-01b: a PARTIALLY torn run-id file (non-empty garbage) adopted
+        verbatim by __init__ must be cross-checked against the JOURNAL (the
+        source of truth, I3) — the garbage identity is dropped, the run is
+        NOT restarted cold over a populated journal."""
+        result, _state = self._run(pr_number=55)
+        with open(os.path.join(self.run_dir, "run-id"), "w", encoding="utf-8") as f:
+            f.write("run-partiallytorn")  # non-empty garbage (torn write)
+        graph = build_mr_analysis_graph(55)
+        scheduler = GraphScheduler(graph, self.run_dir, self.lock_path)
+        scheduler.start()  # implicit resumption → journal identity wins
+        self.assertEqual(scheduler.run_id, result["runId"])
+        state = scheduler._state()
+        self.assertEqual(state["nodeExecutions"]["fetch-diff"]["status"],
+                         "completed")  # NOT a cold restart with a empty projection
+        scheduler.release_lock()
+
     def test_i2_refusal_blocks_the_comment_node(self):
         result, _state = self._run(bad_evidence=True)
         metrics = result["metrics"]
@@ -213,8 +230,9 @@ class TestShadowRun(unittest.TestCase):
         """R-06: run() appends a heartbeat per scheduling decision —
         detection only, RFC §4.2."""
         self._run()
-        events = [json.loads(line) for line in open(self.lock_path, encoding="utf-8")
-                  if line.strip()]
+        events = []
+        with open(self.lock_path, encoding="utf-8") as handle:
+            events = [json.loads(line) for line in handle if line.strip()]
         beats = [e for e in events if e.get("event") == "heartbeat"]
         self.assertGreaterEqual(len(beats), 5)  # one per node visited
 

@@ -433,23 +433,41 @@ class GraphScheduler:
             if os.path.isfile(run_id_path):
                 with open(run_id_path, "r", encoding="utf-8") as handle:
                     persisted = handle.read().strip()
+            # The JOURNAL is the source of truth (I3) — read once, then
+            # cross-checked against the run-id file in BOTH branches below
+            # (reviews R4-01 / R4-01b).
+            records, _problems = self.log.read()
+            journal_run_id = str(records[0].get("runId", "")) if records else ""
             if persisted and persisted != self.run_id:
                 self.release_lock()  # a refusal never keeps the lock held
                 raise PlanMismatch(
                     f"run-dir belongs to run {persisted!r}, refusing to resume it "
                     f"as {self.run_id!r} (runId is immutable, review F-14)")
             if not persisted:
-                records, _problems = self.log.read()
-                if records:
-                    journal_run_id = str(records[0].get("runId", ""))
-                    if journal_run_id and journal_run_id != self.run_id:
-                        if self._explicit_run_id:
-                            self.release_lock()
-                            raise PlanMismatch(
-                                f"run-dir holds journal records of run {journal_run_id!r} "
-                                f"but no readable run-id file (lost or torn, R-03/R4-01) "
-                                f"— refusing to start {self.run_id!r} over them")
-                        self.run_id = journal_run_id  # adopt from the journal
+                if journal_run_id and journal_run_id != self.run_id:
+                    if self._explicit_run_id:
+                        self.release_lock()
+                        raise PlanMismatch(
+                            f"run-dir holds journal records of run {journal_run_id!r} "
+                            f"but no readable run-id file (lost or torn, R-03/R4-01) "
+                            f"— refusing to start {self.run_id!r} over them")
+                    self.run_id = journal_run_id  # adopt from the journal
+                self._write_identity_file(run_id_path, self.run_id + "\n")
+            elif journal_run_id and journal_run_id != self.run_id:
+                # Review R4-01b: a PARTIALLY torn run-id file (non-empty
+                # garbage) was adopted verbatim by __init__ — but the JOURNAL
+                # remains the source of truth (I3). A populated journal whose
+                # identity differs is never silently restarted cold: the
+                # garbage identity is dropped (implicit resumption adopts the
+                # journal's), an explicit one is refused.
+                if self._explicit_run_id:
+                    self.release_lock()
+                    raise PlanMismatch(
+                        f"run-dir holds journal records of run {journal_run_id!r} "
+                        f"but its run-id file reads {persisted!r} (partially torn "
+                        f"or foreign, R4-01b) — refusing to start "
+                        f"{self.run_id!r} over them")
+                self.run_id = journal_run_id  # adopt from the journal
                 self._write_identity_file(run_id_path, self.run_id + "\n")
             # Plan identity: (graphId, version, plan hash) persisted and revalidated
             # at resume (review F-09).

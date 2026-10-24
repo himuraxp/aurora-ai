@@ -184,8 +184,10 @@ def collect_metrics(scheduler: GraphScheduler,
     for record in records:
         if record.get("kind") != "transition":
             continue
+        if str(record.get("runId", "")) != scheduler.run_id:
+            continue  # a foreign run's record — never counted (review R4-03)
         node_id = str(record.get("nodeId"))
-        if node_id not in per_node:  # a foreign run's record — never counted
+        if node_id not in per_node:  # not a graph node — never counted
             continue
         entry = per_node[node_id]
         entry["transitions"] += 1

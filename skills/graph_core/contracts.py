@@ -9,7 +9,7 @@ Any divergence implementation/RFC is an implementation bug.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 ENGINE_SCHEMA_VERSION = 1
 NODE_TYPES = ("agent", "tool", "human", "gate")
@@ -43,22 +43,23 @@ def _non_empty_str(value: Any) -> bool:
 
 
 def validate_effect_policy(policy: Any, node_type: str, node_id: str) -> List[str]:
-    """effectPolicy rules (RFC §2.2, §7.1): mandatory write rules, I9 for agents."""
+    """effectPolicy rules (RFC §2.2, §7.1): mandatory write rules, I9 for agents,
+    write reserved to tool nodes (review F-19)."""
     problems: List[str] = []
     if not isinstance(policy, dict):
         return [f"nodes[{node_id}].effectPolicy must be an object"]
     mode = policy.get("mode")
     if mode not in ("read", "write"):
         problems.append(f"nodes[{node_id}].effectPolicy.mode must be 'read' or 'write'")
-    if node_type == "agent":
-        # I9 (review technique F4): an agent node must not be a write surface.
-        if mode == "write":
-            problems.append(
-                f"nodes[{node_id}]: agent nodes cannot declare effectPolicy.mode=write "
-                f"(invariant I9 — external writes go through a tool node)")
-        for permission in policy.get("_", []) or []:
-            if str(permission).startswith("write:"):
-                problems.append(f"nodes[{node_id}]: agent carries a write permission (I9)")
+    if mode == "write" and node_type != "tool":
+        # RFC §2.2/§9: only tool nodes carry effectPolicy (I9 — review F-19).
+        problems.append(
+            f"nodes[{node_id}]: effectPolicy.mode=write is reserved to tool nodes "
+            f"(got type {node_type} — invariant I9)")
+    if node_type == "agent" and mode == "write":
+        problems.append(
+            f"nodes[{node_id}]: agent nodes cannot declare effectPolicy.mode=write "
+            f"(invariant I9 — external writes go through a tool node)")
     if mode == "write":
         if not _non_empty_str(policy.get("idempotencyKey")):
             problems.append(
@@ -161,10 +162,12 @@ def _reachable_from(nodes: Dict[str, dict], start_ids: List[str]) -> set:
 
 
 def _has_cycle(nodes: Dict[str, dict]) -> bool:
-    """Kahn's algorithm — a DAG is mandatory (RFC §2.1, invariant I4)."""
+    """Kahn's algorithm — a DAG is mandatory (RFC §2.1, invariant I4).
+    Duplicated deps are deduplicated first (review F-17 — a duplicated dep
+    must not fake a cycle)."""
     indegree = {node_id: 0 for node_id in nodes}
     for node in nodes.values():
-        for dep in node.get("deps", []):
+        for dep in set(node.get("deps", [])):
             if dep in indegree:
                 indegree[node["id"]] += 1
     queue = [node_id for node_id, degree in indegree.items() if degree == 0]
@@ -173,7 +176,7 @@ def _has_cycle(nodes: Dict[str, dict]) -> bool:
         current = queue.pop()
         visited += 1
         for node in nodes.values():
-            if current in node.get("deps", []):
+            if current in set(node.get("deps", [])):
                 indegree[node["id"]] -= 1
                 if indegree[node["id"]] == 0:
                     queue.append(node["id"])
@@ -277,6 +280,53 @@ def validate_effect_record(record: Any) -> List[str]:
         problems.append(f"EffectRecord.phase must be one of {list(EFFECT_PHASES)}")
     if not _non_empty_str(record.get("requestedAt")):
         problems.append("EffectRecord.requestedAt must be a non-empty ISO timestamp")
+    return problems
+
+
+def validate_evidence_record(record: Any, required: Optional[List[str]] = None) -> List[str]:
+    """EvidenceRecord contract (RFC §2.4) + garde I2 (review F-04): the proof
+    must SATISFY the node's evidencePolicy — a pass technical proof requires
+    exitCode == 0; 'artifact' requires artifactRef; 'structuredVerdict'
+    requires a structured verdict; 'humanApproval' requires approvalRef.
+    Un contrôle ignoré n'est jamais présenté comme réussi."""
+    problems: List[str] = []
+    if not isinstance(record, dict):
+        return ["EvidenceRecord is not an object"]
+    if not _non_empty_str(record.get("evidenceId")):
+        problems.append("EvidenceRecord.evidenceId must be a non-empty string")
+    if record.get("kind") not in ("technical", "semantic", "authorization"):
+        problems.append("EvidenceRecord.kind must be technical | semantic | authorization")
+    kind = record.get("kind")
+    for requirement in required or []:
+        if requirement == "exitCode":
+            if kind != "technical" or type(record.get("exitCode")) is not int:
+                problems.append(
+                    "evidencePolicy required 'exitCode' but the proof is not a "
+                    "technical record carrying an exitCode (I2)")
+            elif record.get("exitCode") != 0:
+                problems.append(
+                    f"a pass technical proof requires exitCode == 0 "
+                    f"(got {record.get('exitCode')}) — invariant I2")
+        elif requirement == "artifact":
+            artifact = record.get("artifactRef")
+            if not isinstance(artifact, dict) or not _non_empty_str(artifact.get("path")) \
+                    or not _non_empty_str(artifact.get("hash")):
+                problems.append(
+                    "evidencePolicy required 'artifact' but the proof carries no "
+                    "artifactRef {path, hash} (review F17, I2)")
+        elif requirement == "structuredVerdict":
+            verdict = record.get("structuredVerdict")
+            if not isinstance(verdict, dict) \
+                    or verdict.get("verdict") not in ("pass", "fail", "inconclusive") \
+                    or not isinstance(verdict.get("findings"), list):
+                problems.append(
+                    "evidencePolicy required 'structuredVerdict' but the proof carries "
+                    "no valid structured verdict (I2)")
+        elif requirement == "humanApproval":
+            if not _non_empty_str(record.get("approvalRef")):
+                problems.append(
+                    "evidencePolicy required 'humanApproval' but the proof carries no "
+                    "approvalRef (I2)")
     return problems
 
 

@@ -1,0 +1,50 @@
+{
+  "graphId": "m7-skill-adapter-demo",
+  "metrics": {
+    "durationsSeconds": {
+      "analyze": 0.001,
+      "read-state": 0.025
+    },
+    "effects": {
+      "phases": [],
+      "realEffectEmissions": 0,
+      "records": 0,
+      "simulatedDispatches": 0
+    },
+    "humanInterventions": 0,
+    "journalProblems": [],
+    "journalRecords": 4,
+    "mode": "shadow-run/sandbox",
+    "nodes": {
+      "blocked": 0,
+      "completed": 2,
+      "failed": 0,
+      "scheduled": 2,
+      "successRate": 1.0,
+      "total": 2
+    },
+    "perNode": {
+      "analyze": {
+        "attempts": 1,
+        "completedAt": "2026-10-24T10:44:39.072+00:00",
+        "effects": 0,
+        "scheduled": true,
+        "startedAt": "2026-10-24T10:44:39.071+00:00",
+        "status": "completed",
+        "transitions": 2
+      },
+      "read-state": {
+        "attempts": 1,
+        "completedAt": "2026-10-24T10:44:39.071+00:00",
+        "effects": 0,
+        "scheduled": true,
+        "startedAt": "2026-10-24T10:44:39.046+00:00",
+        "status": "completed",
+        "transitions": 2
+      }
+    },
+    "retries": 0,
+    "wallClockSeconds": 0.026
+  },
+  "runId": "run-60fae3abfc72"
+}

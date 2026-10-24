@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.5.0](https://github.com/himuraxp/aurora-ai/compare/v1.4.0...v1.5.0) (2026-10-24)
+
+
+### Features
+
+* **config:** enable experimental todo tool for in-session task visibility ([a9b7abd](https://github.com/himuraxp/aurora-ai/commit/a9b7abdfd8fb8d3dd01f12f9a2b628a006828148))
+* **config:** enable experimental todo tool for in-session task visibility ([e6b3309](https://github.com/himuraxp/aurora-ai/commit/e6b3309bf37bd2a27efec1798e3ec38550b31c22))
+* **config:** enable experimental todo tool for in-session task visibility ([#56](https://github.com/himuraxp/aurora-ai/issues/56)) ([a9b7abd](https://github.com/himuraxp/aurora-ai/commit/a9b7abdfd8fb8d3dd01f12f9a2b628a006828148))
+
 ## [1.4.0](https://github.com/himuraxp/aurora-ai/compare/v1.3.0...v1.4.0) (2026-10-24)
 
 

@@ -38,21 +38,29 @@ descendant affecté, `attempt` par record (re-review R-01).
 ### D3 — La chaîne de générations vit dans le lockfile (F-01)
 
 `knownGenerations` est append-only dans le **lockfile** (événements
-`acquire`), jamais dans la projection rebuildable seule. Conséquence
-vérifiée par test : la perte du snapshot ne perd pas le run (S2c) — le
-journal + le lockfile suffisent à reconstruire.
+`acquire`), jamais dans la projection rebuildable seule. La projection
+conserve une **copie dérivée** de la chaîne (sauvegardée au `start()`) — la
+source d'append et la reconstruction à la reprise restent le lockfile et le
+journal. Conséquence vérifiée par test : la perte du snapshot ne perd pas le
+run (S2c) — le journal + le lockfile suffisent à reconstruire.
 
 ### D4 — Fencing par ordinalité positionnelle
 
 Le writer doit détenir le **dernier** `acquire` du lockfile, vérifié dans la
-même section critique que l'écriture (`_critical`). Le token est un UUIDv4
-(unique, pas ordonné lexicalement) : l'ordinalité est **positionnelle** — un
-token acquis après une purge de queue est appendu en position strictement
-postérieure à toute ligne durablement confirmée. Une ligne lockfile valide
-syntaxiquement mais sans `generationToken` exploitable produit un mismatch →
-`StaleGeneration` → refus fail-closed. Réserve PO « token strictement
-nouveau et postérieur à toute génération durable » : satisfaite par
-construction (cf. L3).
+même section critique que l'écriture (`_critical`). Le token est un
+identifiant unique dérivé d'un UUIDv4 (64 bits hexadécimaux, non ordonné
+lexicalement) : l'ordinalité est **positionnelle** — un token acquis après
+une purge **logique** de queue (lignes imparsables ignorées à la lecture ;
+le lockfile est append-only, jamais tronqué physiquement) est appendu en
+position strictement postérieure à toute ligne durablement confirmée. Une
+ligne lockfile valide syntaxiquement mais sans `generationToken` exploitable
+produit un mismatch → `StaleGeneration` → refus fail-closed. Réserve PO
+« token strictement nouveau et postérieur à toute génération durable » :
+satisfaite par construction (cf. L3). Conséquence opérationnelle assumée du
+fail-closed : un `acquire` torn **médian** (owner crashé pendant l'append,
+suivi d'un nouvel acquire) rend toute écriture impossible
+(`StaleGeneration`) jusqu'à réparation manuelle du lockfile — assumption
+conforme à L3 item 2.
 
 ### D5 — Machine d'états et staleness par révisions de journal
 
@@ -117,9 +125,19 @@ actuelle ne l'exprime pas.
 aux gardes I2 (jamais produite artificiellement après un échec), mais un
 **événement d'exécution ou d'échec** reste journalisable indépendamment des
 preuves — vérifié dans l'implémentation : un refus I2 journalise une
-transition `blocked` (`failureClass: invalidEvidence`, compteur de budget),
-un effet non conclu journalise `effect uncertain` (payload erreur). Aucune
-tentative échouée n'est invisible ; seule la preuve métier ne persiste pas.
+transition `blocked` (`failureClass: invalidEvidence`, compteur de la
+classe failure — cette classe n'a pas de budget, I8), un effet non conclu
+journalise `effect uncertain` (payload erreur). Aucune tentative échouée
+n'est invisible ; seule la preuve métier ne persiste pas.
+
+**Dette de fidélité connue (backlog code, hors périmètre ADR)** : la
+projection ne re-joue l'incrément des compteurs `failureCounts` que pour
+les transitions `to=failed` (classe `technical`) ; après un rebuild
+journal-seul, les compteurs des refus journalisés `to=blocked`
+(`invalidEvidence`/`permission`/`quality`) repartent à 0 — sans impact
+décisionnel (ces classes ne consultent jamais `budget_exhausted`), à
+traiter avec un test de rebuild si la projection alimente un jour un
+reporting.
 
 **Revisit trigger** : un cas réel exigeant une preuve métier post-émission →
 évolution de la RFC (jamais un contournement du moteur).

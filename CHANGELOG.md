@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.0](https://github.com/himuraxp/aurora-ai/compare/v1.5.0...v1.6.0) (2026-10-24)
+
+
+### Features
+
+* **config:** enable experimental background compaction ([b0bd649](https://github.com/himuraxp/aurora-ai/commit/b0bd649ac6374698eeae959a29565cffbd4272fd))
+* **config:** enable experimental background compaction ([6e8d75e](https://github.com/himuraxp/aurora-ai/commit/6e8d75e403cf1cc5e63d430aa0788412294ec4c6))
+* **config:** enable experimental background compaction ([#58](https://github.com/himuraxp/aurora-ai/issues/58)) ([b0bd649](https://github.com/himuraxp/aurora-ai/commit/b0bd649ac6374698eeae959a29565cffbd4272fd))
+
 ## [1.5.0](https://github.com/himuraxp/aurora-ai/compare/v1.4.0...v1.5.0) (2026-10-24)
 
 

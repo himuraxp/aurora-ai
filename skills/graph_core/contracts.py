@@ -103,6 +103,16 @@ def validate_node_definition(node: Any, index: int) -> List[str]:
     elif node.get("type") == "agent" and any(str(p).startswith("write:") for p in permissions):
         problems.append(
             f"nodes[{node_id}]: agent nodes cannot carry a write permission (invariant I9)")
+    if isinstance(permissions, list) and any(
+            str(p).startswith("write:") for p in permissions):
+        # I9 RECIPROCAL rule (review R4-02): a write permission WITHOUT a
+        # write effectPolicy would bypass the journaled effect protocol —
+        # fail-closed at contract level.
+        policy = node.get("effectPolicy") or {}
+        if policy.get("mode") != "write":
+            problems.append(
+                f"nodes[{node_id}]: a write: permission requires "
+                f"effectPolicy.mode=write (invariant I9 — journaled effect protocol)")
     evidence_policy = node.get("evidencePolicy")
     if not isinstance(evidence_policy, dict):
         problems.append(f"nodes[{node_id}].evidencePolicy must be an object")

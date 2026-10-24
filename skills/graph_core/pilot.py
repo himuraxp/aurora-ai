@@ -108,6 +108,10 @@ def default_executors(pr_number: int, repo: str = "himuraxp/aurora-ai"
         diff = subprocess.run(
             ["gh", "pr", "diff", str(pr_number), "--repo", repo],
             capture_output=True, text=True, timeout=60)
+        if diff.returncode != 0:  # review R4-05 — never a lying exitCode 0
+            error = RuntimeError(f"gh pr diff failed: {diff.stderr.strip()[:200]}")
+            error.failureClass = "technical"  # type: ignore[attr-defined]
+            raise error
         payload = json.loads(view.stdout)
         payload["diffBytes"] = len(diff.stdout.encode("utf-8"))
         payload["diffFiles"] = len(set(
@@ -165,21 +169,31 @@ def default_executors(pr_number: int, repo: str = "himuraxp/aurora-ai"
 
 def collect_metrics(scheduler: GraphScheduler,
                     dispatcher: SandboxEffectDispatcher) -> dict:
-    """Comparison metrics from the journal + the projection (RFC §11 M5)."""
+    """Comparison metrics from the journal + the projection (RFC §11 M5).
+
+    Fidelity rules (review R4-03/R4-04): every GRAPH node is reported (never
+    scheduled ones included as pending — the success rate is over the
+    GRAPH, not over the touched nodes); `durationsSeconds` covers the LAST
+    attempt per node; `wallClockSeconds` is the journal's first→last span."""
     records, problems = scheduler.log.read()
-    per_node: Dict[str, dict] = {}
+    per_node: Dict[str, dict] = {
+        node_id: {"attempts": 0, "transitions": 0, "effects": 0,
+                  "startedAt": None, "completedAt": None, "status": "pending",
+                  "scheduled": False}
+        for node_id in scheduler.nodes}
     for record in records:
         if record.get("kind") != "transition":
             continue
         node_id = str(record.get("nodeId"))
-        entry = per_node.setdefault(node_id, {
-            "attempts": 0, "transitions": 0, "effects": 0,
-            "startedAt": None, "completedAt": None, "status": "pending"})
+        if node_id not in per_node:  # a foreign run's record — never counted
+            continue
+        entry = per_node[node_id]
         entry["transitions"] += 1
         to = str(record.get("to"))
         if to == "running":
             entry["attempts"] += 1
-            entry["startedAt"] = record.get("timestamp")
+            entry["scheduled"] = True
+            entry["startedAt"] = record.get("timestamp")  # last attempt (R4-04)
         if to in ("completed", "failed", "blocked", "cancelled"):
             entry["completedAt"] = record.get("timestamp")
         entry["status"] = to
@@ -204,26 +218,27 @@ def collect_metrics(scheduler: GraphScheduler,
     total = len(per_node)
     effect_phases = [str((r.get("payload") or {}).get("effectPhase"))
                      for r in records if r.get("kind") == "effect"]
+    timestamps = [str(r.get("timestamp")) for r in records if r.get("timestamp")]
     return {
         "mode": "shadow-run/sandbox",
         "nodes": {
-            "total": total,
+            "total": total,  # every graph node (R4-03)
+            "scheduled": sum(1 for e in per_node.values() if e["scheduled"]),
             "completed": completed,
             "failed": statuses.count("failed"),
             "blocked": statuses.count("blocked"),
             "successRate": round(completed / total, 3) if total else 0.0,
         },
         "perNode": per_node,
-        "durationsSeconds": durations,
-        "totalDurationSeconds": (sum(durations.values())
-                                 if all(v is not None for v in durations.values())
-                                 else None),
+        "durationsSeconds": durations,  # last attempt per node (R4-04)
+        "wallClockSeconds": (_duration_seconds(min(timestamps), max(timestamps))
+                             if len(timestamps) >= 2 else 0.0),
         "retries": sum(1 for e in per_node.values() if e.get("retried")),
         "effects": {
             "records": len(effect_phases),
             "phases": effect_phases,
             "simulatedDispatches": len(dispatcher.simulated),
-            "realExternalCalls": 0,  # sandbox — always zero before the flip
+            "realEffectEmissions": 0,  # sandbox — always zero before the flip
         },
         "humanInterventions": sum(
             1 for r in records if r.get("kind") == "human-intervention"),
@@ -238,6 +253,14 @@ def _duration_seconds(start: str, end: str) -> float:
     return round((parse(end) - parse(start)).total_seconds(), 3)
 
 
+def _millisecond_clock() -> str:
+    """Pilot clock (review R4-09): the default clock truncates to SECONDS —
+    sub-second node durations would all read 0.0 and the comparison metrics
+    would be blind. The pilot measures at MILLISECOND precision."""
+    return datetime.datetime.now(datetime.timezone.utc).isoformat(
+        timespec="milliseconds")
+
+
 def run_shadow_pilot(pr_number: int, run_dir: str, lock_path: str,
                      repo: str = "himuraxp/aurora-ai",
                      executors: Optional[Dict[str, Callable[[str, dict], dict]]] = None
@@ -249,18 +272,22 @@ def run_shadow_pilot(pr_number: int, run_dir: str, lock_path: str,
         raise ValueError(f"pilot graph invalid: {'; '.join(problems)}")
     dispatcher = SandboxEffectDispatcher()
     scheduler = GraphScheduler(graph, run_dir, lock_path,
-                               session="m5-shadow-pilot", dispatcher=dispatcher)
+                               session="m5-shadow-pilot",
+                               dispatcher=dispatcher,
+                               clock=_millisecond_clock)
     scheduler.start()
-    executors = executors or default_executors(pr_number, repo)
-    executor = lambda node_id, node: executors[node_id](node_id, node)  # noqa: E731
-    # Bounded passes: failed-under-budget nodes are re-filed by the NEXT
-    # pass (the topo loop does not revisit them in the same pass). The loop
-    # stops when nothing runnable remains.
-    for _pass in range(4):
-        if not scheduler.run(executor):
-            break
-    metrics = collect_metrics(scheduler, dispatcher)
-    scheduler.release_lock()  # the shadow session ends — never keep the lock
+    try:
+        executors = executors or default_executors(pr_number, repo)
+        executor = lambda node_id, node: executors[node_id](node_id, node)  # noqa: E731
+        # Bounded passes: failed-under-budget nodes are re-filed by the NEXT
+        # pass (the topo loop does not revisit them in the same pass). The
+        # loop stops when nothing runnable remains.
+        for _pass in range(4):
+            if not scheduler.run(executor):
+                break
+        metrics = collect_metrics(scheduler, dispatcher)
+    finally:
+        scheduler.release_lock()  # a crash in the run never keeps the lock
     return {"graphId": graph["graphId"], "runId": scheduler.run_id,
             "metrics": metrics, "output": scheduler._state()
             .get("nodeExecutions", {}).get("build-report", {}).get("outputArtifactRefs")}

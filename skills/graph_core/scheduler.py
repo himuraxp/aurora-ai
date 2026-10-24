@@ -208,6 +208,7 @@ class GraphScheduler:
         self._lock_handle.seek(0, os.SEEK_END)
         self._lock_handle.write(canonical_json({
             "event": "heartbeat", "generationToken": self.generationToken,
+            "pid": os.getpid(), "session": self.session,  # §4.2 identity (R4-07)
             "at": self._now(),
         }) + "\n")
         self._lock_handle.flush()
@@ -230,14 +231,18 @@ class GraphScheduler:
             raise RuntimeError("lock must be acquired before any state write")
         handle = self._lock_handle
         handle.seek(0)
+        lines = handle.read().splitlines()
         last_token = None
-        for line in handle.read().splitlines():
+        for index, line in enumerate(lines):
             if not line.strip():
                 continue
             try:
                 payload = json.loads(line)
             except ValueError:
-                last_token = None  # torn lock file — treat as mismatch
+                if index == len(lines) - 1:
+                    continue  # torn tail — ignored like the journal's (I3,
+                    # review R4-06): a crash mid-append must not brick the run
+                last_token = None  # torn MIDDLE line — treat as mismatch
                 break
             if payload.get("event") == "acquire":
                 last_token = payload.get("generationToken")
@@ -417,63 +422,73 @@ class GraphScheduler:
         freshness (I7/§5.4) — THEN pick up the execution."""
         self.acquire_lock()
         os.makedirs(self.run_dir, exist_ok=True)
-        # Run identity: unique, immutable (§2.3, review F-14). If the run-id
-        # file was lost (machine crash, R-03) but the JOURNAL has records,
-        # the identity is adopted from the source of truth — never silently
-        # restarted as a new run in a populated directory.
-        run_id_path = os.path.join(self.run_dir, "run-id")
-        if os.path.isfile(run_id_path):
-            with open(run_id_path, "r", encoding="utf-8") as handle:
-                persisted = handle.read().strip()
+        try:
+            # Run identity: unique, immutable (§2.3, review F-14). A LOST or
+            # TORN-EMPTY run-id file (machine crash between truncate and write,
+            # review R4-01) must NOT silently restart the run: the JOURNAL is
+            # the source of truth (I3) — the identity is adopted from its
+            # records, and a mismatched EXPLICIT run_id is refused.
+            run_id_path = os.path.join(self.run_dir, "run-id")
+            persisted = ""
+            if os.path.isfile(run_id_path):
+                with open(run_id_path, "r", encoding="utf-8") as handle:
+                    persisted = handle.read().strip()
             if persisted and persisted != self.run_id:
                 self.release_lock()  # a refusal never keeps the lock held
                 raise PlanMismatch(
                     f"run-dir belongs to run {persisted!r}, refusing to resume it "
                     f"as {self.run_id!r} (runId is immutable, review F-14)")
-        else:
-            records, _problems = self.log.read()
-            if records:
-                journal_run_id = str(records[0].get("runId", ""))
-                if journal_run_id and journal_run_id != self.run_id:
-                    if self._explicit_run_id:
-                        self.release_lock()
-                        raise PlanMismatch(
-                            f"run-dir holds journal records of run {journal_run_id!r} "
-                            f"but no run-id file (lost, R-03) — refusing to start "
-                            f"{self.run_id!r} over them")
-                    self.run_id = journal_run_id  # adopt from the journal
-            self._write_identity_file(run_id_path, self.run_id + "\n")
-        # Plan identity: (graphId, version, plan hash) persisted and revalidated
-        # at resume (review F-09).
-        plan_path = os.path.join(self.run_dir, "plan.json")
-        plan_digest = hashlib.sha256(canonical_json(self.graph).encode("utf-8")).hexdigest()
-        if os.path.isfile(plan_path):
-            with open(plan_path, "r", encoding="utf-8") as handle:
-                persisted_plan = json.load(handle)
-            if persisted_plan.get("planHash") != plan_digest:
-                self.release_lock()  # a refusal never keeps the lock held
-                raise PlanMismatch(
-                    f"plan mismatch for run {self.run_id}: persisted "
-                    f"(graphId={persisted_plan.get('graphId')}, "
-                    f"version={persisted_plan.get('version')}) vs resumed graph "
-                    f"— a run is immutable (I6, review F-09)")
-        else:
-            self._write_identity_file(plan_path, canonical_json({
-                "graphId": self.graph.get("graphId"),
-                "version": self.graph.get("version"),
-                "planHash": plan_digest,
-            }) + "\n")
-        # Journal reconciliation — the chain comes from the LOCK FILE (F-01),
-        # never from the rebuildable snapshot.
-        chain = self.generation_chain()
-        if self.generationToken and self.generationToken not in chain:
-            chain.append(self.generationToken)
-        self._cached_state = self.repository.rebuild(self.run_id, self.log, chain)
-        self._cached_state["knownGenerations"] = chain
-        self.repository.save(self._cached_state)
-        self._reapply_evidence_markers()
-        self._pin_orphan_runnings()
-        self._refresh_fingerprints()
+            if not persisted:
+                records, _problems = self.log.read()
+                if records:
+                    journal_run_id = str(records[0].get("runId", ""))
+                    if journal_run_id and journal_run_id != self.run_id:
+                        if self._explicit_run_id:
+                            self.release_lock()
+                            raise PlanMismatch(
+                                f"run-dir holds journal records of run {journal_run_id!r} "
+                                f"but no readable run-id file (lost or torn, R-03/R4-01) "
+                                f"— refusing to start {self.run_id!r} over them")
+                        self.run_id = journal_run_id  # adopt from the journal
+                self._write_identity_file(run_id_path, self.run_id + "\n")
+            # Plan identity: (graphId, version, plan hash) persisted and revalidated
+            # at resume (review F-09).
+            plan_path = os.path.join(self.run_dir, "plan.json")
+            plan_digest = hashlib.sha256(canonical_json(self.graph).encode("utf-8")).hexdigest()
+            if os.path.isfile(plan_path):
+                with open(plan_path, "r", encoding="utf-8") as handle:
+                    persisted_plan = json.load(handle)
+                if persisted_plan.get("planHash") != plan_digest:
+                    self.release_lock()  # a refusal never keeps the lock held
+                    raise PlanMismatch(
+                        f"plan mismatch for run {self.run_id}: persisted "
+                        f"(graphId={persisted_plan.get('graphId')}, "
+                        f"version={persisted_plan.get('version')}) vs resumed graph "
+                        f"— a run is immutable (I6, review F-09)")
+            else:
+                self._write_identity_file(plan_path, canonical_json({
+                    "graphId": self.graph.get("graphId"),
+                    "version": self.graph.get("version"),
+                    "planHash": plan_digest,
+                }) + "\n")
+            # Journal reconciliation — the chain comes from the LOCK FILE (F-01),
+            # never from the rebuildable snapshot.
+            chain = self.generation_chain()
+            if self.generationToken and self.generationToken not in chain:
+                chain.append(self.generationToken)
+            self._cached_state = self.repository.rebuild(self.run_id, self.log, chain)
+            self._cached_state["knownGenerations"] = chain
+            self.repository.save(self._cached_state)
+            self._reapply_evidence_markers()
+            self._pin_orphan_runnings()
+            self._refresh_fingerprints()
+        except BaseException:
+            # Review R4-08: a failure during the resume protocol (an OSError
+            # on the identity files, a corrupted snapshot, ...) never leaves
+            # the lock held — the next session must be able to take over.
+            # Idempotent: refusals above already released.
+            self.release_lock()
+            raise
 
     def _reapply_evidence_markers(self) -> None:
         """Re-apply evidence invalidation markers from the journal alone
@@ -686,6 +701,12 @@ class GraphScheduler:
         if (node.get("effectPolicy") or {}).get("mode") == "write":
             effect = self._perform_effect(node_id, node, attempt)
             if effect.get("effect") in ("uncertain", "blocked"):
+                # NOTE (ADR M6 input, review R4-10): the proofs of THIS
+                # attempt are deliberately NOT persisted — an unconcluded
+                # effect voids the attempt (§7.2); persisting its evidences
+                # would present a non-completed work as evidenced. The
+                # attempt is recoverable by re-execution after the human
+                # reconciliation, which produces fresh proofs.
                 mark_transition(state, node_id, "blocked", attempt=attempt)
                 self._journal("transition", node_id, attempt, "blocked",
                               from_status="running",

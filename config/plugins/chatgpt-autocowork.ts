@@ -66,9 +66,12 @@ type V2SetupContext = {
 
 /** ChatGPT conversation links: /c/<id>, /g/<gid>/c/<id> (projects),
  * /share/<id> (public snapshot), legacy chat.openai.com/c/<id>.
- * The lookbehind rejects lookalike hosts (mychatgpt.com, evil-chatgpt.com). */
+ * The lookbehind rejects lookalike hosts (mychatgpt.com, evil-chatgpt.com).
+ * All variable segments use the strict [A-Za-z0-9_-] charset (security
+ * review F-01): no whitespace, no < > " ' / etc. can cross into the
+ * appended reminder. */
 export const CHATGPT_CONVERSATION_URL =
-  /(?<![\w-])(?:chatgpt\.com|chat\.openai\.com)\/(?:c|share|g\/[^\s/]+\/c)\/[A-Za-z0-9_-]+/i
+  /(?<![\w-])(?:chatgpt\.com|chat\.openai\.com)\/(?:c|share|g\/[A-Za-z0-9_-]+\/c)\/[A-Za-z0-9_-]+/i
 
 export const REMINDER_MARKER = "<system-reminder>chatgpt-autocowork"
 
@@ -96,6 +99,10 @@ export function buildPromptPatch(text: string): string | null {
   return text + reminderFor(matched[0])
 }
 
+/** Warn-once flag: the fail-open path surfaces a single contract-drift
+ * notice (security review F-02 — observability without spam). */
+let gateFailureWarned = false
+
 /** Best-effort root-session gate: subagent sessions (task tool) carry a
  * parentID and must never receive the reminder. Fail-open by design. */
 async function isRootSession(
@@ -110,6 +117,12 @@ async function isRootSession(
     const info = res?.info ?? res
     return info?.parentID == null
   } catch {
+    if (!gateFailureWarned) {
+      gateFailureWarned = true
+      console.warn(
+        "[chatgpt-autocowork] root-session lookup failed — fail-open (reminder injected)",
+      )
+    }
     return true
   }
 }

@@ -156,8 +156,8 @@ Demande utilisateur : répondre au MP du bot Mail Triage pour guider le tri (typ
 | Jalon | Contenu | Statut |
 |---|---|---|
 | J1 | Contrat (cette section), tables SQLite, format digest V4 (refs courtes) | livré |
-| J2 | Poller read-only (`listen --once`) : pagination exhaustive, aide/statut | livré |
-| J3 | Propositions (grammaire complète, résolution refs/dossiers, non exécutables par défaut) | à venir |
+| J2 | Poller read-only (`listen --once`) : pagination exhaustive, aide/statut | livré, **APPROVED t10** (validé en prod : « aide » traité + idempotence) |
+| J3 | Propositions (grammaire complète, résolution refs/dossiers, non exécutables par défaut) | GO t10 — 3 P0 à intégrer |
 | J4 | Confirmations + règles (réutilisation plan/apply/reconcile, tests adversariaux de concurrence) | à venir |
 | J5 | Production contrôlée (launchd StartInterval 300, reprises crash, activation writes séparée) | à venir |
 
@@ -173,9 +173,11 @@ Curseur **create_at seul interdit**. Algorithme : FileLock exclusif partagé →
 
 Le `ok #p1` du propriétaire est une **autorisation distante validée** (pas un simple texte) : `proposal_id` opaque unique non réutilisé, `owner_user_id` exact, `channel_id` DM autorisé, `action` structurée et **figée**, `target` (UID ou règle), `target_version` (empreinte des préconditions — changement de règles entre proposition et confirmation → refus), `created_at`/`expires_at` (**30 min** déplacement ponctuel, **24 h** règle), `status` (pending/executing/applied/rejected/uncertain/expired), `source_post_id`, `confirmation_post_id`. La confirmation ne couvre **jamais** une opération plus large que la proposition. Réutilisation du même moteur d'autorisation que la CLI (`plans` + `authorizations` + `policy.py`) : le MP produit une autorisation traçable, jamais un apply direct.
 
-### 11.5 Références courtes (P0, t9)
+### 11.5 Références courtes (P0, t9 + **correction t10**)
 
-Format digest **V4** : chaque conversation « À examiner » → `#a1…`, « En attente » → `#n1…`, « Encore non lus » → `#l1…`. Une référence = **un seul message** (le dernier de la conversation — jamais un thread entier), liée à `(digest_id, mailbox, uidvalidity, uid, expéditeur, sujet)`, immuable, non réassignée, **expire 48 h** après publication. Résolution : la référence la plus récente non expirée gagne (le user répond au dernier digest). `#a1 → dossier` = déplacement **ponctuel** du message désigné ≠ `expediteur X → dossier` = création de **règle future** — jamais confondus, jamais de règle implicite déduite d'une réponse à une référence.
+Format digest **V4** : chaque conversation « À examiner » → `#a1…`, « En attente » → `#n1…`, « Encore non lus » → `#l1…`. Une référence = **un seul message** (le dernier de la conversation — jamais un thread entier), liée à `(digest_id, mailbox, uidvalidity, uid, expéditeur, sujet)`, immuable, non réassignée, **expire 48 h** après publication. `#a1 → dossier` = déplacement **ponctuel** du message désigné ≠ `expediteur X → dossier` = création de **règle future** — jamais confondus, jamais de règle implicite déduite d'une réponse à une référence.
+
+**Correction t10 (P0)** : la résolution « digest le plus récent non expiré gagne » est **révoquée** — risque de déplacer le mauvais message (l'utilisateur répond à la notification de lundi, le moteur résout #n1 vers le digest de mardi). Contrat J3 : références **globalement non ambiguës** pendant leur durée de validité (compteur monotone à la construction, jamais réutilisées tant qu'une ref identique est active — et jamais réutilisées immédiatement après expiration si un message retardé peut encore arriver). **Une commande ambiguë est REFUSÉE, jamais résolue arbitrairement.**
 
 ### 11.6 Grammaire niveau 1 + destinations (P1, t9)
 
@@ -184,3 +186,15 @@ Verbes : `aide`, `statut`, `#ref → dossier`, `expediteur <addr> → dossier`, 
 ### 11.7 Écriture des règles (P1, t9) + non-propriétaires
 
 Service **unique** de mutation `rules.json` : charger + valider schéma complet → vérifier plafonds → construire en mémoire → vérifier conflits → revérifier l'empreinte de la version initiale sous verrou → tmp 0600 + fsync + `os.replace` → backup de la dernière version valide (0600, même répertoire privé) → recharger et revalider. Réconciliation par `operation_id` stable (coupure après remplacement sans ambiguïté, pas de doublon). **Non-propriétaires : ignore total** — aucune réponse, aucune proposition, aucun détail des commandes ; compteur technique d'événements ignorés sans contenu.
+
+### 11.8 Conditions t10 pour l'activation des mutations (J3-J5, 2026-10-26)
+
+Verdict t10 : **APPROVED — GO J3-J5** sans nouvelle revue d'architecture ; l'**activation** des mutations est conditionnée aux P0 suivants :
+
+- **[P0-J3] Références non ambiguës** (§11.5 corrigé) — jamais « dernier digest gagne ».
+- **[P0-J4] `ok #p1` atomique et lié** : UPDATE conditionnel (pending→executing) = réservation atomique correcte mais ne garantit pas l'exécution exactly-once de l'effet externe IMAP — séquence : confirmation (owner+DM+post_id) → executing (txn validée) → **revalidation** policy+plan+cible (SHA-256 **global** de rules.json, compte, source, UID/UIDVALIDITY, chemin canonique figé) → apply → applied/uncertain (réconciliable, jamais deux fois).
+- **[P0-J4] Idempotence mutations + réponses kChat après crash** (crash entre publication réponse et checkpoint : garanti par le registre post_id + publication APRÈS avancement ; à démontrer par test avant J5).
+- **[P1-J3] La proposition affiche le chemin IMAP canonique résolu** (« Déplacement proposé : #n1 → INBOX/Auto/News ») ; l'allowlist ne neutralise **jamais** les exclusions absolues (Trash/Spam/Drafts/Sent, y compris noms localisés).
+- **[P1-J5] Verrou dédié couvrant toute l'exécution de `listen --once`** (poller > 300 s = pas de seconde exécution concurrente) + verrou de mutation distinct ; verrou périmé = âge dépassé ET propriétaire absent (protection réutilisation PID).
+
+**Tests de sortie exigés (9)** : ref d'ancien digest non déplaçable après réutilisation de #n1 ; alias interdit/supprimé entre proposition et confirmation = aucun write ; règles modifiées = confirmation refusée ; deux confirmations concurrentes = une seule transition executing ; crash avant/après UID MOVE = aucune répétition aveugle ; crash après os.replace(rules.json) = règle reconnue sans duplication ; réponse kChat publiée puis timeout = aucune réexécution ; poller > 300 s = pas de concurrence ; kill switch désactivé entre proposition et confirmation = aucun write.

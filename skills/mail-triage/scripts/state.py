@@ -12,6 +12,7 @@ import json
 import os
 import sqlite3
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 # UPDATE...RETURNING exige SQLite >= 3.35 (fail-closed au démarrage).
@@ -102,6 +103,10 @@ CREATE TABLE IF NOT EXISTS interactive_checkpoint (
   last_created_at INTEGER NOT NULL,
   last_post_id TEXT NOT NULL,
   updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS ref_seq (
+  kind TEXT PRIMARY KEY,
+  next_value INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS proposals (
   proposal_id TEXT PRIMARY KEY,
@@ -438,22 +443,73 @@ class State:
             conn.close()
 
     def resolve_digest_ref(self, ref: str, now_iso: str) -> dict | None:
-        """Résolution : la référence la plus récente non expirée gagne (§11.5)."""
+        """Compat J2 : résolution simple (None si inconnue/expirée/ambiguïté)."""
+        got = self.resolve_ref(ref, now_iso)
+        return got["ref"] if got["status"] == "ok" else None
+
+    def resolve_ref(self, ref: str, now_iso: str) -> dict:
+        """Résolution non ambiguë (contrat §11.5 corrigé t10) : 0 ligne =
+        unknown/expired ; > 1 ligne active = ambiguous (REFUS, jamais de
+        résolution arbitraire vers « le dernier digest »)."""
         conn = sqlite3.connect(self.path)
         try:
-            row = conn.execute(
-                "SELECT digest_id, ref, mailbox, uidvalidity, uid, from_addr, subject, kind "
-                "FROM digest_refs WHERE ref=? AND expires_at > ? "
-                "ORDER BY created_at DESC, rowid DESC LIMIT 1",
-                (ref, now_iso),
-            ).fetchone()
+            rows = conn.execute(
+                "SELECT digest_id, ref, mailbox, uidvalidity, uid, from_addr, subject, kind, "
+                "expires_at FROM digest_refs WHERE ref=?", (ref,),
+            ).fetchall()
         finally:
             conn.close()
-        if not row:
-            return None
-        return {"digest_id": row[0], "ref": row[1], "mailbox": row[2],
-                "uidvalidity": row[3], "uid": row[4], "from_addr": row[5],
-                "subject": row[6], "kind": row[7]}
+        active = [r for r in rows if r[8] > now_iso]
+        if len(active) > 1:
+            return {"status": "ambiguous", "ref": None}
+        if not active:
+            return {"status": "expired" if rows else "unknown", "ref": None}
+        r = active[0]
+        return {"status": "ok", "ref": {"digest_id": r[0], "ref": r[1], "mailbox": r[2],
+                                        "uidvalidity": r[3], "uid": r[4], "from_addr": r[5],
+                                        "subject": r[6], "kind": r[7]}}
+
+    def next_ref_number(self, kind: str) -> int:
+        """Compteur monotone par type (a/n/l/p) — références GLOBALEMENT
+        non ambiguës (t10) : jamais réutilisées, même après expiration.
+        Atomicité (F-02 review J3) : BEGIN IMMEDIATE sérialise SELECT+UPDATE
+        (SQLite writer unique) — deux appelants concurrents ne peuvent pas
+        allouer le même numéro. Initialisation : max(numéro existant pour ce
+        type) + 1 (les refs pré-compteur #n1 des premiers digests V4 restent
+        uniques). Invariant ISO : tous les horodatages sont aware-UTC "+00:00"
+        (comparaisons lexicographiques, F-05)."""
+        conn = sqlite3.connect(self.path)
+        try:
+            conn.execute("BEGIN IMMEDIATE")  # verrou d'écriture immédiat (TOCTOU)
+            row = conn.execute("SELECT next_value FROM ref_seq WHERE kind=?", (kind,)).fetchone()
+            if row is None:
+                existing = conn.execute("SELECT ref FROM digest_refs WHERE ref LIKE ?",
+                                        (kind + r"%",)).fetchall()
+                max_n = 0
+                for (r,) in existing:
+                    digits = r[len(kind):]
+                    if digits.isdigit():
+                        max_n = max(max_n, int(digits))
+                # toutes propositions confondues : les p-ref vivent dans proposals
+                if kind == "p":
+                    prow = conn.execute(
+                        "SELECT proposal_id FROM proposals WHERE proposal_id LIKE ?",
+                        ("p%",)).fetchall()
+                    for (pid,) in prow:
+                        digits = pid[1:]
+                        if digits.isdigit():
+                            max_n = max(max_n, int(digits))
+                nxt = max_n + 1
+            else:
+                nxt = int(row[0])
+            conn.execute(
+                "INSERT INTO ref_seq (kind, next_value) VALUES (?,?) "
+                "ON CONFLICT(kind) DO UPDATE SET next_value=excluded.next_value",
+                (kind, nxt + 1))
+            conn.commit()
+        finally:
+            conn.close()
+        return nxt
 
     def record_command(self, post_id: str, channel_id: str, created_at: int,
                        sender: str, verb: str) -> bool:
@@ -528,6 +584,85 @@ class State:
                  proposal.get("status", "pending"), proposal.get("source_post_id"),
                  proposal.get("confirmation_post_id")),
             )
+            conn.commit()
+        finally:
+            conn.close()
+
+    # --- limites interactives (§11.6) + lecture/annulation propositions -------
+
+    def pending_proposals_count(self, now_iso: str | None = None) -> int:
+        """Propositions ACTIVES uniquement (F-01 review J3) : une proposition
+        expirée n'est plus « simultanée » (§11.6) et doit libérer le budget.
+        Le quota quotidien de règles (rule_proposals_since) ne filtre PAS :
+        les annulées continuent de compter (anti-boucle annule/recrée)."""
+        if now_iso is None:
+            now_iso = datetime.now(timezone.utc).isoformat()
+        conn = sqlite3.connect(self.path)
+        try:
+            (n,) = conn.execute(
+                "SELECT COUNT(*) FROM proposals WHERE status='pending' AND expires_at > ?",
+                (now_iso,)).fetchone()
+        finally:
+            conn.close()
+        return int(n)
+
+    def expire_stale_proposals(self, now_iso: str) -> int:
+        """Balayage d'expiration : pending + périmées → status 'expired'
+        (réconciliable, jamais re-consommables). Retourne le nombre expirées."""
+        conn = sqlite3.connect(self.path)
+        try:
+            cur = conn.execute(
+                "UPDATE proposals SET status='expired' "
+                "WHERE status='pending' AND expires_at <= ?", (now_iso,))
+            conn.commit()
+            return cur.rowcount
+        finally:
+            conn.close()
+
+    def rule_proposals_since(self, since_iso: str) -> int:
+        conn = sqlite3.connect(self.path)
+        try:
+            (n,) = conn.execute(
+                "SELECT COUNT(*) FROM proposals WHERE kind='rule' AND created_at >= ?",
+                (since_iso,)).fetchone()
+        finally:
+            conn.close()
+        return int(n)
+
+    def commands_in_window(self, since_ms: int) -> int:
+        conn = sqlite3.connect(self.path)
+        try:
+            (n,) = conn.execute(
+                "SELECT COUNT(*) FROM interactive_commands WHERE created_at >= ?",
+                (since_ms,)).fetchone()
+        finally:
+            conn.close()
+        return int(n)
+
+    def get_proposal(self, proposal_id: str) -> dict | None:
+        conn = sqlite3.connect(self.path)
+        try:
+            row = conn.execute(
+                "SELECT proposal_id, kind, owner_user_id, channel_id, action, target_version, "
+                "created_at, expires_at, status, source_post_id, confirmation_post_id "
+                "FROM proposals WHERE proposal_id=?", (proposal_id,)).fetchone()
+        finally:
+            conn.close()
+        if not row:
+            return None
+        return {"proposal_id": row[0], "kind": row[1], "owner_user_id": row[2],
+                "channel_id": row[3], "action": row[4], "target_version": row[5],
+                "created_at": row[6], "expires_at": row[7], "status": row[8],
+                "source_post_id": row[9], "confirmation_post_id": row[10]}
+
+    def set_proposal_status(self, proposal_id: str, status: str,
+                            confirmation_post_id: str | None = None) -> None:
+        conn = sqlite3.connect(self.path)
+        try:
+            conn.execute(
+                "UPDATE proposals SET status=?, confirmation_post_id=COALESCE(?, confirmation_post_id) "
+                "WHERE proposal_id=?",
+                (status, confirmation_post_id, proposal_id))
             conn.commit()
         finally:
             conn.close()

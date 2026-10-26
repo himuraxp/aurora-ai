@@ -189,11 +189,39 @@ def _validate_config(data: dict) -> dict:
 
     interactive = data.get("interactive", {})
     _require(isinstance(interactive, dict), "interactive doit être un objet")
-    # Canal interactif MP (ARCHITECTURE §11) : lecture interactive OFF par défaut ;
-    # les mutations interactives auront leurs propres gates séparés (J4).
+    # Canal interactif MP (ARCHITECTURE §11) : gates séparés — lecture interactive
+    # (enabled) ≠ création de propositions (proposals_enabled) ≠ écriture de
+    # règles (J4) ≠ déplacement IMAP (writes.imap_enabled).
     interactive.setdefault("enabled", False)
+    interactive.setdefault("proposals_enabled", False)
     _require(isinstance(interactive.get("enabled"), bool),
              "interactive.enabled doit être un booléen")
+    _require(isinstance(interactive.get("proposals_enabled"), bool),
+             "interactive.proposals_enabled doit être un booléen")
+    aliases = interactive.get("aliases", {})
+    _require(isinstance(aliases, dict), "interactive.aliases doit être un objet")
+    normalized = {}
+    for key, value in aliases.items():
+        _require(isinstance(key, str) and key.strip() and isinstance(value, str) and value.strip(),
+                 f"interactive.aliases.{key}: clé/valeur non vides requises")
+        # Normalisation à la charge (F-10 review J3) : les clés sont recherchées
+        # en lower/strip par le canal — " GitLab " ou "GitLab" seraient sinon
+        # inatteignables après validation.
+        normalized[key.strip().lower()] = value.strip()
+    interactive["aliases"] = normalized
+    # Limites de volume (§11.6) — configurables mais BORNÉES moteur (t9).
+    interactive.setdefault("max_rule_proposals_per_day", 5)
+    interactive.setdefault("max_pending_proposals", 10)
+    interactive.setdefault("max_commands_per_5min", 30)
+    _require(isinstance(interactive["max_rule_proposals_per_day"], int)
+             and 1 <= interactive["max_rule_proposals_per_day"] <= 20,
+             "interactive.max_rule_proposals_per_day: int entre 1 et 20")
+    _require(isinstance(interactive["max_pending_proposals"], int)
+             and 1 <= interactive["max_pending_proposals"] <= 50,
+             "interactive.max_pending_proposals: int entre 1 et 50")
+    _require(isinstance(interactive["max_commands_per_5min"], int)
+             and 1 <= interactive["max_commands_per_5min"] <= 100,
+             "interactive.max_commands_per_5min: int entre 1 et 100")
     data["interactive"] = interactive
 
     plan = data.get("plan", {})

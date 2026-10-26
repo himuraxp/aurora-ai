@@ -500,6 +500,9 @@ def cmd_digest(cfg: dict, args) -> int:
     finally:
         imap_mod.logout(conn)
     digest_mod.attach_previews(built, previews)
+    # Références courtes (V4, §11.5 corrigé t10) : GLOBALEMENT non ambiguës —
+    # compteur monotone de l'état, assignées AVANT rendu et persistance.
+    digest_mod.assign_refs(built, state)
     markdown = digest_mod.render_markdown(built)
 
     if not args.send:
@@ -584,8 +587,8 @@ def cmd_digest(cfg: dict, args) -> int:
 
 
 def cmd_listen(cfg: dict, args) -> int:
-    """Poller interactif (J2, ARCHITECTURE §11) : lecture seule des MP du
-    propriétaire, aide/statut, accusé des verbes de tri (sans exécution)."""
+    """Poller interactif (J2 lecture + J3 propositions, ARCHITECTURE §11) :
+    traite les MP du propriétaire, répond, avance le checkpoint."""
     interactive = cfg.get("interactive", {})
     if not interactive.get("enabled", False):
         return _err("interactive_disabled", "interactive.enabled=false dans config.json", exit_code=2)
@@ -593,7 +596,21 @@ def cmd_listen(cfg: dict, args) -> int:
     state = state_mod.State(config_dir_path / "state.sqlite")
     client = _kchat_client(cfg)
     owner_user_id = _recipient_id(cfg, client)
-    result = interact_mod.run_once(cfg, state, config_dir_path, client, owner_user_id, audit)
+    try:
+        result = interact_mod.run_once(cfg, state, config_dir_path, client, owner_user_id, audit)
+    except state_mod.LockError:
+        # J5/t10 : un tour précédent > 300 s tient encore le verrou → skip PROPRE
+        # (exit 0, checkpoint intact) ; la pagination exhaustive rattrapera.
+        audit(config_dir_path, {"event": "interactive_skipped_locked"})
+        return _out({"command": "listen", "status": "skipped_locked"})
+    except interact_mod.InteractiveError as exc:
+        # F-04 (review J3) : pagination incomplète > 20 pages — fail-closed
+        # voulu (checkpoint gelé), mais signal dédié + audit exploitable
+        # (reprise opérateur : traiter le DM ou réinitialiser le checkpoint).
+        audit(config_dir_path, {"event": "interactive_pagination_incomplete",
+                                "detail": str(exc)[:200]})
+        return _err("interactive_pagination_incomplete",
+                    f"{exc} — reprise opérateur requise (voir ARCHITECTURE §11.3)")
     return _out({"command": "listen", **result})
 
 

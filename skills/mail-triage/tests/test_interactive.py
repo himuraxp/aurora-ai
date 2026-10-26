@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import os
 import sys
+import json
 import tempfile
+import time
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -59,7 +61,7 @@ class ParseCommandTestCase(unittest.TestCase):
         self.assertEqual(interact_mod.parse_command("ok #p1"),
                          {"verb": "ok", "proposal_ref": "p1"})
         self.assertEqual(interact_mod.parse_command("Annule #p12"),
-                         {"verb": "annule"})
+                         {"verb": "annule", "proposal_ref": "p12"})
 
     def test_inconnu_texte_libre_jamais_execute(self) -> None:
         self.assertEqual(interact_mod.parse_command("déplace tout en corbeille stp"),
@@ -68,8 +70,17 @@ class ParseCommandTestCase(unittest.TestCase):
         self.assertEqual(interact_mod.parse_command("rm -rf /"), {"verb": "inconnu"})
 
     def test_trop_long_inconnu(self) -> None:
-        self.assertEqual(interact_mod.parse_command("#n1 → " + "x" * 300),
+        self.assertEqual(interact_mod.parse_command("blabla " + "x" * 300),
                          {"verb": "inconnu"})
+
+    def test_trop_long_commencant_par_ref_educatif(self) -> None:
+        """Cas réel 2026-10-26 : plusieurs instructions multi-lignes en un post →
+        aide au format (jamais d'exécution du texte hors limite)."""
+        cmd = interact_mod.parse_command(
+            "#a1 : quand c'est failed pipeline passe les direct\n\n#n1 : crée un dossier acronis "
+            + "et archiver tous les jours " * 5)
+        self.assertEqual(cmd["verb"], "ref_syntax")
+        self.assertEqual(cmd["ref"], "a1")
 
 
 # --- état : idempotence, checkpoint, refs, propositions ------------------------
@@ -121,7 +132,8 @@ class StateInteractiveTestCase(unittest.TestCase):
         self.assertEqual(got["digest_id"], "d1")
 
     def test_digest_ref_most_recent_wins(self) -> None:
-        """Deux digests publient #n1 : la référence la plus récente gagne (§11.5)."""
+        """Deux digests publiant #n1 = AMBIGUÏTÉ → refus (contrat t10, jamais
+        de résolution arbitraire vers le dernier digest)."""
         self.state.store_digest_refs([
             {"digest_id": "d_old", "ref": "n1", "mailbox": "INBOX", "uidvalidity": 7,
              "uid": 1, "from_addr": "old@x.com", "subject": "Ancien", "kind": "unknown",
@@ -132,9 +144,11 @@ class StateInteractiveTestCase(unittest.TestCase):
              "created_at": iso(NOW - timedelta(hours=1)),
              "expires_at": iso(NOW + timedelta(hours=47))},
         ])
-        got = self.state.resolve_digest_ref("n1", iso(NOW))
-        self.assertEqual(got["digest_id"], "d_new")
-        self.assertEqual(got["uid"], 2)
+        got = self.state.resolve_ref("n1", iso(NOW))
+        self.assertEqual(got["status"], "ambiguous")
+        self.assertIsNone(got["ref"])
+        # compat J2 : resolve_digest_ref → None sur ambiguïté
+        self.assertIsNone(self.state.resolve_digest_ref("n1", iso(NOW)))
 
     def test_digest_ref_expired_gives_none(self) -> None:
         self.state.store_digest_refs([
@@ -143,7 +157,34 @@ class StateInteractiveTestCase(unittest.TestCase):
              "created_at": iso(NOW - timedelta(hours=49)),
              "expires_at": iso(NOW - timedelta(hours=1))},
         ])
-        self.assertIsNone(self.state.resolve_digest_ref("n1", iso(NOW)))
+        got = self.state.resolve_ref("n1", iso(NOW))
+        self.assertEqual(got["status"], "expired")
+        self.assertIsNone(got["ref"])
+
+    def test_resolve_ref_unknown(self) -> None:
+        got = self.state.resolve_ref("n99", iso(NOW))
+        self.assertEqual(got["status"], "unknown")
+
+    def test_next_ref_number_monotonic(self) -> None:
+        """Compteur monotone par type : jamais réutilisé, même après expiration
+        (contrat t10 — références globalement non ambiguës)."""
+        first = self.state.next_ref_number("n")
+        second = self.state.next_ref_number("n")
+        self.assertEqual(second, first + 1)
+        other = self.state.next_ref_number("a")
+        self.assertEqual(other, 1)  # compteurs indépendants par type
+
+    def test_next_ref_number_initializes_above_existing(self) -> None:
+        """Les refs pré-compteur (#n1 du premier digest V4) ne sont jamais
+        réémises : initialisation = max existant + 1."""
+        self.state.store_digest_refs([
+            {"digest_id": "d1", "ref": "n1", "mailbox": "INBOX", "uidvalidity": 7,
+             "uid": 1, "from_addr": "a@x.com", "subject": "S", "kind": "unknown",
+             "created_at": iso(NOW), "expires_at": iso(NOW + timedelta(hours=48))},
+        ])
+        nxt = self.state.next_ref_number("n")
+        self.assertEqual(nxt, 2)
+        self.assertEqual(self.state.next_ref_number("n"), 3)
 
     def test_create_proposal_roundtrip(self) -> None:
         self.state.create_proposal({
@@ -366,7 +407,7 @@ class RunOnceTestCase(unittest.TestCase):
                                     client, "owner", self._audit)
         self.assertEqual(got["processed"], 1)
         self.assertEqual(len(client.replies), 1)
-        self.assertIn("pas encore activées", client.replies[0])
+        self.assertIn("pas activées", client.replies[0])
         # aucune écriture IMAP ni règle : aucun event autre que interactive_command
         self.assertTrue(all(e["event"] == "interactive_command"
                             for e in self.audit_events))
@@ -453,7 +494,9 @@ class RefsRenderTestCase(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["uid"], 42)  # 40 + 2 = dernier message
 
-    def test_build_digest_assigns_refs(self) -> None:
+    def test_assign_refs_monotonic_global(self) -> None:
+        """assign_refs hors build : compteur monotone global (t10) — les refs
+        ne sont JAMAIS réémises d'un digest à l'autre."""
         class FakeState:
             def last_confirmed_digest(self):
                 return None
@@ -464,6 +507,13 @@ class RefsRenderTestCase(unittest.TestCase):
             def moved_counts_since(self, since_iso):
                 return {}
 
+            def __init__(self):
+                self._counters = {}
+
+            def next_ref_number(self, kind):
+                self._counters[kind] = self._counters.get(kind, 0) + 1
+                return self._counters[kind]
+
         messages = [
             {"uid": 10, "from": "a@x.com", "subject": "À valider",
              "internaldate": iso(NOW - timedelta(minutes=10)), "seen": False,
@@ -471,9 +521,6 @@ class RefsRenderTestCase(unittest.TestCase):
             {"uid": 20, "from": "b@x.com", "subject": "Sans règle",
              "internaldate": iso(NOW - timedelta(minutes=20)), "seen": False,
              "message_id": "<m20@x>", "references": ""},
-            {"uid": 30, "from": "c@x.com", "subject": "Notif CI",
-             "internaldate": iso(NOW - timedelta(minutes=30)), "seen": False,
-             "message_id": "<m30@x>", "references": ""},
         ]
         cfg = {"digest": {"enabled": True, "lookback_hours": 18, "always_inbox_cap": 10,
                           "min_interval_hours": 20, "sensitive_subject_patterns": []},
@@ -486,10 +533,337 @@ class RefsRenderTestCase(unittest.TestCase):
         built = digest_mod.build_digest(FakeState(), messages, cfg,
                                         {"start": NOW - timedelta(hours=2),
                                          "end": NOW}, "dX")
+        self.assertTrue(all(c.get("ref") is None for c in built["conversations"]))
+        digest_mod.assign_refs(built, FakeState())
         refs = [c.get("ref") for c in built["conversations"]]
-        self.assertIn("a1", refs)     # propose → #a1
-        self.assertIn("n1", refs)     # unknown → #n1
+        self.assertIn("a1", refs)
+        self.assertIn("n1", refs)
         self.assertEqual(digest_mod.DIGEST_FORMAT_VERSION, 4)
+
+
+# --- J3 : destinations, propositions, limites, annule ---------------------------
+
+
+class DestinationTestCase(unittest.TestCase):
+    CFG = {"interactive": {"aliases": {"gitlab": "GitLab", "acronis": "Acronis"}},
+           "destinations": {"allowlist": ["GitLab", "Acronis"]}}
+
+    def test_alias_resolves_canonical(self) -> None:
+        canonical, reason = interact_mod.resolve_destination("GitLab", self.CFG)
+        self.assertEqual((canonical, reason), ("GitLab", "ok"))
+        canonical, reason = interact_mod.resolve_destination("  gitlab  ", self.CFG)
+        self.assertEqual((canonical, reason), ("GitLab", "ok"))
+
+    def test_canonical_name_accepted_directly(self) -> None:
+        canonical, reason = interact_mod.resolve_destination("Acronis", self.CFG)
+        self.assertEqual((canonical, reason), ("Acronis", "ok"))
+
+    def test_unknown_alias_refused(self) -> None:
+        canonical, reason = interact_mod.resolve_destination("boite-mystere", self.CFG)
+        self.assertIsNone(canonical)
+        self.assertEqual(reason, "unknown_alias")
+
+    def test_forbidden_destination_never_resolved(self) -> None:
+        """t10 : un alias (ou un chemin) pointant vers Trash/Spam reste INTERDIT —
+        l'allowlist ne neutralise jamais les exclusions absolues."""
+        cfg = {"interactive": {"aliases": {"poubelle": "Trash"}},
+               "destinations": {"allowlist": ["GitLab", "Trash"]}}
+        canonical, reason = interact_mod.resolve_destination("poubelle", cfg)
+        self.assertIsNone(canonical)
+        self.assertEqual(reason, "forbidden")
+
+
+REAL_NOW = datetime.now(timezone.utc)
+
+
+def real_iso(dt: datetime) -> str:
+    """Horodatage RÉEL (la résolution des refs compare au temps courant)."""
+    return dt.isoformat(timespec="seconds")
+
+
+class ProposalTestCase(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.dir_path = Path(self._tmp.name)
+        (self.dir_path / "locks").mkdir()
+        (self.dir_path / "rules.json").write_text('{"rules": [], "sensitive_senders": []}',
+                                                  encoding="utf-8")
+        self.state = state_mod.State(self.dir_path / "state.sqlite")
+        self.state.store_digest_refs([
+            {"digest_id": "d1", "ref": "n1", "mailbox": "INBOX", "uidvalidity": 7,
+             "uid": 42, "from_addr": "noreply@acronis.com", "subject": "Rapport",
+             "kind": "unknown", "created_at": real_iso(REAL_NOW - timedelta(hours=1)),
+             "expires_at": real_iso(REAL_NOW + timedelta(hours=47))},
+            {"digest_id": "d1", "ref": "a1", "mailbox": "INBOX", "uidvalidity": 7,
+             "uid": 43, "from_addr": "gitlab@infomaniak.com", "subject": "Pipeline",
+             "kind": "review", "created_at": real_iso(REAL_NOW - timedelta(hours=1)),
+             "expires_at": real_iso(REAL_NOW + timedelta(hours=47))},
+        ])
+        self.cfg = {"interactive": {"enabled": True, "proposals_enabled": True,
+                                    "aliases": {"gitlab": "GitLab", "acronis": "Acronis"},
+                                    "max_pending_proposals": 10,
+                                    "max_rule_proposals_per_day": 5,
+                                    "max_commands_per_5min": 30},
+                    "destinations": {"allowlist": ["GitLab", "Acronis"]}}
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def _handle(self, cmd: dict) -> str:
+        return interact_mod.handle_command(cmd, self.cfg, self.state, self.dir_path,
+                                           "owner", "chan1", "post-1")
+
+    def test_item_move_creates_proposal(self) -> None:
+        reply = self._handle({"verb": "item_move", "ref": "n1", "dest_text": "gitlab"})
+        self.assertIn("#p1", reply)
+        self.assertIn("`GitLab`", reply)
+        self.assertIn("ok #p1", reply)
+        proposal = self.state.get_proposal("p1")
+        self.assertEqual(proposal["kind"], "move")
+        self.assertEqual(proposal["status"], "pending")
+        action = json.loads(proposal["action"])
+        self.assertEqual(action["type"], "move")
+        self.assertEqual(action["uid"], 42)
+        self.assertEqual(action["folder"], "GitLab")
+        self.assertTrue(proposal["target_version"].startswith("sha256:"))
+        self.assertEqual(proposal["source_post_id"], "post-1")
+
+    def test_item_move_second_ref_monotonic(self) -> None:
+        self._handle({"verb": "item_move", "ref": "n1", "dest_text": "gitlab"})
+        reply = self._handle({"verb": "item_move", "ref": "a1", "dest_text": "Acronis"})
+        self.assertIn("#p2", reply)  # ids opaques monotones, jamais réutilisés
+
+    def test_unknown_alias_gets_syntax_help(self) -> None:
+        reply = self._handle({"verb": "item_move", "ref": "n1", "dest_text": "archive-sans-nom"})
+        self.assertIn("Aliases disponibles", reply)
+        self.assertIsNone(self.state.get_proposal("p1"))
+
+    def test_forbidden_alias_refused(self) -> None:
+        self.cfg["interactive"]["aliases"]["poubelle"] = "Trash"
+        self.cfg["destinations"]["allowlist"].append("Trash")
+        reply = self._handle({"verb": "item_move", "ref": "n1", "dest_text": "poubelle"})
+        self.assertIn("interdite", reply)
+        self.assertIsNone(self.state.get_proposal("p1"))
+
+    def test_ambiguous_ref_refused(self) -> None:
+        """Deux digests avec #n1 actifs → REFUS (t10), jamais le dernier gagne."""
+        self.state.store_digest_refs([
+            {"digest_id": "d0", "ref": "n1", "mailbox": "INBOX", "uidvalidity": 7,
+             "uid": 999, "from_addr": "other@x.com", "subject": "Autre",
+             "kind": "unknown", "created_at": real_iso(REAL_NOW - timedelta(days=1)),
+             "expires_at": real_iso(REAL_NOW + timedelta(hours=40))},
+        ])
+        reply = self._handle({"verb": "item_move", "ref": "n1", "dest_text": "gitlab"})
+        self.assertIn("ambiguë", reply)
+        self.assertIsNone(self.state.get_proposal("p1"))
+
+    def test_unknown_and_expired_ref(self) -> None:
+        self.assertIn("inconnue", self._handle({"verb": "item_move", "ref": "n9",
+                                                "dest_text": "gitlab"}))
+        self.state.store_digest_refs([
+            {"digest_id": "d2", "ref": "n2", "mailbox": "INBOX", "uidvalidity": 7,
+             "uid": 5, "from_addr": "a@x.com", "subject": "S", "kind": "unknown",
+             "created_at": real_iso(REAL_NOW - timedelta(hours=49)),
+             "expires_at": real_iso(REAL_NOW - timedelta(hours=1))},
+        ])
+        self.assertIn("périmée", self._handle({"verb": "item_move", "ref": "n2",
+                                               "dest_text": "gitlab"}))
+
+    def test_rule_proposal_sender_then_domain(self) -> None:
+        reply = self._handle({"verb": "rule_create", "scope": "expediteur",
+                              "value": "noreply@acronis.com", "dest_text": "acronis"})
+        self.assertIn("#p1", reply)
+        self.assertIn("mode propose", reply)
+        rule = json.loads(self.state.get_proposal("p1")["action"])["rule"]
+        self.assertEqual(rule["mode"], "propose")
+        self.assertEqual(rule["match"], {"from_any": ["noreply@acronis.com"]})
+        self.assertEqual(rule["priority"], 150)
+        self.assertEqual(rule["folder"], "Acronis")
+
+        reply2 = self._handle({"verb": "rule_create", "scope": "domaine",
+                               "value": "Acronis.com", "dest_text": "acronis"})
+        self.assertIn("#p2", reply2)
+        rule2 = json.loads(self.state.get_proposal("p2")["action"])["rule"]
+        self.assertEqual(rule2["match"], {"from_domain_any": ["acronis.com"]})
+        self.assertEqual(rule2["priority"], 155)  # domaine plus large → perd les égalités
+
+    def test_rule_invalid_values_refused(self) -> None:
+        self.assertIn("invalide", self._handle({"verb": "rule_create", "scope": "expediteur",
+                                                "value": "pas-un-email", "dest_text": "acronis"}))
+        self.assertIn("invalide", self._handle({"verb": "rule_create", "scope": "domaine",
+                                                "value": "acronis.com/x", "dest_text": "acronis"}))
+        self.assertIsNone(self.state.get_proposal("p1"))
+
+    def test_annule_cancels_pending_only(self) -> None:
+        self._handle({"verb": "item_move", "ref": "n1", "dest_text": "gitlab"})
+        self.assertIn("annulée", self._handle({"verb": "annule", "proposal_ref": "p1"}))
+        self.assertEqual(self.state.get_proposal("p1")["status"], "cancelled")
+        self.assertIn("inconnue ou déjà traitée",
+                      self._handle({"verb": "annule", "proposal_ref": "p1"}))
+
+    def test_ok_still_pending_j4(self) -> None:
+        """`ok #p1` reste en accusé (J4) — AUCUNE mutation au niveau J3."""
+        self._handle({"verb": "item_move", "ref": "n1", "dest_text": "gitlab"})
+        reply = self._handle({"verb": "ok", "proposal_ref": "p1"})
+        self.assertIn("pas encore activées", reply)
+        self.assertEqual(self.state.get_proposal("p1")["status"], "pending")
+
+    def test_ok_digest_ref_gets_dedicated_reply(self) -> None:
+        """F-09 : `ok #n1` (ref de digest, pas une proposition) — réponse dédiée,
+        jamais « la proposition reste en attente » (trompeur)."""
+        reply = self._handle({"verb": "ok", "proposal_ref": "n1"})
+        self.assertIn("référence de digest", reply)
+        self.assertIn("#p", reply)
+
+    def test_expired_proposal_releases_budget(self) -> None:
+        """F-01 : une proposition EXPIRÉE libère le budget « simultanées » —
+        sans le sweep, le canal se bloque définitivement après max propositions."""
+        self.cfg["interactive"]["max_pending_proposals"] = 1
+        self._handle({"verb": "item_move", "ref": "n1", "dest_text": "gitlab"})
+        self.assertIn("Trop de propositions",
+                      self._handle({"verb": "item_move", "ref": "a1", "dest_text": "gitlab"}))
+        # faire expirer p1 puis sweeper (comme run_once en tête de tour)
+        conn = state_mod.sqlite3.connect(self.state.path)
+        conn.execute("UPDATE proposals SET expires_at='2020-01-01T00:00:00+00:00' "
+                     "WHERE proposal_id='p1'")
+        conn.commit()
+        conn.close()
+        self.state.expire_stale_proposals(interact_mod._now_iso())
+        self.assertEqual(self.state.pending_proposals_count(), 0)
+        reply = self._handle({"verb": "item_move", "ref": "a1", "dest_text": "gitlab"})
+        self.assertIn("#p2", reply)  # budget libéré, ids toujours monotones
+
+    def test_annule_owner_crosscheck(self) -> None:
+        """F-07 : une proposition d'un autre owner/canal → refus « inconnue »
+        (ne rien divulguer)."""
+        self._handle({"verb": "item_move", "ref": "n1", "dest_text": "gitlab"})
+        reply = interact_mod.handle_command(
+            {"verb": "annule", "proposal_ref": "p1"}, self.cfg, self.state, self.dir_path,
+            "ATTACKER", "chan1", "post-9")
+        self.assertIn("inconnue ou déjà traitée", reply)
+        self.assertEqual(self.state.get_proposal("p1")["status"], "pending")
+
+    def test_md_echo_neutralized(self) -> None:
+        """F-08 : un From non fiable n'est jamais écho en markdown cliquable."""
+        self.state.store_digest_refs([
+            {"digest_id": "d3", "ref": "n3", "mailbox": "INBOX", "uidvalidity": 7,
+             "uid": 7, "from_addr": "[Urgent](http://evil) <a@b.c>", "subject": "S",
+             "kind": "unknown", "created_at": real_iso(REAL_NOW - timedelta(hours=1)),
+             "expires_at": real_iso(REAL_NOW + timedelta(hours=47))},
+        ])
+        reply = self._handle({"verb": "item_move", "ref": "n3", "dest_text": "gitlab"})
+        self.assertNotIn("[Urgent](http://evil)", reply)
+        self.assertIn("(Urgent)(http://evil)", reply)
+
+    def test_next_ref_concurrent_allocations_distinct(self) -> None:
+        """F-02 : BEGIN IMMEDIATE — deux allocations concurrentes (connexions
+        distinctes) ne peuvent JAMAIS retourner le même numéro."""
+        import threading
+        results: list[int] = []
+        barrier = threading.Barrier(2)
+
+        def allocate():
+            barrier.wait()
+            results.append(self.state.next_ref_number("n"))
+
+        self.state.store_digest_refs([
+            {"digest_id": "d1", "ref": "n1", "mailbox": "INBOX", "uidvalidity": 7,
+             "uid": 1, "from_addr": "a@x.com", "subject": "S", "kind": "unknown",
+             "created_at": real_iso(REAL_NOW), "expires_at": real_iso(REAL_NOW + timedelta(hours=48))},
+        ])
+        threads = [threading.Thread(target=allocate) for _ in range(2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        self.assertEqual(sorted(results), [2, 3])  # distincts, au-dessus de n1
+
+    def test_resolve_ref_mixed_time_precision(self) -> None:
+        """F-05 : expires_at en précision « seconds » (triage) vs now en
+        microsecondes (interact) — l'ordre lexicographique reste correct."""
+        self.state.store_digest_refs([
+            {"digest_id": "d1", "ref": "n4", "mailbox": "INBOX", "uidvalidity": 7,
+             "uid": 4, "from_addr": "a@x.com", "subject": "S", "kind": "unknown",
+             "created_at": "2026-10-25T06:05:02+00:00",
+             "expires_at": "2099-10-27T07:05:02+00:00"},
+            {"digest_id": "d2", "ref": "n5", "mailbox": "INBOX", "uidvalidity": 7,
+             "uid": 5, "from_addr": "b@x.com", "subject": "S", "kind": "unknown",
+             "created_at": "2026-10-25T06:05:02+00:00",
+             "expires_at": "2020-10-27T07:05:02+00:00"},
+        ])
+        now_micro = "2026-10-26T06:07:39.062556+00:00"
+        self.assertEqual(self.state.resolve_ref("n4", now_micro)["status"], "ok")
+        self.assertEqual(self.state.resolve_ref("n5", now_micro)["status"], "expired")
+
+    def test_gate_off_triage_verbs_acknowledged(self) -> None:
+        self.cfg["interactive"]["proposals_enabled"] = False
+        reply = self._handle({"verb": "item_move", "ref": "n1", "dest_text": "gitlab"})
+        self.assertIn("pas activées", reply)
+        self.assertIsNone(self.state.get_proposal("p1"))
+
+    def test_pending_limit_refuses(self) -> None:
+        self.cfg["interactive"]["max_pending_proposals"] = 1
+        self._handle({"verb": "item_move", "ref": "n1", "dest_text": "gitlab"})
+        reply = self._handle({"verb": "item_move", "ref": "a1", "dest_text": "gitlab"})
+        self.assertIn("Trop de propositions", reply)
+
+    def test_rule_daily_limit(self) -> None:
+        self.cfg["interactive"]["max_rule_proposals_per_day"] = 1
+        self._handle({"verb": "rule_create", "scope": "expediteur",
+                      "value": "a@b.com", "dest_text": "acronis"})
+        reply = self._handle({"verb": "rule_create", "scope": "domaine",
+                              "value": "b.com", "dest_text": "acronis"})
+        self.assertIn("quotidienne", reply)
+
+    def test_ref_syntax_educational(self) -> None:
+        """Cas réel 2026-10-26 : `#a1 : texte libre` → aide au format, jamais
+        d'exécution du texte."""
+        cmd = interact_mod.parse_command("#a1 : quand c'est failed pipeline passe les direct")
+        self.assertEqual(cmd["verb"], "ref_syntax")
+        self.assertEqual(cmd["ref"], "a1")
+        reply = self._handle(cmd)
+        self.assertIn("Format attendu", reply)
+        self.assertIn("→", reply)
+        self.assertIsNone(self.state.get_proposal("p1"))
+
+    def test_rate_limit_30_per_5min(self) -> None:
+        self.cfg["interactive"]["max_commands_per_5min"] = 1
+        now_ms = int(time.time() * 1000)
+
+        class Client:
+            def __init__(self, state):
+                self.state = state
+                self.pages = [[post("p2", now_ms - 2000, message="aide"),
+                               post("p1", now_ms - 3000, message="statut")]]
+                self.replies: list[str] = []
+
+            def me(self):
+                return {"id": "bot"}
+
+            def ensure_direct_channel(self, bot_id, user_id):
+                return "chan1"
+
+            def recent_channel_posts(self, channel_id, per_page=30):
+                return self.pages[0] if self.pages else []
+
+            def channel_posts_before(self, channel_id, before, per_page=30):
+                return []
+
+            def post_message(self, channel_id, message):
+                self.replies.append(message)
+                return {"id": f"r{len(self.replies)}"}
+
+        client = Client(self.state)
+        got = interact_mod.run_once(self.cfg, self.state, self.dir_path,
+                                    client, "owner", lambda *a: None)  # baseline
+        client.pages = [[post("p4", now_ms - 500, message="aide"),
+                         post("p3", now_ms - 1000, message="statut"),
+                         post("p2", now_ms - 2000, message="aide")]]
+        got2 = interact_mod.run_once(self.cfg, self.state, self.dir_path,
+                                     client, "owner", lambda *a: None)
+        self.assertEqual(got2["processed"], 2)
+        self.assertEqual(len(client.replies), 2)
+        self.assertIn("Trop de commandes", client.replies[1])  # 2e commande floodée
 
 
 # --- config : section interactive -----------------------------------------------

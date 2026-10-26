@@ -131,22 +131,6 @@ def build_digest(state, messages: list[dict], config: dict, window: dict, digest
     conversations = group_conversations(unique_items)
     moved_counts = state.moved_counts_since(start.isoformat())
     counters = _counters(new_items, unique_items, conversations, moved_counts)
-    # Références courtes (V4, ARCHITECTURE §11.5) : 1 ref = 1 message (le dernier
-    # de la conversation), jamais une conversation entière. Auto = pas de ref
-    # (aucune décision humaine attendue sur les notifications triables).
-    review_n = unknown_n = 0
-    for conv in conversations:
-        cat = conversation_category(conv["items"])
-        if cat == "review":
-            review_n += 1
-            conv["ref"] = f"a{review_n}"
-        elif cat == "unknown":
-            unknown_n += 1
-            conv["ref"] = f"n{unknown_n}"
-        else:
-            conv["ref"] = None
-    for idx, item in enumerate(always, start=1):
-        item["ref"] = f"l{idx}"
     return {
         "id": digest_id,
         "marker": new_marker(digest_id),
@@ -675,6 +659,23 @@ def _preview_lines(entry: dict) -> list[str]:
     if entry.get("preview_unavailable"):
         return ["> _(aperçu indisponible)_"]
     return []
+
+
+def assign_refs(built: dict, state) -> None:
+    """Références courtes (V4, ARCHITECTURE §11.5 corrigé t10) : GLOBALEMENT
+    non ambiguës — compteur monotone par type (a/n/l) depuis l'état, jamais
+    réutilisées même après expiration. 1 ref = 1 message (le dernier de la
+    conversation). Auto = pas de ref (aucune décision humaine attendue).
+    Appelé par cmd_digest AVANT le rendu (build_digest reste pur)."""
+    for conv in built.get("conversations", []):
+        cat = conversation_category(conv["items"])
+        if cat in ("review", "unknown"):
+            prefix = "a" if cat == "review" else "n"
+            conv["ref"] = f"{prefix}{state.next_ref_number(prefix)}"
+        else:
+            conv["ref"] = None
+    for item in built.get("always_inbox", []):
+        item["ref"] = f"l{state.next_ref_number('l')}" if item.get("uid") is not None else None
 
 
 def digest_ref_rows(digest: dict, mailbox: str, uidvalidity: int, created_at: str) -> list[dict]:

@@ -676,7 +676,9 @@ class ProposalTestCase(unittest.TestCase):
         self.assertIn("mode propose", reply)
         rule = json.loads(self.state.get_proposal("p1")["action"])["rule"]
         self.assertEqual(rule["mode"], "propose")
-        self.assertEqual(rule["match"], {"from_any": ["noreply@acronis.com"]})
+        # F-03 (J4) : les règles interactives « expediteur » matchent l'ADRESSE
+        # EXACTE (from_exact), jamais la sous-chaîne de from_any.
+        self.assertEqual(rule["match"], {"from_exact": ["noreply@acronis.com"]})
         self.assertEqual(rule["priority"], 150)
         self.assertEqual(rule["folder"], "Acronis")
 
@@ -702,7 +704,8 @@ class ProposalTestCase(unittest.TestCase):
                       self._handle({"verb": "annule", "proposal_ref": "p1"}))
 
     def test_ok_still_pending_j4(self) -> None:
-        """`ok #p1` reste en accusé (J4) — AUCUNE mutation au niveau J3."""
+        """Kill switch (test de sortie #9, §11.8) : sans gates d'écriture,
+        `ok #p1` = accusé et AUCUN write — la proposition reste pending."""
         self._handle({"verb": "item_move", "ref": "n1", "dest_text": "gitlab"})
         reply = self._handle({"verb": "ok", "proposal_ref": "p1"})
         self.assertIn("pas encore activées", reply)

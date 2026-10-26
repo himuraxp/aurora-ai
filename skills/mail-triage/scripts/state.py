@@ -121,6 +121,22 @@ CREATE TABLE IF NOT EXISTS proposals (
   source_post_id TEXT,
   confirmation_post_id TEXT
 );
+CREATE TABLE IF NOT EXISTS rule_operations (
+  operation_id TEXT PRIMARY KEY,
+  rule_id TEXT NOT NULL,
+  applied_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS workflow_items (
+  mailbox TEXT NOT NULL,
+  uidvalidity INTEGER NOT NULL,
+  uid INTEGER NOT NULL,
+  state TEXT NOT NULL DEFAULT 'new',
+  from_addr TEXT,
+  subject TEXT,
+  first_seen TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (mailbox, uidvalidity, uid)
+);
 """
 
 
@@ -666,3 +682,142 @@ class State:
             conn.commit()
         finally:
             conn.close()
+
+    def reserve_proposal(self, proposal_id: str, now_iso: str,
+                         confirmation_post_id: str) -> bool:
+        """Réservation ATOMIQUE pending→executing (§11.4, J4) : usage unique
+        garanti — UPDATE conditionnel sur (pending + non expirée) ; deux
+        confirmations concurrentes ne peuvent pas passer toutes les deux
+        (un seul writer SQLite, la seconde obtient rowcount=0)."""
+        conn = sqlite3.connect(self.path)
+        try:
+            cur = conn.execute(
+                "UPDATE proposals SET status='executing', "
+                "confirmation_post_id=COALESCE(?, confirmation_post_id) "
+                "WHERE proposal_id=? AND status='pending' AND expires_at > ?",
+                (confirmation_post_id, proposal_id, now_iso))
+            conn.commit()
+            return cur.rowcount == 1
+        finally:
+            conn.close()
+
+    def timeout_stale_executing(self, older_than_iso: str) -> int:
+        """Sweep des 'executing' orphelins (crash entre réservation et fin
+        d'exécution) : status → 'uncertain' (réconciliable, jamais
+        re-consommable — usage unique préservé)."""
+        conn = sqlite3.connect(self.path)
+        try:
+            cur = conn.execute(
+                "UPDATE proposals SET status='uncertain' "
+                "WHERE status='executing' AND created_at < ?", (older_than_iso,))
+            conn.commit()
+            return cur.rowcount
+        finally:
+            conn.close()
+
+    def rule_operation_applied(self, operation_id: str) -> dict | None:
+        conn = sqlite3.connect(self.path)
+        try:
+            row = conn.execute(
+                "SELECT operation_id, rule_id, applied_at FROM rule_operations "
+                "WHERE operation_id=?", (operation_id,)).fetchone()
+        finally:
+            conn.close()
+        if not row:
+            return None
+        return {"operation_id": row[0], "rule_id": row[1], "applied_at": row[2]}
+
+    def record_rule_operation(self, operation_id: str, rule_id: str, applied_at: str) -> None:
+        """Traçabilité operation_id (§11.7) : réconciliation sans ambiguïté
+        après une coupure suivant os.replace."""
+        conn = sqlite3.connect(self.path)
+        try:
+            conn.execute(
+                "INSERT OR IGNORE INTO rule_operations (operation_id, rule_id, applied_at) "
+                "VALUES (?,?,?)", (operation_id, rule_id, applied_at))
+            conn.commit()
+        finally:
+            conn.close()
+
+    # --- J4bis (§12.4, D6) : état workflow persistant --------------------------------
+
+    def upsert_workflow_items(self, rows: list[dict], now_iso: str) -> None:
+        """Nouveaux items = 'new' ; un item CONNU garde son état (jamais de
+        réinitialisation — l'historique anti re-proposition est préservé)."""
+        conn = sqlite3.connect(self.path)
+        try:
+            for r in rows:
+                conn.execute(
+                    "INSERT OR IGNORE INTO workflow_items "
+                    "(mailbox, uidvalidity, uid, state, from_addr, subject, first_seen, updated_at) "
+                    "VALUES (?,?,?,'new',?,?,?,?)",
+                    (r["mailbox"], r["uidvalidity"], r["uid"],
+                     r.get("from_addr"), r.get("subject"), now_iso, now_iso))
+            conn.commit()
+        finally:
+            conn.close()
+
+    def resolve_workflow_items(self, present_keys: set, frozen_mailboxes: set,
+                               now_iso: str) -> int:
+        """new/pending ABSENTS du scan → resolved (déplacés ou clôturés) — jamais
+        re-proposés. 'uncertain' reste uncertain (réconciliation opérateur).
+        Review F-04 : les dossiers 'frozen' (scan partiel, cap dépassé) ne sont
+        JAMAIS résolus — fail-closed. Retourne le nombre d'items résolus."""
+        conn = sqlite3.connect(self.path)
+        resolved = 0
+        try:
+            rows = conn.execute(
+                "SELECT mailbox, uidvalidity, uid FROM workflow_items "
+                "WHERE state IN ('new','pending')").fetchall()
+            for mailbox, uv, uid in rows:
+                if mailbox in frozen_mailboxes:
+                    continue
+                if (mailbox, uv, uid) not in present_keys:
+                    conn.execute(
+                        "UPDATE workflow_items SET state='resolved', updated_at=? "
+                        "WHERE mailbox=? AND uidvalidity=? AND uid=?",
+                        (now_iso, mailbox, uv, uid))
+                    resolved += 1
+            conn.commit()
+        finally:
+            conn.close()
+        return resolved
+
+    def workflow_items_by_state(self, states: list[str]) -> list[dict]:
+        conn = sqlite3.connect(self.path)
+        placeholders = ",".join("?" for _ in states)
+        try:
+            rows = conn.execute(
+                f"SELECT mailbox, uidvalidity, uid, state, from_addr, subject, first_seen "
+                f"FROM workflow_items WHERE state IN ({placeholders}) "
+                f"ORDER BY first_seen ASC", states).fetchall()
+        finally:
+            conn.close()
+        return [{"mailbox": r[0], "uidvalidity": r[1], "uid": r[2], "state": r[3],
+                 "from_addr": r[4], "subject": r[5], "first_seen": r[6]} for r in rows]
+
+    def set_workflow_item_state(self, mailbox: str, uidvalidity: int, uid: int,
+                                state: str, now_iso: str) -> None:
+        conn = sqlite3.connect(self.path)
+        try:
+            conn.execute(
+                "UPDATE workflow_items SET state=?, updated_at=? "
+                "WHERE mailbox=? AND uidvalidity=? AND uid=?",
+                (state, now_iso, mailbox, uidvalidity, uid))
+            conn.commit()
+        finally:
+            conn.close()
+
+    def active_ref_for_key(self, mailbox: str, uidvalidity: int, uid: int,
+                           now_iso: str) -> str | None:
+        """Ref ACTIVE (non expirée) pointant vers ce message — évite d'allouer
+        une ref fraîche à un item dont la ref courante est toujours valide."""
+        conn = sqlite3.connect(self.path)
+        try:
+            row = conn.execute(
+                "SELECT ref FROM digest_refs WHERE mailbox=? AND uidvalidity=? AND uid=? "
+                "AND expires_at > ? ORDER BY created_at DESC LIMIT 1",
+                (mailbox, uidvalidity, uid, now_iso)).fetchone()
+        finally:
+            conn.close()
+        return row[0] if row else None

@@ -6,10 +6,11 @@ extraits (en-têtes), jamais sur des instructions qu'un message pourrait conteni
 
 from __future__ import annotations
 
+import email.utils
 import hashlib
 import re
 
-from config import destination_is_forbidden
+from config import WORKFLOW_FOLDERS, destination_is_forbidden
 
 MODE_AUTO = "auto"
 MODE_PROPOSE = "propose"
@@ -25,6 +26,26 @@ def pseudonymize(value: str, length: int = 12) -> str:
     if value is None:
         return "none"
     return hashlib.sha256(value.strip().lower().encode("utf-8")).hexdigest()[:length]
+
+
+def from_addresses(raw_header: str) -> list[str]:
+    """Adresses email extraites d'un en-tête From (« John <j@x.com> » → ['j@x.com']).
+
+    Utilisé par `from_exact` (F-03, J4) : correspondance ADRESSE EXACTE,
+    jamais par sous-chaîne — « bob@x.com » ne doit pas matcher
+    « bob@x.com.evil.tld » ni « a+bob@x.com@attacker.io »."""
+    if not raw_header:
+        return []
+    try:
+        pairs = email.utils.getaddresses([raw_header])
+    except Exception:  # en-tête malformé → jamais d'exception vers le classifier
+        pairs = []
+    addresses = []
+    for _name, addr in pairs:
+        cleaned = (addr or "").strip().lower()
+        if cleaned:
+            addresses.append(cleaned)
+    return addresses
 
 
 def destination_is_allowed(folder: str, allowlist: list[str]) -> bool:
@@ -60,6 +81,11 @@ def rule_matches(rule: dict, message: dict) -> bool:
     checks = []
     if "from_any" in match:
         checks.append(any(_match_value(sender, n, contains=True) for n in match["from_any"]))
+    if "from_exact" in match:
+        # F-03 (J4) : match ADRESSE EXACTE (adresse d'en-tête extraite) — la
+        # sémantique sous-chaîne de from_any est interdite aux règles interactives.
+        sender_addrs = from_addresses(sender)
+        checks.append(any(n.strip().lower() in sender_addrs for n in match["from_exact"]))
     if "from_domain_any" in match:
         checks.append(any(_match_value(sender, n, domain=True) for n in match["from_domain_any"]))
     if "subject_any" in match:
@@ -101,7 +127,16 @@ def evaluate(message: dict, rules_doc: dict, allowlist: list[str], config: dict 
     if mode == MODE_NEVER:
         return {"action": "keep", "rule_id": rule["id"], "folder": None, "mode": mode, "reason": "garde sensible"}
 
-    folder = rule.get("folder")
+    # J4bis (D3) : `workflow_target` (si présent) devient la destination du
+    # déplacement initial — le message ATTEND dans « A lire »/« A traiter » ;
+    # `folder` reste le stockage final appliqué à la clôture « traité » (D4).
+    workflow_target = rule.get("workflow_target")
+    if workflow_target is not None and workflow_target not in WORKFLOW_FOLDERS:
+        raise PolicyError(f"règle {rule['id']}: workflow_target invalide ({workflow_target!r}) — fail-closed")
+    # D3 : le workflow_target gagne comme destination du déplacement initial ;
+    # `folder` (optionnel) = stockage final de la clôture « traité » (§12.2).
+    folder = workflow_target or rule.get("folder")
+    final_folder = rule.get("folder")
     if not destination_is_allowed(folder, allowlist):
         raise PolicyError(
             f"règle {rule['id']}: destination absente de l'allowlist ou interdite ({folder!r}) — fail-closed"
@@ -109,10 +144,13 @@ def evaluate(message: dict, rules_doc: dict, allowlist: list[str], config: dict 
 
     if mode == MODE_PROPOSE:
         return {"action": "keep", "rule_id": rule["id"], "folder": folder, "mode": mode,
+                "workflow_target": workflow_target, "final_folder": rule.get("folder"),
                 "reason": "proposition (jamais de write autonome en V1)"}
 
     return {"action": "move", "rule_id": rule["id"], "folder": folder, "mode": mode,
-            "reason": "règle déterministe auto-approuvée"}
+            "workflow_target": workflow_target, "final_folder": rule.get("folder"),
+            "reason": ("règle workflow (attente dans " + workflow_target + ")"
+                       if workflow_target else "règle déterministe auto-approuvée")}
 
 
 def mask_subject(subject: str, patterns: list[str]) -> tuple[str, bool]:

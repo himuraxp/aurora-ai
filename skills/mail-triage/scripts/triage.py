@@ -84,7 +84,10 @@ def _fetch_recent(cfg: dict, conn, state, uidvalidity: int) -> list[dict]:
 
 def _uidvalidity(conn, mailbox: str) -> int:
     try:
-        return int(conn.status(mailbox, "(UIDVALIDITY)")[1][0].decode().split("UIDVALIDITY ")[1].rstrip(")]"))
+        # Review F-02 : mailbox TOUJOURS quoté (les dossiers workflow « A lire »
+        # / « A traiter » contiennent des espaces — STATUS non-quoté = BAD serveur).
+        return int(conn.status(imap_mod.quote_mailbox(mailbox), "(UIDVALIDITY)")
+                   [1][0].decode().split("UIDVALIDITY ")[1].rstrip(")]"))
     except Exception as exc:  # pragma: no cover - dépend du serveur
         raise imap_mod.ImapError(f"UIDVALIDITY illisible: {type(exc).__name__}") from exc
 
@@ -189,14 +192,174 @@ def cmd_plan(cfg: dict, args) -> int:
 
 
 def _revalidate_preconditions(cfg: dict, conn, move: dict) -> str | None:
-    """Revalidation avant CHAQUE déplacement. Retourne une raison de refus ou None."""
+    """Revalidation avant CHAQUE déplacement. Retourne une raison de refus ou None.
+    J4bis (D7) : la source est le DOSSIER du move (from_folder — INBOX ou dossier
+    workflow), jamais une source globale pinnée : les plans/refs sont liés au
+    dossier source (mailbox + uidvalidity + uid)."""
     if not policy.destination_is_allowed(move["to_folder"], cfg["destinations"]["allowlist"]):
         return "destination hors allowlist (config changée ?)"
     if not imap_mod.mailbox_exists(conn, move["to_folder"]):
         return "destination absente sur le serveur (jamais de création)"
-    if not imap_mod.mailbox_exists(conn, cfg["source"]["mailbox"]):
+    source = move.get("from_folder") or cfg["source"]["mailbox"]
+    if not imap_mod.mailbox_exists(conn, source):
         return "source absente"
     return None
+
+
+def _fetch_message_id(conn, move: dict) -> str | None:
+    """Message-ID du message SOURCE (fetch read-only, AVANT le move — l'UID
+    source disparaît au MOVE) : identité stable pour la réconciliation `\\Seen`
+    dans la destination (§12.3). None = réconciliation impossible (fail-silent
+    ici : le move reste possible, le \\Seen ne sera JAMAIS appliqué aveuglément).
+    Review F-01 : dépliage RFC 5322 (CRLF+WSP → espace) puis rejet de tout
+    octet hors ASCII imprimable — un Message-ID forgé ne doit JAMAIS atteindre
+    le socket (imaplib n'assume aucune validation CR/LF)."""
+    import re as _re
+    try:
+        imap_mod.select_mailbox(conn, move.get("from_folder") or "INBOX", readonly=True)
+        typ, data = conn.uid("fetch", str(move["uid"]),
+                             "(BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)])")
+        if typ != "OK" or not data:
+            return None
+        for item in data:
+            raw = item[1] if isinstance(item, tuple) and len(item) > 1 else item
+            if isinstance(raw, bytes):
+                m = _re.search(rb"(?i)message-id\s*:\s*(<[^>]+>)", raw)
+                if m:
+                    unfolded = _re.sub(rb"\r?\n[ \t]+", b" ", m.group(1))
+                    try:
+                        mid = unfolded.decode("ascii")
+                    except UnicodeDecodeError:
+                        return None
+                    if not mid or not all(0x20 <= ord(c) <= 0x7E for c in mid):
+                        return None
+                    return mid.strip()
+    except imap_mod.ImapError:
+        return None
+    return None
+
+
+def _store_seen_on_destination(conn, move: dict) -> bool:
+    """STORE +FLAGS \\Seen sur la DESTINATION après réconciliation identité
+    (SEARCH HEADER Message-ID — l'UID change au MOVE). Cible absente ou
+    ambiguë = False (jamais de \\Seen aveugle, §12.3) — résultat uncertain."""
+    mid = (move.get("message_id") or "").strip()
+    dest = move.get("to_folder")
+    if not mid or not dest:
+        return False
+    try:
+        imap_mod.select_mailbox(conn, dest, readonly=False)
+        typ, data = conn.uid("search", None,
+                             f'HEADER Message-ID "{_escape_imap_string(mid)}"')
+        if typ != "OK" or not data or not data[0]:
+            return False
+        uids = data[0].split()
+        if len(uids) != 1:
+            return False  # doublons → cible incertaine, jamais de \\Seen
+        typ, _ = conn.uid("store", uids[0].decode("ascii", "replace"),
+                          "+FLAGS", "(\\Seen)")
+        return typ == "OK"
+    except imap_mod.ImapError:
+        return False
+
+
+def _execute_moves(cfg: dict, conn, state, plan_id: str, payload: dict,
+                   moves: list[dict]) -> tuple[list, list, list]:
+    """Boucle de déplacement PARTAGÉE (CLI apply / confirmation interactive J4/J4bis).
+    Revalide les préconditions de CHAQUE déplacement puis UID MOVE ; résultat
+    INCONNU sur erreur IMAP (le move a pu aboutir côté serveur) → jamais de
+    retry direct (reconcile obligatoire). J4bis (§12.3) : payload["treat"] = clôture
+    workflow — fetch Message-ID source avant move, STORE \\Seen sur la destination
+    APRÈS réconciliation identité ; échec du \\Seen = uncertain (jamais aveugle)."""
+    done, failed, uncertain = [], [], []
+    for move in moves:
+        reason = _revalidate_preconditions(cfg, conn, move)
+        if reason:
+            failed.append({"uid": move["uid"], "reason": reason})
+            state.set_move_result(plan_id, move["uid"], "failed", reason)
+            continue
+        try:
+            if payload.get("treat") and not move.get("message_id"):
+                mid = _fetch_message_id(conn, move)
+                if mid:
+                    move = dict(move, message_id=mid)
+            imap_mod.uid_move(conn, move["uid"], move["to_folder"], payload["mailbox"])
+            state.set_move_result(plan_id, move["uid"], "done")
+            state.mark_processed(
+                move["from_folder"], payload["uidvalidity"], move["uid"],
+                payload["created_at"], "move", move["to_folder"], _now_iso())
+            if payload.get("treat") and not _store_seen_on_destination(conn, move):
+                # move confirmé mais \\Seen non appliqué → uncertain réconciliable
+                state.set_move_result(plan_id, move["uid"], "uncertain", "seen_failed")
+                uncertain.append({"uid": move["uid"], "reason": "seen_failed"})
+                continue
+            done.append({"uid": move["uid"], "to_hash": policy.pseudonymize(move["to_folder"])})
+        except imap_mod.ImapError as exc:
+            # résultat INCONNU : le move a pu aboutir côté serveur → jamais de retry direct
+            state.set_move_result(plan_id, move["uid"], "uncertain", str(type(exc).__name__))
+            uncertain.append({"uid": move["uid"]})
+    return done, failed, uncertain
+
+
+def _run_plan_checked(cfg: dict, state, config_dir_path: Path, plan: dict, payload: dict,
+                      remaining: list[dict]) -> dict:
+    """Exécution SOUS VERROU d'un plan déjà validé par l'appelant (état, expiry,
+    intégrité, --confirm-apply). Utilisé par cmd_apply ET run_plan_apply (J4)."""
+    lock_path = config_dir_path / "locks" / "apply.lock"
+    config_mod.ensure_private_dir(lock_path.parent)
+    with state_mod.FileLock(lock_path):
+        conn = _connect_imap(cfg)
+        try:
+            imap_mod.ensure_move_capability(conn)
+            current_uidvalidity = _uidvalidity(conn, payload["mailbox"])
+            if current_uidvalidity != payload["uidvalidity"]:
+                state.set_plan_status(plan["id"], "invalidated")
+                return {"status": "uidvalidity_changed"}
+            done, failed, uncertain = _execute_moves(
+                cfg, conn, state, plan["id"], payload, remaining)
+        finally:
+            imap_mod.logout(conn)
+
+    all_results = state.get_move_results(plan["id"])
+    still_uncertain = [r for r in all_results if r["status"] == "uncertain"]
+    if not still_uncertain and not failed:
+        state.set_plan_status(plan["id"], "applied")
+        final_status = "applied"
+    else:
+        final_status = "uncertain" if still_uncertain else "partial"
+
+    audit(config_dir_path, {
+        "event": "apply", "plan_id": plan["id"], "done": len(done),
+        "failed": len(failed), "uncertain": len(uncertain),
+    })
+    return {"status": final_status, "done": done, "failed": failed, "uncertain": uncertain}
+
+
+def run_plan_apply(cfg: dict, state, config_dir_path: Path, plan_id: str) -> dict:
+    """Cœur d'exécution d'un plan pour le canal interactif (J4, §11.8) : mêmes
+    revalidations que la CLI (état, expiration, intégrité, garde reconcile)
+    sans les flags CLI. Retourne {status: applied|partial|uncertain|…, ...}."""
+    plan = state.get_plan(plan_id)
+    if plan is None:
+        return {"status": "plan_not_found"}
+    if plan["status"] == "applied":
+        return {"status": "plan_already_applied"}
+    if plan["status"] not in ("open", "uncertain"):
+        return {"status": "plan_invalid_state", "plan_state": plan["status"]}
+    now = datetime.now(timezone.utc)
+    if plan["expires_at"] and datetime.fromisoformat(plan["expires_at"]) < now:
+        state.set_plan_status(plan["id"], "expired")
+        return {"status": "plan_expired", "expires_at": plan["expires_at"]}
+    payload = plan["payload"]
+    if state_mod.plan_sha256(payload) != plan["sha256"]:
+        state.set_plan_status(plan["id"], "invalidated")
+        return {"status": "plan_integrity"}
+    previous_results = state.get_move_results(plan["id"])
+    if any(r["status"] == "uncertain" for r in previous_results):
+        return {"status": "reconcile_required", "plan_id": plan["id"]}
+    remaining = [m for m in payload["moves"]
+                 if m["uid"] not in {r["uid"] for r in previous_results if r["status"] == "done"}]
+    return _run_plan_checked(cfg, state, config_dir_path, plan, payload, remaining)
 
 
 def cmd_apply(cfg: dict, args) -> int:
@@ -239,51 +402,15 @@ def cmd_apply(cfg: dict, args) -> int:
     remaining = [m for m in payload["moves"]
                  if m["uid"] not in {r["uid"] for r in previous_results if r["status"] == "done"}]
 
-    lock_path = config_dir_path / "locks" / "apply.lock"
-    config_mod.ensure_private_dir(lock_path.parent)
-    with state_mod.FileLock(lock_path):
-        conn = _connect_imap(cfg)
-        try:
-            imap_mod.ensure_move_capability(conn)
-            current_uidvalidity = _uidvalidity(conn, payload["mailbox"])
-            if current_uidvalidity != payload["uidvalidity"]:
-                state.set_plan_status(plan["id"], "invalidated")
-                return _err("uidvalidity_changed",
-                            "UIDVALIDITY a changé depuis le plan — invalidated, refaire un plan")
-
-            done, failed, uncertain = [], [], []
-            for move in remaining:
-                reason = _revalidate_preconditions(cfg, conn, move)
-                if reason:
-                    failed.append({"uid": move["uid"], "reason": reason})
-                    state.set_move_result(plan["id"], move["uid"], "failed", reason)
-                    continue
-                try:
-                    imap_mod.uid_move(conn, move["uid"], move["to_folder"], payload["mailbox"])
-                    state.set_move_result(plan["id"], move["uid"], "done")
-                    state.mark_processed(
-                        move["from_folder"], payload["uidvalidity"], move["uid"],
-                        payload["created_at"], "move", move["to_folder"], _now_iso())
-                    done.append({"uid": move["uid"], "to_hash": policy.pseudonymize(move["to_folder"])})
-                except imap_mod.ImapError as exc:
-                    # résultat INCONNU : le move a pu aboutir côté serveur → jamais de retry direct
-                    state.set_move_result(plan["id"], move["uid"], "uncertain", str(type(exc).__name__))
-                    uncertain.append({"uid": move["uid"]})
-        finally:
-            imap_mod.logout(conn)
+    outcome = _run_plan_checked(cfg, state, config_dir_path, plan, payload, remaining)
+    if outcome["status"] == "uidvalidity_changed":
+        return _err("uidvalidity_changed",
+                    "UIDVALIDITY a changé depuis le plan — invalidated, refaire un plan")
+    done, failed, uncertain = outcome["done"], outcome["failed"], outcome["uncertain"]
+    final_status = outcome["status"]
 
     all_results = state.get_move_results(plan["id"])
     still_uncertain = [r for r in all_results if r["status"] == "uncertain"]
-    if not still_uncertain and not failed:
-        state.set_plan_status(plan["id"], "applied")
-        final_status = "applied"
-    else:
-        final_status = "uncertain" if still_uncertain else "partial"
-
-    audit(config_dir_path, {
-        "event": "apply", "plan_id": plan["id"], "done": len(done),
-        "failed": len(failed), "uncertain": len(uncertain),
-    })
     return _out({
         "command": "apply",
         "plan_id": plan["id"],
@@ -320,8 +447,149 @@ def cmd_status(cfg: dict) -> int:
 
 
 def _escape_imap_string(value: str) -> str:
-    """Échappe \\ et \" pour un IMAP quoted-string — les en-têtes sont non fiables."""
-    return (value or "").replace("\\", "\\\\").replace('"', '\\"')
+    """Échappe \\ et \" pour un IMAP quoted-string — les en-têtes sont non fiables.
+    Review F-01 : tout octet de contrôle (CR/LF, < 0x20) est SUPPRIMÉ en amont —
+    imaplib (3.9.6 LIVE vérifié) n'assume aucune validation : jamais d'injection
+    de commande IMAP via une valeur d'en-tête."""
+    cleaned = "".join(c for c in (value or "") if 0x20 <= ord(c) <= 0x7E)
+    return cleaned.replace("\\", "\\\\").replace('"', '\\"')
+
+
+# J4bis (§12.4) : cap des refs renvoyées par dossier (read-only, inspection).
+WORKFLOW_REF_CAP = 20
+
+
+def _workflow_folder_state(conn, name: str) -> dict:
+    """État read-only d'un dossier workflow : total, non lus, refs non lus (cap).
+    Aucune mutation, aucune reclassification ; dossier absent = exists:false."""
+    import re as _re
+    if not imap_mod.mailbox_exists(conn, name):
+        return {"exists": False}
+    quoted = imap_mod.quote_mailbox(name)
+    typ, data = conn.status(quoted, "(UIDVALIDITY MESSAGES UNSEEN)")
+    if typ != "OK" or not data or not data[0]:
+        raise imap_mod.ImapError(f"STATUS illisible pour {name!r}")
+    raw = data[0] if isinstance(data[0], bytes) else str(data[0]).encode()
+    m_uv = _re.search(rb"UIDVALIDITY (\d+)", raw)
+    m_total = _re.search(rb"MESSAGES (\d+)", raw)
+    m_unseen = _re.search(rb"UNSEEN (\d+)", raw)
+    refs: list[dict] = []
+    # UID SEARCH exige une mailbox sélectionnée (SELECT readonly, aucune mutation).
+    imap_mod.select_mailbox(conn, name, readonly=True)
+    typ2, data2 = conn.uid("search", None, "UNSEEN")
+    if typ2 == "OK" and data2 and data2[0]:
+        uids = data2[0].split()
+        uv = int(m_uv.group(1)) if m_uv else None
+        for uid_bytes in uids[:WORKFLOW_REF_CAP]:
+            refs.append({"mailbox": name, "uidvalidity": uv, "uid": int(uid_bytes)})
+    return {
+        "exists": True,
+        "uidvalidity": int(m_uv.group(1)) if m_uv else None,
+        "total": int(m_total.group(1)) if m_total else None,
+        "unseen": int(m_unseen.group(1)) if m_unseen else None,
+        "unseen_refs": refs,
+        "refs_truncated": len(refs) == WORKFLOW_REF_CAP,
+    }
+
+
+def cmd_workflow(cfg: dict, args) -> int:
+    """État du workflow (J4bis, §12.4) : read-only STRICT — comptages « A lire » /
+    « A traiter » / INBOX + refs (mailbox, uidvalidity, uid) des non lus.
+    Zéro reclassification, zéro mutation IMAP ; les 20 dossiers historiques de
+    stockage ne sont JAMAIS re-scanés ici (D1/D7). --sync : maintien de l'état
+    persistant (new→ref #wN active, absents→resolved — D6 zéro re-proposition)."""
+    sync_requested = bool(getattr(args, "sync", False))
+    config_dir_path = config_mod.config_dir(cfg.get("_config_dir"))
+    state = state_mod.State(config_dir_path / "state.sqlite")
+    conn = _connect_imap(cfg)
+    try:
+        folders = {
+            "A lire": _workflow_folder_state(conn, "A lire"),
+            "A traiter": _workflow_folder_state(conn, "A traiter"),
+            cfg["source"]["mailbox"]: _workflow_folder_state(conn, cfg["source"]["mailbox"]),
+        }
+        sync_result = _sync_workflow_items(conn, state, cfg) if sync_requested else None
+    finally:
+        imap_mod.logout(conn)
+    out = {
+        "command": "workflow",
+        "folders": folders,
+        "note": ("read-only — statut de traitement ≠ classement ≠ \\Seen (§12.2) ; "
+                 "refs = dossier source + uidvalidity + uid, cap "
+                 + str(WORKFLOW_REF_CAP) + "/dossier"),
+    }
+    if sync_result is not None:
+        out["sync"] = sync_result
+    return _out(out)
+
+
+# J4bis : cap de la sync par dossier (les dossiers workflow sont courts par
+# conception — au-delà : le plus ancien n'est PAS suivi, jamais de boucle infinie).
+WORKFLOW_SYNC_CAP = 300
+WORKFLOW_REF_TTL_HOURS = 48
+
+
+def _sync_workflow_items(conn, state, cfg: dict) -> dict:
+    """Maintien de l'état workflow (read-only IMAP) :
+    1. scan ALL des dossiers workflow (cap 300/dossier) → upsert (new si inconnu) ;
+    2. items new/pending absents du scan → resolved (D6 : jamais re-proposés) ;
+       Review F-04 : si STATUS MESSAGES > cap, le scan est PARTIEL → résolution
+       GELÉE pour ce dossier (fail-closed, jamais un faux 'resolved') ;
+    3. items new/pending SANS ref active → allocation ref #wN (48 h, compteur
+       partagé) — Review F-03 : pending SANS ref active est re-actionnable
+       (cul-de-sac supprimé). Allocation APRÈS la résolution uniquement."""
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat(timespec="seconds")
+    present: set = set()
+    rows = []
+    frozen_mailboxes: set[str] = set()
+    for name in config_mod.WORKFLOW_FOLDERS:
+        uv = _uidvalidity(conn, name)
+        total = _mailbox_message_count(conn, name)
+        headers = imap_mod.fetch_recent_headers(conn, name, limit=WORKFLOW_SYNC_CAP)
+        if total is not None and total > WORKFLOW_SYNC_CAP:
+            frozen_mailboxes.add(name)  # scan partiel → résolution gelée (F-04)
+        for h in headers:
+            key = (name, uv, h["uid"])
+            present.add(key)
+            rows.append({"mailbox": name, "uidvalidity": uv, "uid": h["uid"],
+                         "from_addr": h.get("from") or "", "subject": h.get("subject") or ""})
+    state.upsert_workflow_items(rows, now_iso)
+    resolved = state.resolve_workflow_items(present, frozen_mailboxes, now_iso)
+    expires_at = (now + timedelta(hours=WORKFLOW_REF_TTL_HOURS)).isoformat(timespec="seconds")
+    refs_new = 0
+    for item in state.workflow_items_by_state(["new", "pending"]):
+        key = (item["mailbox"], item["uidvalidity"], item["uid"])
+        if key not in present:
+            continue  # résolu ou hors cap — jamais de ref pour un item absent
+        if state.active_ref_for_key(item["mailbox"], item["uidvalidity"],
+                                    item["uid"], now_iso):
+            continue  # ref active existante : zéro doublon
+        ref_number = state.next_ref_number("w")
+        ref = f"w{ref_number}"
+        state.store_digest_refs([{
+            "digest_id": "workflow", "ref": ref, "mailbox": item["mailbox"],
+            "uidvalidity": item["uidvalidity"], "uid": item["uid"],
+            "from_addr": item["from_addr"], "subject": item["subject"],
+            "kind": "workflow", "created_at": now_iso, "expires_at": expires_at,
+        }])
+        refs_new += 1
+    return {"new_refs": refs_new, "resolved": resolved, "present": len(present),
+            "frozen": sorted(frozen_mailboxes)}
+
+
+def _mailbox_message_count(conn, name: str) -> int | None:
+    """Total MESSAGES d'un dossier via STATUS (Review F-04 : détection scan partiel)."""
+    import re as _re
+    try:
+        typ, data = conn.status(imap_mod.quote_mailbox(name), "(MESSAGES)")
+    except Exception:
+        return None
+    if typ != "OK" or not data or not data[0]:
+        return None
+    m = _re.search(rb"MESSAGES (\d+)", data[0])
+    return int(m.group(1)) if m else None
 
 
 def cmd_reconcile(cfg: dict, args) -> int:
@@ -631,6 +899,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("status", help="état du moteur")
 
+    p_wf = sub.add_parser("workflow", help="état du workflow A lire/A traiter/INBOX (read-only, J4bis)")
+    p_wf.add_argument("--sync", action="store_true",
+                      help="maintien de l'état workflow persistant (new→ref #wN, absents→resolved)")
+
     p_rec = sub.add_parser("reconcile", help="réparation après interruption")
     p_rec.add_argument("--plan", default=None)
     p_rec.add_argument("--digest", action="store_true")
@@ -660,6 +932,7 @@ def main(argv: list[str] | None = None) -> int:
         "plan": lambda: cmd_plan(cfg, args),
         "apply": lambda: cmd_apply(cfg, args),
         "status": lambda: cmd_status(cfg),
+        "workflow": lambda: cmd_workflow(cfg, args),
         "reconcile": lambda: cmd_reconcile(cfg, args),
         "digest": lambda: cmd_digest(cfg, args),
         "listen": lambda: cmd_listen(cfg, args),

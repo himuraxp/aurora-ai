@@ -152,8 +152,9 @@ def fetch_recent_headers(conn: imaplib.IMAP4_SSL, mailbox: str, limit: int = 100
 
     min_uid: borne basse d'UID optionnelle (fenêtre de scan) ; sinon derniers `limit`.
     Trié par UID croissant. Marquage lu : impossible (readonly).
+    Review F-02 : mailbox TOUJOURS quoté (« A lire » contient un espace).
     """
-    conn.select(mailbox, readonly=True)
+    conn.select(quote_mailbox(mailbox), readonly=True)
     typ, data = conn.uid("search", None, "ALL")
     if typ != "OK":
         raise ImapError("UID SEARCH échoué")

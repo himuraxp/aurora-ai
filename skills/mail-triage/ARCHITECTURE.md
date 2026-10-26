@@ -47,6 +47,7 @@ skills/mail-triage/
 | `plan` | dry-run : construit le plan de déplacements, l'enregistre (SHA-256 d'intégrité, expiration) | state |
 | `apply --plan <id> --confirm-apply` | exécute un plan : intégrité (SHA-256) + autorisation + revalidation des préconditions avant CHAQUE déplacement | IMAP + state |
 | `status` | état du moteur (config, dernier scan/plan/apply/digest, kill switches) | aucune |
+| `workflow [--sync]` | **J4bis** : état read-only des dossiers workflow (« A lire »/« A traiter »/INBOX) + refs non lus ; `--sync` maintient l'état persistant (new→ref `#wN` 48 h, absents→resolved — zéro re-proposition, D6) | state (avec `--sync`) |
 | `reconcile [--plan <id>] [--digest]` | réparation après interruption : réconciliation des déplacements incertains et des publications kChat | IMAP + state |
 | `digest [--send]` | construit (et envoie si `--send`) le résumé kChat du matin | kChat + state |
 
@@ -70,9 +71,9 @@ Sorties JSON garanties, exit 0/1/2 (0 OK, 1 erreur métier, 2 usage/config). Tou
 ## 6. Invariants (conditions de sortie, testées)
 
 1. Allowlist de dossiers destinations **existants et validés** ; le moteur ne crée jamais de dossier.
-2. Rien ne quitte l'Inbox silencieusement : inconnu/sensible restent en Inbox ; un déplacement n'implique jamais de marquage lu ; jamais de déplacement vers Corbeille/Spam ; jamais de suppression.
+2. Rien ne quitte l'Inbox silencieusement : inconnu/sensible restent en Inbox ; un déplacement n'implique jamais de marquage lu ; jamais de déplacement vers Corbeille/Spam ; jamais de suppression. **Trois dimensions séparées (J4bis)** : statut de traitement (A lire / A traiter / INBOX) ≠ classement (dossier de stockage) ≠ lecture (`\Seen`) — un email lu n'est pas traité, un email déplacé n'est pas terminé.
 3. Règles déterministes avant toute classification ; confiance élevée du modèle ≠ autorisation.
-4. Périmètre IMAP strict : compte + source **pinée `INBOX`** (fail-closed au chargement) ; pas d'extension à d'autres boîtes ; pas de SMTP ; pas de pièces jointes en V1.
+4. Périmètre IMAP strict : **un seul compte** ; sources **pinées** (fail-closed) : `INBOX` + les dossiers workflow figés (`config.WORKFLOW_FOLDERS` = « A lire »/« A traiter ») — jamais une boîte, un compte ou un dossier quelconque ; pas d'extension à d'autres boîtes ; pas de SMTP ; pas de pièces jointes.
 5. Idempotence : UID + UIDVALIDITY vérifiés ; `UID MOVE` **obligatoire** (RFC 6851 — la séquence COPY/DELETE/EXPUNGE n'est pas sûre en cas d'interruption) ; le POC vérifie la capability `MOVE`, son absence désactive les writes ; `reconcile` obligatoire avant toute nouvelle tentative après timeout.
 6. Journalisation sans contenu sensible (identifiants techniques pseudonymisés, rotation courte).
 7. Fail-closed : toute erreur (auth, config, classification, connexion) → aucune action, état journalisé.
@@ -107,7 +108,9 @@ Sorties JSON garanties, exit 0/1/2 (0 OK, 1 erreur métier, 2 usage/config). Tou
 - Catch-up au réveil limité à `RunAtLoad` (un Mac endormi qui se réveille sans reboot ne déclenche pas le digest).
 - Fenêtre de scan plafonnée à **200 en-têtes récents** (`fetch_recent_headers`, cap volontaire).
 - Noms de dossiers non-ASCII (ex. mUTF-7) hors périmètre : allowlist ASCII imprimable, espaces internes incluses — fail-closed au chargement.
-- Un seul compte, une seule boîte source (`INBOX`).
+- Un seul compte ; sources pinées (`INBOX` + dossiers workflow « A lire »/« A traiter », J4bis).
+- **[F-05, review J4] Crash du poller entre l'enregistrement d'une commande et la publication de sa réponse kChat** : la commande est marquée traitée (idempotence `post_id`), la réponse est **perdue (muet)** — jamais de rejeu automatique (l'alternative, une double réponse possible, est pire). L'opérateur voit l'absence de réponse et relance `aide`/`statut`.
+- **[F-07, review J4bis] Réconciliation d'une clôture interrompue** : le Message-ID n'est pas persisté dans le plan figé → `reconcile` conclut `moved_assumed` (jamais `moved_confirmed`) et un `\Seen` raté (`seen_failed`) n'est **jamais** re-tenté automatiquement — choix assumé : jamais de STORE sans identité réconciliée.
 
 ## 10. Enrichissement du digest — V4.1 / V4.2 (cowork ChatGPT t6, 2026-10-23)
 
@@ -158,7 +161,7 @@ Demande utilisateur : répondre au MP du bot Mail Triage pour guider le tri (typ
 | J1 | Contrat (cette section), tables SQLite, format digest V4 (refs courtes) | livré |
 | J2 | Poller read-only (`listen --once`) : pagination exhaustive, aide/statut | livré, **APPROVED t10** (validé en prod : « aide » traité + idempotence) |
 | J3 | Propositions (grammaire complète, résolution refs/dossiers, non exécutables par défaut) | GO t10 — 3 P0 à intégrer |
-| J4 | Confirmations + règles (réutilisation plan/apply/reconcile, tests adversariaux de concurrence) | à venir |
+| J4 | Confirmations + règles (réutilisation plan/apply/reconcile, tests adversariaux de concurrence) | **livré (2026-10-26)** — consommation atomique, exécution figée, 9 tests de sortie passés |
 | J5 | Production contrôlée (launchd StartInterval 300, reprises crash, activation writes séparée) | à venir |
 
 ### 11.2 Permissions séparées (P0, t9)
@@ -181,11 +184,11 @@ Format digest **V4** : chaque conversation « À examiner » → `#a1…`, « En
 
 ### 11.6 Grammaire niveau 1 + destinations (P1, t9)
 
-Verbes : `aide`, `statut`, `#ref → dossier`, `expediteur <addr> → dossier`, `domaine <domaine> → dossier`, `ok #p1`, `annule #p1` — regex ancrées, ≤ 256 chars, tout le reste → réponse générique (jamais d'exécution de texte libre). Un message `#ref <texte libre>` (sans flèche, ex. `#a1 : quand…`) reçoit une **aide au format** éducative — le texte n'est jamais exécuté. Destinations : **alias stricts** résolus depuis la config (`corbeille` → chemin IMAP validé), allowlist imposée, dossier interdit → **refus immédiat sans proposition** (une confirmation humaine ne légitime jamais une destination interdite), jamais de chemin arbitraire ni de création de dossier implicite (la création de dossier ne se fait pas via le MP). Règles interactives : toujours **mode propose**, pas de promotion auto depuis le MP ; domaine = plus puissant que l'expéditeur exact (priorité expéditeur 150 > domaine 155, portée du domaine confirmée explicitement). **Sémantique des matchs (F-03, review J3)** : `from_any`/`from_domain_any` sont des correspondances **par sous-chaîne** (comportement `policy.py` existant) — une règle interactive « expediteur » cible donc toute adresse *contenant* la valeur ; la proposition affiche la valeur exacte et J4 devra confirmer cette portée à la confirmation (décision à figer en J4 : match exact dédié ou double confirmation de portée). Limites (configurables, bornées moteur) : 5 règles interactives/jour, 10 propositions **actives** simultanées (les expirées libèrent le budget, F-01), 30 commandes/5 min, 256 chars/commande ; le quota quotidien de règles compte les annulées (anti-boucle annule/recrée).
+Verbes : `aide`, `statut`, `#ref → dossier`, `expediteur <addr> → dossier`, `domaine <domaine> → dossier`, `ok #p1`, `annule #p1` — regex ancrées, ≤ 256 chars, tout le reste → réponse générique (jamais d'exécution de texte libre). Un message `#ref <texte libre>` (sans flèche, ex. `#a1 : quand…`) reçoit une **aide au format** éducative — le texte n'est jamais exécuté. Destinations : **alias stricts** résolus depuis la config (`corbeille` → chemin IMAP validé), allowlist imposée, dossier interdit → **refus immédiat sans proposition** (une confirmation humaine ne légitime jamais une destination interdite), jamais de chemin arbitraire ni de création de dossier implicite (la création de dossier ne se fait pas via le MP). Règles interactives : toujours **mode propose**, pas de promotion auto depuis le MP ; domaine = plus puissant que l'expéditeur exact (priorité expéditeur 150 > domaine 155, portée du domaine confirmée explicitement). **Sémantique des matchs (F-03, figée J4 2026-10-26)** : les règles interactives « expediteur » utilisent le match **ADRESSE EXACTE dédié `from_exact`** (jamais la sous-chaîne de `from_any`) — « bob@x.com » n'attrape ni « bob@x.com.evil.tld » ni « a+bob@x.com@attacker.io » ; `config.py` rejette toute valeur `from_exact` sans `@` ou avec espace. `from_any`/`from_domain_any` restent des correspondances par sous-chaîne pour les règles manuelles existantes. Limites (configurables, bornées moteur) : 5 règles interactives/jour, 10 propositions **actives** simultanées (les expirées libèrent le budget, F-01), 30 commandes/5 min, 256 chars/commande ; le quota quotidien de règles compte les annulées (anti-boucle annule/recrée).
 
-### 11.7 Écriture des règles (P1, t9) + non-propriétaires
+### 11.7 Écriture des règles (P1, t9) + non-propriétaires — **livré (J4, `rules_writer.py`)**
 
-Service **unique** de mutation `rules.json` : charger + valider schéma complet → vérifier plafonds → construire en mémoire → vérifier conflits → revérifier l'empreinte de la version initiale sous verrou → tmp 0600 + fsync + `os.replace` → backup de la dernière version valide (0600, même répertoire privé) → recharger et revalider. Réconciliation par `operation_id` stable (coupure après remplacement sans ambiguïté, pas de doublon). **Non-propriétaires : ignore total** — aucune réponse, aucune proposition, aucun détail des commandes ; compteur technique d'événements ignorés sans contenu.
+Service **unique** de mutation `rules.json` (`scripts/rules_writer.py`) : verrou dédié `rules.lock` → charger l'état courant → **idempotence `operation_id`** (règle identique déjà présente = `already_applied` réconcilié, contenu divergent = `conflict` jamais écrasé) → revérifier l'empreinte **SHA-256 globale** de rules.json SOUS verrou (= `target_version` de la proposition, divergence = refus sans write) → validation schéma complète (`validate_rules_doc`) → plafond (100 règles) → tmp 0600 + fsync + `os.replace` → backup de la dernière version valide (0600, même répertoire privé) → recharger et revalider (échec = rollback vers la version précédente). Traçabilité `operation_id` dans `rule_operations` (SQLite) : réconciliation sans ambiguïté après une coupure suivant le remplacement, jamais de doublon. **Non-propriétaires : ignore total** — aucune réponse, aucune proposition, aucun détail des commandes ; compteur technique d'événements ignorés sans contenu.
 
 ### 11.8 Conditions t10 pour l'activation des mutations (J3-J5, 2026-10-26)
 
@@ -198,3 +201,36 @@ Verdict t10 : **APPROVED — GO J3-J5** sans nouvelle revue d'architecture ; l'*
 - **[P1-J5] Verrou dédié couvrant toute l'exécution de `listen --once`** (poller > 300 s = pas de seconde exécution concurrente) + verrou de mutation distinct ; verrou périmé = âge dépassé ET propriétaire absent (protection réutilisation PID).
 
 **Tests de sortie exigés (9)** : ref d'ancien digest non déplaçable après réutilisation de #n1 ; alias interdit/supprimé entre proposition et confirmation = aucun write ; règles modifiées = confirmation refusée ; deux confirmations concurrentes = une seule transition executing ; crash avant/après UID MOVE = aucune répétition aveugle ; crash après os.replace(rules.json) = règle reconnue sans duplication ; réponse kChat publiée puis timeout = aucune réexécution ; poller > 300 s = pas de concurrence ; kill switch désactivé entre proposition et confirmation = aucun write.
+
+**Statut J4 (2026-10-26)** : les 9 tests de sortie sont **implémentés et verts** (`tests/test_confirmations.py`, FakeConn IMAP zéro réseau) — suite complète **238/238 sur Python 3.14 (dev) ET 3.9.6 (LIVE)**. Implémentation : `_handle_ok` (cross-check owner+DM+pending → **réservation atomique** `reserve_proposal` (UPDATE conditionnel pending→executing, usage unique) → gates (§11.2 : `writes.enabled` + `imap_enabled` pour move / `interactive_rules` pour règle) → **revalidations** (SHA-256 global rules.json = `target_version`, allowlist, invariants absolus) → exécution du contenu **FIGÉ** dans `proposals.action` (plan `interactive-{pid}` construit depuis l'action, jamais re-résolu depuis les digest_refs) → applied/partial/uncertain/rejected. Sweep `timeout_stale_executing` (executing > 26 h → uncertain, jamais re-consommable). Réutilisation du cœur CLI : `run_plan_apply`/`_run_plan_checked` (triage.py) — mêmes verrous apply.lock, mêmes revalidations, même chemin reconcile.
+
+## 12. Workflow « A lire » / « A traiter » (J4bis — cowork ChatGPT APPROVED, 2026-10-26)
+
+Mandat : réorganiser la consommation de la boîte par **statut de traitement** (« je lis ce qui attend ») sans fusionner ni migrer les 20 dossiers historiques. Boucle cowork 3 tours → **APPROVED** (thread `6adb268a…`, décisions D1–D7 figées).
+
+### 12.1 Schéma cible (D1, D2)
+
+- **INBOX** = réception / classification / filet de sécurité (jamais obligatoirement vide) ; inconnus et sensibles y restent sans autorisation explicite (D5).
+- **« A lire »** = informations à consulter, sans action identifiée. **« A traiter »** = décision/validation/réponse attendue. Dossiers IMAP réels créés **manuellement** par l'opérateur (jamais par le moteur) ; noms ASCII (gate mUTF-7, §9) ; aliases kChat `lire`/`traiter`.
+- Les 20 dossiers historiques = **stockage final** — aucune fusion, aucune migration massive, jamais de marquage lu en masse des ~18 k / 40 k existants.
+
+### 12.2 Trois dimensions séparées + sémantique des modes (D3)
+
+**Statut de traitement** (A lire / A traiter / INBOX) ≠ **classement** (dossier de stockage) ≠ **lecture** (`\Seen`). Modes auto/propose/never **inchangés** ; nouvelle clé de règle optionnelle **`workflow_target`** (`policy.py`/`config.py`, fail-closed : valeur hors `WORKFLOW_FOLDERS` = PolicyError/ConfigError) :
+
+- Règle avec `workflow_target` : le **déplacement initial** vise le dossier workflow (le message **attend**) ; `folder` (optionnel) = stockage final appliqué à la clôture « traité » — `folder` seul = comportement historique inchangé (déplacement direct au stockage).
+- **[F-06, review J4bis]** `final_folder` dans la sortie de `policy.evaluate` est **informatif** : il n'est jamais consommé automatiquement. La clôture exige une destination de stockage **explicite dans la commande** (`traite #ref → alias`) qui **prime** — une règle avec `folder` ne préjuge pas de la destination de clôture (l'opérateur décide au moment T, pas la règle au moment de sa création).
+- Règles nouvelles = **futurs messages seulement** (jamais de re-scan rétroactif) ; sans règle : INBOX.
+
+### 12.3 Politique `\Seen` (D4)
+
+Le classement **préserve `\Seen`** (aucun STORE au déplacement). La **seule** voie vers « lu » est la clôture explicite « traité » : déplacement stockage + `STORE +FLAGS \Seen` **sous autorisation** (proposition confirmée / apply CLI) et **réconciliation de l'identité** du message dans la destination (SEARCH `HEADER Message-ID` — l'UID change au MOVE) **avant** tout STORE ; cible introuvable = uncertain, jamais de `\Seen` aveugle. Jamais de marquage lu en masse.
+
+### 12.4 Séparation scan / état workflow (D7, D6) — **livré (J4bis, 2026-10-26)**
+
+- `scan` : comportement actuel (INBOX → plan, sources pinées étendues aux dossiers workflow).
+- `workflow` (read-only, `--sync`) : état de « A lire » / « A traiter » / INBOX — comptages + refs `(mailbox, uidvalidity, uid)`, **zéro reclassification**, jamais de re-scan des 20 dossiers historiques. `--sync` maintient `workflow_items` (SQLite) : new→ref `#wN` active (48 h, compteur partagé, jamais de doublon), absents du dossier→resolved (`uncertain` reste uncertain — réconciliation opérateur), réapparition d'un résolu → **jamais réintroduit**.
+- Plans/refs liés au **dossier source** (`mailbox + uidvalidity + uid` partout : payload, digest_refs, `_revalidate_preconditions` sur `move["from_folder"]`) — les dossiers workflow sont suivis, jamais re-scanés en boucle.
+- Digest workflow : section « En attente de traitement » (items new/pending **avec ref active** uniquement — cap 5, total affiché ; activation progressive : section absente si vide) ; resolved/uncertain jamais listés.
+- Clôture « traité » : **livrée** — grammaire `traite #ref → alias` (destination explicite, sans flèche = aide), proposition `treat` (budget/TTL déplacement ponctuel, item→pending), exécution = move + fetch Message-ID source **avant** move + STORE `+FLAGS \Seen` sur la destination **après** réconciliation identité (cible absente/ambiguë = uncertain `seen_failed`, jamais de `\Seen` aveugle) — idempotente (usage unique), réconciliable (chemin reconcile existant). **Limite F-07 (§9)** : le Message-ID n'étant pas persisté dans le plan, une clôture interrompue se réconcilie en `moved_assumed` et le `\Seen` raté n'est jamais re-tenté.
+- `workflow_target` (D3) : validé fail-closed (`config.WORKFLOW_FOLDERS`), destination du déplacement initial, `folder` = stockage final de la clôture.

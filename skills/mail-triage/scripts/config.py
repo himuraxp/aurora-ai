@@ -146,6 +146,12 @@ def _validate_config(data: dict) -> dict:
     _require(isinstance(writes, dict), "writes doit être un objet")
     for key in ("enabled", "imap_enabled", "digest_enabled"):
         _require(isinstance(writes.get(key), bool), f"writes.{key} doit être un booléen (kill switch explicite)")
+    # §11.2 (J4) : 4e gate — écriture de règles depuis le canal interactif.
+    # Défaut False : la création de règles via `ok #pN` reste fermée tant que
+    # l'opérateur ne l'active pas explicitement dans la config privée.
+    writes.setdefault("interactive_rules", False)
+    _require(isinstance(writes.get("interactive_rules"), bool),
+             "writes.interactive_rules doit être un booléen")
 
     digest = data.get("digest", {})
     _require(isinstance(digest, dict), "digest doit être un objet")
@@ -231,7 +237,12 @@ def _validate_config(data: dict) -> dict:
     return data
 
 
-KNOWN_MATCH_KEYS = ("from_any", "from_domain_any", "subject_any", "to_contains_any")
+KNOWN_MATCH_KEYS = ("from_any", "from_exact", "from_domain_any", "subject_any", "to_contains_any")
+
+# Dossiers workflow (J4bis, décision figée 2026-10-26, cowork APPROVED) :
+# « A lire » = informations sans action identifiée ; « A traiter » = décision/réponse
+# attendue. INBOX = réception/filet de sécurité. Noms ASCII (gate mUTF-7, §9).
+WORKFLOW_FOLDERS = ("A lire", "A traiter")
 
 
 def _validate_match_list(rule_id: str, match: dict) -> None:
@@ -243,6 +254,44 @@ def _validate_match_list(rule_id: str, match: dict) -> None:
                  f"règle {rule_id}: {key} doit être une liste non vide de chaînes")
         _require(all(isinstance(v, str) and v.strip() for v in value),
                  f"règle {rule_id}: {key} ne doit contenir que des chaînes non vides")
+        if key == "from_exact":
+            # F-03 (J4) : match ADRESSE EXACTE — valeurs forcément des emails,
+            # jamais une sous-chaîne de domaine ou de nom affiché.
+            _require(all("@" in v and v == v.strip() and " " not in v for v in value),
+                     f"règle {rule_id}: from_exact n'accepte que des adresses exactes")
+
+
+def validate_rules_doc(data: dict) -> dict:
+    """Validation stricte du document rules (aussi utilisée par le service
+    d'écriture atomique de rules.json, §11.7)."""
+    _require(isinstance(data, dict) and isinstance(data.get("rules"), list), "rules.json: rules doit être une liste")
+    ids = set()
+    for rule in data["rules"]:
+        _require(isinstance(rule, dict) and rule.get("id"), "règle sans id")
+        _require(rule["id"] not in ids, f"id de règle dupliqué: {rule['id']}")
+        ids.add(rule["id"])
+        _require(rule.get("mode") in ("auto", "propose", "never"), f"règle {rule['id']}: mode invalide (auto|propose|never)")
+        _require(isinstance(rule.get("match"), dict), f"règle {rule['id']}: match requis")
+        _validate_match_list(rule["id"], rule["match"])
+        # J4bis (D3) : workflow_target optionnel — catégorie de traitement
+        # (« A lire »/« A traiter ») indépendante du mode et du stockage final.
+        # Le déplacement initial vise le dossier workflow ; `folder` reste le
+        # stockage final appliqué à la clôture « traité ».
+        if "workflow_target" in rule:
+            wt = rule["workflow_target"]
+            _require(wt in WORKFLOW_FOLDERS,
+                     f"règle {rule['id']}: workflow_target invalide ({wt!r} — attendu parmi {WORKFLOW_FOLDERS})")
+        if rule["mode"] in ("auto", "propose"):
+            _require(rule.get("folder") or rule.get("workflow_target"),
+                     f"règle {rule['id']}: folder ou workflow_target requis pour mode {rule['mode']}")
+            if rule.get("folder"):
+                _validate_destination(rule["folder"])
+        _require(isinstance(rule.get("priority", 100), int), f"règle {rule['id']}: priority doit être un entier")
+    data.setdefault("sensitive_senders", [])
+    _require(isinstance(data["sensitive_senders"], list)
+             and all(isinstance(v, str) and v.strip() for v in data["sensitive_senders"]),
+             "sensitive_senders doit être une liste de chaînes non vides")
+    return data
 
 
 def load_rules(config_dir_path: Path) -> dict:
@@ -254,25 +303,7 @@ def load_rules(config_dir_path: Path) -> dict:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ConfigError(f"rules.json illisible: {exc}") from exc
-    _require(isinstance(data, dict) and isinstance(data.get("rules"), list), "rules.json: rules doit être une liste")
-    ids = set()
-    for rule in data["rules"]:
-        _require(isinstance(rule, dict) and rule.get("id"), "règle sans id")
-        _require(rule["id"] not in ids, f"id de règle dupliqué: {rule['id']}")
-        ids.add(rule["id"])
-        _require(rule.get("mode") in ("auto", "propose", "never"), f"règle {rule['id']}: mode invalide (auto|propose|never)")
-        _require(isinstance(rule.get("match"), dict), f"règle {rule['id']}: match requis")
-        _validate_match_list(rule["id"], rule["match"])
-        if rule["mode"] in ("auto", "propose"):
-            _require(rule.get("folder"), f"règle {rule['id']}: folder requis pour mode {rule['mode']}")
-            if rule.get("folder"):
-                _validate_destination(rule["folder"])
-        _require(isinstance(rule.get("priority", 100), int), f"règle {rule['id']}: priority doit être un entier")
-    data.setdefault("sensitive_senders", [])
-    _require(isinstance(data["sensitive_senders"], list)
-             and all(isinstance(v, str) and v.strip() for v in data["sensitive_senders"]),
-             "sensitive_senders doit être une liste de chaînes non vides")
-    return data
+    return validate_rules_doc(data)
 
 
 def load(config_dir_path: Path) -> dict:

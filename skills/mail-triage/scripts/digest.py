@@ -131,6 +131,9 @@ def build_digest(state, messages: list[dict], config: dict, window: dict, digest
     conversations = group_conversations(unique_items)
     moved_counts = state.moved_counts_since(start.isoformat())
     counters = _counters(new_items, unique_items, conversations, moved_counts)
+    # J4bis (§12.4, D6) : section workflow — items new/pending avec ref active
+    # (les resolved/uncertain ne reviennent JAMAIS : zéro re-proposition).
+    workflow = _workflow_state_summary(state)
     return {
         "id": digest_id,
         "marker": new_marker(digest_id),
@@ -144,7 +147,33 @@ def build_digest(state, messages: list[dict], config: dict, window: dict, digest
         "counters": counters,
         "always_inbox": always,
         "moved_counts": moved_counts,
+        "workflow": workflow,
     }
+
+
+# J4bis : budget éditorial de la section workflow (cohérent ~15 lignes utiles).
+WORKFLOW_DIGEST_ITEMS = 5
+
+
+def _workflow_state_summary(state) -> dict | None:
+    """État workflow pour le digest : items new/pending DOVENT d'une ref active
+    (actionnables via `traite #wN → alias`) + total en attente. Les items
+    resolved/uncertain ne sont jamais listés (D6 : zéro re-proposition)."""
+    try:
+        items = state.workflow_items_by_state(["new", "pending"])
+    except Exception:
+        return None  # table absente / état vide : section neutralisée
+    if not items:
+        return None
+    now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    actionable = []
+    for it in items:
+        ref = state.active_ref_for_key(it["mailbox"], it["uidvalidity"],
+                                       it["uid"], now_iso)
+        if ref:
+            it["ref"] = ref
+            actionable.append(it)
+    return {"total": len(items), "items": actionable[:WORKFLOW_DIGEST_ITEMS]}
 
 
 def _dedupe_by_message_id(items: list[dict]) -> tuple[list[dict], int]:
@@ -414,6 +443,18 @@ def render_markdown(digest: dict) -> str:
             ref = f"**#{item['ref']}** · " if item.get("ref") else ""
             lines.append(f"- {ref}**{item['from']}** — {subject}")
             lines.extend(_preview_lines(item))
+        lines.append("")
+
+    # J4bis (§12.4) : section workflow — uniquement si des items new/pending
+    # avec ref active existent (activation progressive : zéro impact sinon).
+    wf = digest.get("workflow") or {}
+    wf_items = wf.get("items") or []
+    if wf_items:
+        lines.append(f"**:bookmark: En attente de traitement ({wf.get('total', len(wf_items))})**")
+        for it in wf_items:
+            subject = (it.get("subject") or "(sans sujet)").replace(
+                MARKER_PREFIX, "[marqueur-neutralisé:")
+            lines.append(f"- **#{it['ref']}** — {subject} _(dans {it['mailbox']})_")
         lines.append("")
 
     moved = digest.get("moved_counts") or {}

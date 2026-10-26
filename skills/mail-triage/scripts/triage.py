@@ -529,6 +529,51 @@ WORKFLOW_SYNC_CAP = 300
 WORKFLOW_REF_TTL_HOURS = 48
 
 
+def _dispatch_read_items(conn, state, cfg: dict, now_iso: str) -> int:
+    """J4bis (décision utilisateur 2026-10-26) : dans « A lire », un message LU
+    (\\Seen posé par la lecture humaine) est dispatché vers le stockage final
+    déterminé par sa règle (`folder` — jamais implicite). « A traiter » n'est
+    PAS concerné (la lecture n'y suffit pas — une action est attendue).
+    Garde-fous : items pending/uncertain jamais dispatchés ; destination
+    revalidée (règle courante + allowlist, fail-closed PolicyError → skip) ;
+    erreur IMAP → uncertain réconciliable (jamais re-dispatché auto) ;
+    \\Seen JAMAIS écrit ici (déjà posé par la lecture humaine) ; items hors
+    cap de scan attendent (pas de dispatch partiel)."""
+    folder_a_lire = config_mod.WORKFLOW_FOLDERS[0]
+    items = [i for i in state.workflow_items_by_state(["new"])
+             if i["mailbox"] == folder_a_lire]
+    if not items:
+        return 0
+    uv = _uidvalidity(conn, folder_a_lire)
+    headers = {h["uid"]: h for h in imap_mod.fetch_recent_headers(
+        conn, folder_a_lire, limit=WORKFLOW_SYNC_CAP)}
+    dispatched = 0
+    for item in items:
+        h = headers.get(item["uid"])
+        if h is None or not h.get("seen", False):
+            continue  # non lu (ou hors cap) : il attend sa lecture
+        try:
+            decision = policy.evaluate(h, cfg["rules"],
+                                       cfg["destinations"]["allowlist"], cfg)
+        except policy.PolicyError:
+            continue  # fail-closed : jamais de destination invalide
+        dest = decision.get("final_folder")
+        if decision.get("action") != "move" or not dest or dest == folder_a_lire:
+            continue  # pas de stockage déterminé par règle : reste dans « A lire »
+        try:
+            imap_mod.uid_move(conn, item["uid"], dest, folder_a_lire)
+        except imap_mod.ImapError:
+            state.set_workflow_item_state(item["mailbox"], item["uidvalidity"],
+                                          item["uid"], "uncertain", now_iso)
+            continue  # réconciliable, jamais re-dispatché automatiquement
+        state.mark_processed(item["mailbox"], item["uidvalidity"], item["uid"],
+                             now_iso, "move", dest, now_iso)
+        state.set_workflow_item_state(item["mailbox"], item["uidvalidity"],
+                                      item["uid"], "resolved", now_iso)
+        dispatched += 1
+    return dispatched
+
+
 def _sync_workflow_items(conn, state, cfg: dict) -> dict:
     """Maintien de l'état workflow (read-only IMAP) :
     1. scan ALL des dossiers workflow (cap 300/dossier) → upsert (new si inconnu) ;
@@ -557,6 +602,7 @@ def _sync_workflow_items(conn, state, cfg: dict) -> dict:
                          "from_addr": h.get("from") or "", "subject": h.get("subject") or ""})
     state.upsert_workflow_items(rows, now_iso)
     resolved = state.resolve_workflow_items(present, frozen_mailboxes, now_iso)
+    dispatched = _dispatch_read_items(conn, state, cfg, now_iso)
     expires_at = (now + timedelta(hours=WORKFLOW_REF_TTL_HOURS)).isoformat(timespec="seconds")
     refs_new = 0
     for item in state.workflow_items_by_state(["new", "pending"]):
@@ -576,7 +622,7 @@ def _sync_workflow_items(conn, state, cfg: dict) -> dict:
         }])
         refs_new += 1
     return {"new_refs": refs_new, "resolved": resolved, "present": len(present),
-            "frozen": sorted(frozen_mailboxes)}
+            "frozen": sorted(frozen_mailboxes), "dispatched": dispatched}
 
 
 def _mailbox_message_count(conn, name: str) -> int | None:

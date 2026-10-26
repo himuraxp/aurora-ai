@@ -120,10 +120,12 @@ class WorkflowFakeConn:
     """IMAP simulé pour le read-only + move workflow : STATUS riche, SEARCH, MOVE."""
 
     def __init__(self, *, counts: dict | None = None, absent=(), unseen: dict | None = None,
-                 dest_mid: dict | None = None, mid_source: dict | None = None):
+                 dest_mid: dict | None = None, mid_source: dict | None = None,
+                 fail_uids=()):
         self.capabilities = ("IMAP4REV1", "MOVE")
         self.moves: list[tuple[int, str, str]] = []
         self.stores: list[tuple[int, str]] = []
+        self.fail_uids = set(fail_uids)
         # Review F-02 : trace des noms REÇUS (bruts) — un serveur IMAP réel
         # rejette (BAD) tout STATUS/SELECT/LIST avec espace non-quoté.
         self.raw_mailbox_names: list[str] = []
@@ -169,6 +171,8 @@ class WorkflowFakeConn:
             uid = int(args[0])
             dest = args[1].strip('"')
             source = self._selected or "INBOX"
+            if uid in self.fail_uids:
+                raise imap_mod.ImapError("UID MOVE échoué (simulé)")
             self.moves.append((uid, source, dest))
             return "OK", [b""]
         if command == "SEARCH":
@@ -212,7 +216,16 @@ class WorkflowCommandTestCase(unittest.TestCase):
                                     "max_pending_proposals": 10,
                                     "max_rule_proposals_per_day": 5,
                                     "max_commands_per_5min": 30},
-                    "destinations": {"allowlist": ["GitLab", "A lire", "A traiter"]},
+                    "destinations": {"allowlist": ["GitLab", "A lire", "A traiter",
+                                                   "JIRA - Trello - Redmine"]},
+                    "rules": {"rules": [
+                        {"id": "trello-workflow", "priority": 120, "mode": "auto",
+                         "match": {"from_domain_any": ["trello.com"]},
+                         "workflow_target": "A lire", "folder": "JIRA - Trello - Redmine"},
+                        {"id": "rh-no-folder", "priority": 130, "mode": "auto",
+                         "match": {"from_exact": ["rh@x.com"]},
+                         "workflow_target": "A lire"},
+                    ], "sensitive_senders": []},
                     "source": {"mailbox": "INBOX"},
                     "account": {"host": "h", "port": 993, "login_env": "X",
                                 "password_env": "Y"},
@@ -578,6 +591,82 @@ class WorkflowDigestSectionTestCase(WorkflowCommandTestCase):
         self.assertIsNone(digest["workflow"])
         md = digest_mod.render_markdown(digest)
         self.assertNotIn("En attente de traitement", md)
+
+
+# --- dispatch auto des lus (décision utilisateur 2026-10-26) ---------------------
+
+
+class DispatchReadTestCase(WorkflowSyncTestCase):
+    """Dans « A lire », un message LU dont la règle détermine un stockage final
+    (`folder`) est dispatché automatiquement vers ce stockage. « A traiter »
+    n'est jamais dispatché ; pending/uncertain jamais ; sans folder → reste."""
+
+    def _hdr(self, uid, frm, seen=True):
+        return {"uid": uid, "from": frm, "subject": f"s{uid}",
+                "message_id": f"<m{uid}@x>", "seen": seen}
+
+    def test_read_item_dispatched_to_final_folder(self) -> None:
+        conn = WorkflowFakeConn()
+        headers = {"A lire": [self._hdr(101, "do-not-reply@trello.com", seen=True),
+                              self._hdr(102, "do-not-reply@trello.com", seen=False)],
+                   "A traiter": []}
+        r = self._sync(conn, headers)
+        self.assertEqual(r["dispatched"], 1)
+        self.assertEqual(conn.moves, [(101, "A lire", "JIRA - Trello - Redmine")])
+        states = {i["uid"]: i["state"] for i in
+                  self.state.workflow_items_by_state(["new", "resolved", "uncertain"])}
+        self.assertEqual(states[101], "resolved")   # dispatché → resolved
+        self.assertEqual(states[102], "new")        # non lu → il attend
+        # le dispatché n'obtient JAMAIS de ref (resolved) ; le non lu oui
+        self.assertIsNone(self.state.active_ref_for_key(
+            "A lire", 8, 101, real_iso(REAL_NOW)))
+
+    def test_unread_item_stays(self) -> None:
+        conn = WorkflowFakeConn()
+        headers = {"A lire": [self._hdr(102, "do-not-reply@trello.com", seen=False)],
+                   "A traiter": []}
+        r = self._sync(conn, headers)
+        self.assertEqual(r["dispatched"], 0)
+        self.assertEqual(conn.moves, [])
+
+    def test_no_final_folder_stays(self) -> None:
+        """Règle avec workflow_target mais SANS folder → pas de destination
+        déterminée par règle → le message lu reste dans « A lire »."""
+        conn = WorkflowFakeConn()
+        headers = {"A lire": [self._hdr(103, "rh@x.com", seen=True)],
+                   "A traiter": []}
+        r = self._sync(conn, headers)
+        self.assertEqual(r["dispatched"], 0)
+        self.assertEqual(conn.moves, [])
+
+    def test_pending_item_never_dispatched(self) -> None:
+        """Une clôture est engagée (pending) → jamais de dispatch concurrent."""
+        conn = WorkflowFakeConn()
+        headers = {"A lire": [self._hdr(101, "do-not-reply@trello.com", seen=True)],
+                   "A traiter": []}
+        self._sync(conn, headers)
+        self.state.set_workflow_item_state("A lire", 8, 101, "pending",
+                                           real_iso(REAL_NOW))
+        r = self._sync(conn, headers)
+        self.assertEqual(r["dispatched"], 0)
+
+    def test_move_failure_goes_uncertain(self) -> None:
+        conn = WorkflowFakeConn(fail_uids={101})
+        headers = {"A lire": [self._hdr(101, "do-not-reply@trello.com", seen=True)],
+                   "A traiter": []}
+        r = self._sync(conn, headers)
+        self.assertEqual(r["dispatched"], 0)
+        items = self.state.workflow_items_by_state(["uncertain"])
+        self.assertEqual([i["uid"] for i in items], [101])
+
+    def test_a_traiter_never_dispatched(self) -> None:
+        """La lecture ne suffit pas dans « A traiter » (action attendue)."""
+        conn = WorkflowFakeConn()
+        headers = {"A lire": [], "A traiter": [self._hdr(201, "do-not-reply@trello.com",
+                                                          seen=True)]}
+        r = self._sync(conn, headers)
+        self.assertEqual(r["dispatched"], 0)
+        self.assertEqual(conn.moves, [])
 
 
 if __name__ == "__main__":

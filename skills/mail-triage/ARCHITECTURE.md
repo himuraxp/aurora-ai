@@ -226,11 +226,18 @@ Mandat : réorganiser la consommation de la boîte par **statut de traitement** 
 
 Le classement **préserve `\Seen`** (aucun STORE au déplacement). La **seule** voie vers « lu » est la clôture explicite « traité » : déplacement stockage + `STORE +FLAGS \Seen` **sous autorisation** (proposition confirmée / apply CLI) et **réconciliation de l'identité** du message dans la destination (SEARCH `HEADER Message-ID` — l'UID change au MOVE) **avant** tout STORE ; cible introuvable = uncertain, jamais de `\Seen` aveugle. Jamais de marquage lu en masse.
 
-### 12.4 Séparation scan / état workflow (D7, D6) — **livré (J4bis, 2026-10-26)**
-
-- `scan` : comportement actuel (INBOX → plan, sources pinées étendues aux dossiers workflow).
+### 12.4 Séparation scan / état workflow (D7, D6) — **livré (J4bis, 2026-10-26)**- `scan` : comportement actuel (INBOX → plan, sources pinées étendues aux dossiers workflow).
 - `workflow` (read-only, `--sync`) : état de « A lire » / « A traiter » / INBOX — comptages + refs `(mailbox, uidvalidity, uid)`, **zéro reclassification**, jamais de re-scan des 20 dossiers historiques. `--sync` maintient `workflow_items` (SQLite) : new→ref `#wN` active (48 h, compteur partagé, jamais de doublon), absents du dossier→resolved (`uncertain` reste uncertain — réconciliation opérateur), réapparition d'un résolu → **jamais réintroduit**.
 - Plans/refs liés au **dossier source** (`mailbox + uidvalidity + uid` partout : payload, digest_refs, `_revalidate_preconditions` sur `move["from_folder"]`) — les dossiers workflow sont suivis, jamais re-scanés en boucle.
 - Digest workflow : section « En attente de traitement » (items new/pending **avec ref active** uniquement — cap 5, total affiché ; activation progressive : section absente si vide) ; resolved/uncertain jamais listés.
 - Clôture « traité » : **livrée** — grammaire `traite #ref → alias` (destination explicite, sans flèche = aide), proposition `treat` (budget/TTL déplacement ponctuel, item→pending), exécution = move + fetch Message-ID source **avant** move + STORE `+FLAGS \Seen` sur la destination **après** réconciliation identité (cible absente/ambiguë = uncertain `seen_failed`, jamais de `\Seen` aveugle) — idempotente (usage unique), réconciliable (chemin reconcile existant). **Limite F-07 (§9)** : le Message-ID n'étant pas persisté dans le plan, une clôture interrompue se réconcilie en `moved_assumed` et le `\Seen` raté n'est jamais re-tenté.
 - `workflow_target` (D3) : validé fail-closed (`config.WORKFLOW_FOLDERS`), destination du déplacement initial, `folder` = stockage final de la clôture.
+
+### 12.5 Dispatch auto des lus dans « A lire » (décision utilisateur, 2026-10-26)
+
+Demande explicite du propriétaire : quand un email du dossier « A lire » est **lu** (`\Seen` posé par la lecture humaine dans le client mail), il est **dispatché automatiquement** vers son stockage final — complément de la clôture explicite « traité » (qui reste disponible). Sémantique : la lecture humaine devient un **signal de clôture autorisé** (le moteur n'écrit toujours JAMAIS `\Seen`).
+
+- **Destination jamais implicite** : elle vient de la **règle courante** réévaluée sur l'en-tête au moment du dispatch (`policy.evaluate` → `final_folder` = `folder` de la règle) ; aucune règle déterminée, ou `folder` absent de la règle → le message **reste** dans « A lire » (fail-safe).
+- **« A traiter » n'est pas concerné** : la lecture n'y suffit pas (une action est attendue) — dispatch limité à `WORKFLOW_FOLDERS[0]`.
+- **Garde-fous** : items `pending`/`uncertain` jamais dispatchés (une clôture est peut-être en vol) ; allowlist + existence serveur revalidées (PolicyError → skip) ; erreur IMAP → item `uncertain` réconciliable, **jamais re-dispatché automatiquement** ; items hors cap de scan attendent ; journal + `mark_processed` + état `resolved`.
+- **Déclencheur** : `workflow --sync` (`_dispatch_read_items`) — tout move est révocable, jamais de suppression ; `\Seen` préservé au move (déjà posé par l'humain).

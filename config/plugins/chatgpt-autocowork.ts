@@ -64,6 +64,14 @@ type V2SetupContext = {
   session?: V2SessionHooks
 }
 
+/** Shape tolerated by the root-session gate lookup — both the raw response
+ * and its `info` wrapper are accepted (contract kept loose on purpose:
+ * unknown runtime shapes must fail open, not throw). */
+type GateLookupResult = {
+  info?: { parentID?: string | null }
+  parentID?: string | null
+}
+
 /** ChatGPT conversation links: /c/<id>, /g/<gid>/c/<id> (projects),
  * /share/<id> (public snapshot), legacy chat.openai.com/c/<id>.
  * The lookbehind rejects lookalike hosts (mychatgpt.com, evil-chatgpt.com).
@@ -111,9 +119,7 @@ async function isRootSession(
 ): Promise<boolean> {
   if (!sessionID || typeof session?.get !== "function") return true
   try {
-    const res = (await session.get({ sessionID })) as
-      | { info?: { parentID?: string | null }; parentID?: string | null }
-      | undefined
+    const res = (await session.get({ sessionID })) as GateLookupResult | undefined
     const info = res?.info ?? res
     return info?.parentID == null
   } catch {

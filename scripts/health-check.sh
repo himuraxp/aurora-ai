@@ -633,6 +633,26 @@ if [[ -f "$ROOT_DIR/scripts/test-product-authority.mjs" ]]; then
   fi
 fi
 
+# Chatgpt-autocowork reception suite — regex/idempotence/gating invariants the
+# static greps cannot cover (URL detection, reminder safety, root-session gate).
+if [[ -f "$ROOT_DIR/scripts/test-chatgpt-autocowork.mjs" ]]; then
+  NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
+  CA_FLAGS=""
+  if (( NODE_MAJOR == 22 )); then
+    CA_FLAGS="--experimental-strip-types"
+  fi
+  if (( NODE_MAJOR >= 22 )); then
+    # shellcheck disable=SC2086
+    if node $CA_FLAGS "$ROOT_DIR/scripts/test-chatgpt-autocowork.mjs" >/dev/null 2>&1; then
+      ok "chatgpt-autocowork reception suite passed (regex + idempotence + gating)"
+    else
+      fail "chatgpt-autocowork reception suite FAILED — plugin regression"
+    fi
+  else
+    warn "chatgpt-autocowork reception suite skipped (node >= 22 required for TS type-stripping)"
+  fi
+fi
+
 # ─── 11. Task-workflow skill (orchestrateur Trello/GitLab) ──────────────────
 
 if [[ -f "$ROOT_DIR/skills/task-workflow/SKILL.md" ]]; then

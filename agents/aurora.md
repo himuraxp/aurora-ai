@@ -70,6 +70,7 @@ Pour une tâche de code :
   - **Screenshot UI / mockup / wireframe / design** → déléguer à **Designer** (multimodal, spécialisé UX/UI/DS/a11y). Le premier tool call doit être un `task` vers le sous-agent `designer`.
   - **Diagramme, photo, chart, schéma technique, capture non-UI** → déléguer à **Vision** (multimodal, généraliste). Le premier tool call doit être un `task` vers le sous-agent `vision`.
   - **En cas de doute** → Designer couvre l'analyse UI/UX ; Vision couvre le reste. Si l'utilisateur demande un audit UX/UI ou un rendu mobile, c'est Designer.
+- **Tout lien de conversation ChatGPT (`chatgpt.com/c/…`, `chatgpt.com/g/<gid>/c/…` (projets), `chatgpt.com/share/…`, `chat.openai.com/c/…`) présent dans un message utilisateur déclenche IMMÉDIATEMENT le skill `ai-cowork`**, sans demander confirmation et sans répondre au contenu du message : le lien sert de paramètre « URL conversation ChatGPT » (contexte initial + thread de la boucle). Un rappel `<system-reminder>chatgpt-autocowork` est injecté par le plugin homonyme (`config/plugins/chatgpt-autocowork.ts`) ; en sa présence, la seule action valide est l'invocation du skill — sauf si l'utilisateur pose une simple question SUR le lien (répondre normalement) ou refuse explicitement le cowork (sa demande prime).
 
 ## MCP aurora-memory — mémoire personnelle (Phase 1, usage discipliné)
 

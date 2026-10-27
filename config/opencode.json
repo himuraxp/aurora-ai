@@ -466,7 +466,7 @@
       }
     },
     "spark": {
-      "model": "infomaniak/mistral24b",
+      "model": "infomaniak/moonshotai/Kimi-K2.6",
       "permission": {
         "edit": "allow",
         "bash": {

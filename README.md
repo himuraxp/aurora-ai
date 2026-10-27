@@ -265,7 +265,7 @@ ios-simulator MCP does not read `.env`):
 
 ### 14 configured models
 
-The configuration uses **14 models** across 6 categories:
+The configuration uses **13 models** across 5 categories:
 
 | Category | Models | Max context | Cost (input/output) | Usage |
 |----------|--------|-------------|---------------------|-------|
@@ -274,11 +274,10 @@ The configuration uses **14 models** across 6 categories:
 | **Intermediate** | Mistral-Small-4 (119B) | 256k | $0.20 / $0.75 | Commits, CLI skills, technical SEO, content |
 | | Kimi-K2.6 | 256k | $0.60 / $3.00 | Large-context fallback |
 | | Qwen3.5-397B | 204k | $0.80 / $3.60 | Native multimodal (image+video), available on request |
-| | Qwen3.5-122B | 200k | $0.40 / $3.20 | Intermediate Qwen, 100k output |
+| | Qwen3.8-27B | 100k | $0.80 / $3.60 | Intermediate Qwen, ultimate fallback |
 | **Light** | Ministral-3 (14B) | 80k | $0.30 / $0.40 | Light model — plugin agents `explorer`/`librarian` only |
 | | Gemma-4-31B | 100k | $0.20 / $0.40 | General tasks |
 | | Apertus-70B | 100k | $0.70 / $2.50 | General tasks |
-| **Ultra-light** | **Nemotron-3-Nano (30B)** | **1M** | **$0.05 / $0.20** | **Ultimate fallback, large contexts** |
 | **Embedding** | Qwen3-Embedding-8B | 32k | $0.01 / $0 | Vectorization (recommended) |
 | | bge_multilingual_gemma2 | 8k | $0.01 / $0 | Multilingual FR/EN |
 | | mini_lm_l12_v2 | 512 | $0.005 / $0 | Short texts |
@@ -289,13 +288,13 @@ The configuration uses **14 models** across 6 categories:
 When a prompt exceeds a model's context limit, OpenCode switches **automatically** to a model with more context. Notable chains:
 
 ```
-Ministral-3 (80k)      → Mistral-Small-4 (256k) → Kimi-K2.6 → Nemotron-3-Nano (1M)
-euria-code (250k)      → Kimi-K2.6 (256k)       → Nemotron-3-Nano (1M)
-Gemma-4 (100k)         → Mistral-Small-4 (256k) → Kimi-K2.6 → Nemotron-3-Nano (1M)
-Qwen3.5-397B (204k)    → Kimi-K2.6 (256k)       → Nemotron-3-Nano (1M)
+Ministral-3 (80k)      → Mistral-Small-4 (256k) → Kimi-K2.6 → Qwen3.8-27B (100k)
+euria-code (250k)      → Kimi-K2.6 (256k)       → Qwen3.8-27B (100k)
+Gemma-4 (100k)         → Mistral-Small-4 (256k) → Kimi-K2.6 → Qwen3.8-27B (100k)
+Qwen3.5-397B (204k)    → Kimi-K2.6 (256k)       → Qwen3.8-27B (100k)
 ```
 
-> **Benefit**: the ultimate fallback (Nemotron-3-Nano) is the **cheapest** model ($0.05/1M tokens). Very large contexts actually cost *less*.
+> **Note (2026-10-27 catalog sync)**: the ultimate fallback is now **Qwen3.8-27B** (100k context) — Nemotron-3-Nano (1M) and Qwen3.5-122B were removed from the Infomaniak catalogue. The last fallback hop shrinks context instead of extending it.
 
 ### Agent assignment
 
@@ -306,7 +305,7 @@ Qwen3.5-397B (204k)    → Kimi-K2.6 (256k)       → Nemotron-3-Nano (1M)
 | `echo`, `scribe`, `pulse` | Mistral-Small-4 (119B) | Good cost/performance/creativity balance |
 | `spark` | Kimi-K2.6 | Commits, CLI skills — 256k context avoids the compaction loop |
 | `oracle` (plugin) | euria-code (high variant) | Strategic advisory, adversarial review |
-| `fixer` (plugin) | Qwen3.5-122B | Fast spec execution |
+| `fixer` (plugin) | Qwen3.8-27B | Fast spec execution |
 | `explorer`, `librarian` (plugin) | Ministral-3 (14B) | Fast codebase / external docs search |
 
 ---

@@ -60,7 +60,7 @@
         "mcps": []
       },
       "fixer": {
-        "model": "infomaniak/Qwen/Qwen3.5-122B-A10B-FP8",
+        "model": "infomaniak/Qwen/Qwen3.8-27B-FP8",
         "variant": "low",
         "skills": ["antislop", "antislop-code"],
         "mcps": []

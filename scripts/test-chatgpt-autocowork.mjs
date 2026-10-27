@@ -11,6 +11,10 @@
  *
  * Run: node scripts/test-chatgpt-autocowork.mjs   (node >= 22;
  *      add --experimental-strip-types on node 22)
+ *
+ * Note: the reminder-content assertions in block 1 are canaries coupled to
+ * the exact wording of reminderFor() — rewording the reminder requires
+ * rewording them.
  */
 
 import assert from "node:assert/strict"
@@ -31,6 +35,14 @@ assert.ok(patched.startsWith(base), "original user text preserved as prefix")
 assert.ok(patched.includes(REMINDER_MARKER), "reminder marker present")
 assert.ok(patched.includes("ai-cowork"), "reminder names the ai-cowork skill")
 assert.ok(patched.includes(C_UUID), "reminder echoes the detected URL")
+assert.ok(
+  patched.includes("current working context"),
+  "reminder requires a detailed Aurora context summary in the brief",
+)
+assert.ok(
+  patched.includes("without losing its own conversation context"),
+  "reminder states the reconciliation intent (adapt without losing context)",
+)
 
 // ── 2. Share link (public snapshot) ────────────────────────────────────────
 assert.ok(buildPromptPatch("https://chatgpt.com/share/abc123def456 voila le contexte"))

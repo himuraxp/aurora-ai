@@ -5,7 +5,11 @@
  * link (chatgpt.com/c/…, chatgpt.com/share/…, chatgpt.com/g/<gid>/c/…,
  * chat.openai.com/c/…), append a deterministic instruction telling the model
  * to invoke the `ai-cowork` skill with that URL — so the user never has to
- * repeat "fais ça en cowork avec ChatGPT".
+ * repeat "fais ça en cowork avec ChatGPT" — and to carry a detailed summary
+ * of Aurora's current working context in the initial brief (the ChatGPT
+ * conversation may be in an active state whose context differs from the
+ * current request; the summary lets ChatGPT adapt without losing its own
+ * context).
  *
  * Boundary model:
  * - The hook NEVER rewrites user text: it only APPENDS a `<system-reminder>`
@@ -91,6 +95,7 @@ export function reminderFor(url: string): string {
     url +
     "). Standing user instruction: hand this conversation off to the `ai-cowork` loop — do NOT answer the message content directly and do NOT ask for confirmation. " +
     "Invoke the `ai-cowork` skill now (Skill tool, id \"ai-cowork\"), using this URL as the « URL conversation ChatGPT » parameter (initial context + loop thread), then follow that skill's phases. " +
+    "This ChatGPT conversation may be in an active state whose context differs from the current session: the cowork brief MUST carry a detailed summary of Aurora's current working context (project, task in progress, decisions, constraints, current user request) so ChatGPT can adapt to the new request without losing its own conversation context. " +
     "If the message also contains an explicit objective, use it as the cowork goal. " +
     "If the user is merely asking a question ABOUT the link (not handing off work), answer normally instead; an explicit refusal of cowork always takes precedence." +
     "</system-reminder>"

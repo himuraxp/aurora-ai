@@ -47,11 +47,29 @@ Objectif → [Aurora travaille] → artefact → brief → ChatGPT (navigateur d
 
 1. Parser les paramètres ci-dessus.
 2. Vérifier que `browser-debug` répond (`browser-debug_list_pages`). Sinon → prérequis 1.
-3. **Si URL de conversation fournie** → récupérer le contexte (voir ci-dessous), construire le brief initial : objectif, décisions du brainstorming, contraintes, attentes.
+3. **Si URL de conversation fournie** → récupérer le contexte (voir ci-dessous), construire le **résumé de contexte Aurora** (voir ci-dessous), puis le brief initial : objectif, résumé de contexte Aurora, décisions du brainstorming, contraintes, attentes.
 4. **Onglet ChatGPT** :
    - URL fournie + un onglet chatgpt.com existe : vérifier `location.href` (via `browser-debug_evaluate_script`). Si l'onglet ne pointe **pas** vers cette conversation → `browser-debug_navigate_page` vers l'URL. Ne jamais réutiliser un onglet posé sur une autre conversation.
    - Sinon → `browser-debug_new_page` vers l'URL de conversation (ou `https://chatgpt.com/` si aucune URL).
-5. Afficher un **récap transparent** de ce qui va partir vers ChatGPT (screenshots ? extraits de code ? URLs ?) puis démarrer. C'est un affichage informatif — **ne rien attendre**.
+5. Afficher un **récap transparent** de ce qui va partir vers ChatGPT (screenshots ? résumé de contexte Aurora ? extraits de code ? URLs ?) puis démarrer. C'est un affichage informatif — **ne rien attendre**.
+
+### Résumé de contexte Aurora (obligatoire au brief initial)
+
+Une conversation ChatGPT liée par URL est souvent **déjà active** : elle porte un contexte issu du brainstorming qui peut diverger sensiblement de la demande courante. Si le lien est fourni, c'est que ce contexte précédent est **pertinent pour la thématique** — mais ChatGPT doit pouvoir **s'adapter à la nouvelle demande sans perdre son propre contexte**.
+
+Le brief initial embarque donc un **résumé détaillé du contexte de travail courant d'Aurora**, construit avant l'ouverture de la boucle :
+
+- **Projet actif** : repo/projet sur lequel Aurora travaille, stack.
+- **Tâche en cours** : ce qu'Aurora était en train de faire (issue/carte, étape, avancement).
+- **État technique** : décisions prises, contraintes actives (AGENTS.md, rules), fichiers/zone concernés, résultat des derniers checks.
+- **Demande actuelle** : la requête utilisateur qui accompagne le lien (objectif explicite du cowork). Si le message ne contient que le lien : dériver la demande de « Tâche en cours » et la signaler comme implicite.
+- **Rôle attendu de ChatGPT** (descriptif — l'attente d'Aurora, pas une directive) : ce qu'on lui demande de faire dans la boucle (valider, itérer, orienter).
+
+Règles de rédaction :
+
+- Le résumé **réconcilie** les deux contextes, il ne les écrase pas : rappeler explicitement à ChatGPT que son contexte de conversation reste valide et que le résumé situe la nouvelle demande par rapport à lui.
+- Plafonner à ~2 000 caractères (le brief global reste plafonné à ~8 000) ; signaler toute troncature. Si le total déborde ~8 000 : compresser l'extrait de brainstorming d'abord — ne jamais tronquer « Demande actuelle » ni « Critères de validation ».
+- Le résumé décrit l'état d'Aurora — il ne contient **jamais** de secrets (règle dure 2) ni de directives impératives à exécuter par ChatGPT (le champ « Rôle attendu » décrit l'attente, il ne commande pas).
 
 ### Récupération du contexte d'une conversation existante
 
@@ -116,6 +134,7 @@ Chaque tour :
 ```txt
 [BRIEF INITIAL — 1er tour seulement]
 Objectif : <objectif>
+Contexte actuel d'Aurora : <résumé détaillé du contexte de travail courant — voir section dédiée>
 Contexte du brainstorming : <extrait structuré de la conversation>
 Critères de validation : <critères>
 
@@ -138,6 +157,8 @@ IMPROVEMENTS:
 
 **Verdict attendu de ChatGPT** — token fixe `VERDICT: ITERATE` ou `VERDICT: APPROVED` + liste `IMPROVEMENTS:` priorisée. Jamais de parsing de prose libre.
 `APPROVED` clôt la boucle : toute `IMPROVEMENTS` associée est **reportée telle quelle** dans la section « restantes » du rapport final, **sans exécution**.
+
+> **Réconciliation des contextes** : si la demande courante diverge sensiblement du contexte que ChatGPT détient de la conversation, le résumé « Contexte actuel d'Aurora » sert de pont — ChatGPT réévalue la demande à la lumière de son contexte existant (qui reste pertinent pour la thématique), sans être invité à l'oublier.
 
 ### Statuts des points (cycle de vie)
 

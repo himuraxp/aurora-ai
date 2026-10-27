@@ -33,7 +33,7 @@ Auto-invokes the `ai-cowork` skill when the user sends a ChatGPT conversation li
 **How it works:**
 1. Hooks `session.hook("prompt")` (user message, before resolution — verified against opencode v2.1.4)
 2. Detects ChatGPT conversation URLs: `chatgpt.com/c/…`, `chatgpt.com/g/<gid>/c/…` (projects), `chatgpt.com/share/…` (public snapshot), legacy `chat.openai.com/c/…` — lookalike hosts rejected by lookbehind (`mychatgpt.com`, `evil-chatgpt.com`)
-3. Appends a `<system-reminder>` instructing the model to invoke the `ai-cowork` skill with the detected URL (« URL conversation ChatGPT » parameter). Never rewrites user text — only appends. Only the first link is echoed into the reminder; a second link stays in the original text.
+3. Appends a `<system-reminder>` instructing the model to invoke the `ai-cowork` skill with the detected URL (« URL conversation ChatGPT » parameter) and to carry a **detailed summary of Aurora's current working context** in the initial brief — the ChatGPT conversation may be in an active state whose context differs from the current request; the summary lets ChatGPT adapt without losing its own context. Never rewrites user text — only appends. Only the first link is echoed into the reminder; a second link stays in the original text.
 4. Root-session gate (best effort): `ctx.session.get` → sessions with a `parentID` (task-tool subagent briefs) are never annotated. Lookup failure → fail-open (annotate).
 5. Idempotent: a text already carrying the marker is never re-annotated.
 

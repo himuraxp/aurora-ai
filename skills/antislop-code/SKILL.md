@@ -1,11 +1,12 @@
 ---
 name: antislop-code
-description: "Code comment hygiene for AI coding agents: remove generic AI-slop comments, keep the valuable ones, never touch the code."
+description: "Code comment hygiene for AI coding agents: remove generic AI-slop comments, keep the valuable ones, never touch the code. Use when writing or editing code, comments, JSDoc, docstrings, or TODOs. Load with the core."
 allowed-tools: Read Write Edit Glob Grep
 ---
 <!-- Vendored from https://github.com/miqdadbadjuber/anti-slop v3.2.21 (skills/antislop-code/SKILL.md).
      Adaptation: upstream `antislop.md` self-references repointed to the vendored core
-     `skills/antislop/SKILL.md`. Upstream text otherwise verbatim. -->
+     `skills/antislop/SKILL.md`. Frontmatter `description` extended with trigger phrases
+     (2026-10-26) so OpenCode auto-matches the skill; body otherwise verbatim. -->
 # antislop-code
 
 > Anti Slop: Rules for AI Coding Agents. Code Comments skill

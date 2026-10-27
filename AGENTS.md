@@ -135,16 +135,15 @@ for any new provider: a real `opencode run` against the generated config.
 > not a decision to accept. Prefer re-running the script once the provider
 > recovers over accepting the downgrade.
 
-### 14 configured models
+### 13 configured models
 
-The configuration uses **14 models** across 6 categories:
+The configuration uses **13 models** across 5 categories:
 
 | Category | Models | Usage | Cost (input/output) |
 |----------|--------|-------|---------------------|
 | **Expert** | euria-code (GLM-5.2), euria-code-tiny | Complex reasoning, architecture, security, review, code | $0.30-0.60 / $0.40-3.00 |
-| **Intermediate** | Mistral-Small-4 (119B), Kimi-K2.6, Qwen3.5-397B, Qwen3.5-122B | SEO, analytics, multimodal, commits | $0.20-0.80 / $0.75-3.60 |
+| **Intermediate** | Mistral-Small-4 (119B), Kimi-K2.6, Qwen3.5-397B, Qwen3.8-27B | SEO, analytics, multimodal, commits | $0.20-0.80 / $0.75-3.60 |
 | **Light** | Ministral-3 (14B), Gemma-4-31B, Apertus-70B | Simple tasks, CLI skills | $0.20-0.70 / $0.40-2.50 |
-| **Ultra-light** | Nemotron-3-Nano (30B) | Ultimate fallback, large contexts | **$0.05 / $0.20** |
 | **Embedding** | Qwen3-Embedding-8B, bge_multilingual_gemma2, mini_lm_l12_v2 | Vectorization, RAG | $0.005-0.01 / $0 |
 | **Transcription** | whisper | Audio → text | $0.006 / $0 |
 
@@ -153,13 +152,13 @@ The configuration uses **14 models** across 6 categories:
 Each model is configured with a fallback chain to handle context overflows:
 
 ```
-euria-code (250k) → Kimi-K2.6 (256k) → Nemotron-3-Nano (1M)
-Qwen3.5-397B (204k) → Kimi-K2.6 (256k) → Nemotron-3-Nano (1M)
-Mistral-Small-4 (256k) → Kimi-K2.6 (256k) → Nemotron-3-Nano (1M)
-Ministral-3 (80k) → Mistral-Small-4 (256k) → Kimi-K2.6 → Nemotron-3-Nano (1M)
+euria-code (250k) → Kimi-K2.6 (256k) → Qwen3.8-27B (100k)
+Qwen3.5-397B (204k) → Kimi-K2.6 (256k) → Qwen3.8-27B (100k)
+Mistral-Small-4 (256k) → Kimi-K2.6 (256k) → Qwen3.8-27B (100k)
+Ministral-3 (80k) → Mistral-Small-4 (256k) → Kimi-K2.6 → Qwen3.8-27B (100k)
 ```
 
-**Benefit**: the ultimate fallback (Nemotron-3-Nano) is the **cheapest** model ($0.05/1M tokens). Large contexts actually cost *less*.
+**Note (2026-10-27 catalog sync)**: the ultimate fallback is now **Qwen3.8-27B** (100k context, $0.80/$3.60) — Nemotron-3-Nano (1M, $0.05) and Qwen3.5-122B were removed from the Infomaniak catalogue. The last fallback hop now **shrinks** context (100k vs the primaries' 204k-256k) instead of extending it.
 
 ### Agent matrix
 

@@ -33,7 +33,7 @@
           },
           "fallback": [
             "moonshotai/Kimi-K2.6",
-            "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-FP8"
+            "Qwen/Qwen3.8-27B-FP8"
           ]
         },
         "euria-code-tiny": {
@@ -79,7 +79,7 @@
           "fallback": [
             "mistralai/Mistral-Small-4-119B-2603",
             "moonshotai/Kimi-K2.6",
-            "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-FP8"
+            "Qwen/Qwen3.8-27B-FP8"
           ]
         },
         "mistralai/Mistral-Small-4-119B-2603": {
@@ -104,15 +104,15 @@
           },
           "fallback": [
             "moonshotai/Kimi-K2.6",
-            "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-FP8"
+            "Qwen/Qwen3.8-27B-FP8"
           ]
         },
-        "Qwen/Qwen3.5-122B-A10B-FP8": {
-          "name": "Qwen/Qwen3.5-122B-A10B-FP8",
+        "Qwen/Qwen3.8-27B-FP8": {
+          "name": "Qwen/Qwen3.8-27B-FP8",
           "tool_call": true,
           "cost": {
-            "input": 0.4,
-            "output": 3.2
+            "input": 0.8,
+            "output": 3.6
           },
           "modalities": {
             "input": [
@@ -124,7 +124,7 @@
             ]
           },
           "limit": {
-            "context": 200000,
+            "context": 100000,
             "output": 100000
           }
         },
@@ -150,7 +150,7 @@
           },
           "fallback": [
             "moonshotai/Kimi-K2.6",
-            "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-FP8"
+            "Qwen/Qwen3.8-27B-FP8"
           ]
         },
         "google/gemma-4-31B-it": {
@@ -175,7 +175,7 @@
           "fallback": [
             "mistralai/Mistral-Small-4-119B-2603",
             "moonshotai/Kimi-K2.6",
-            "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-FP8"
+            "Qwen/Qwen3.8-27B-FP8"
           ]
         },
         "moonshotai/Kimi-K2.6": {
@@ -196,26 +196,6 @@
           },
           "limit": {
             "context": 256000,
-            "output": 100000
-          }
-        },
-        "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-FP8": {
-          "name": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-FP8",
-          "tool_call": true,
-          "cost": {
-            "input": 0.05,
-            "output": 0.2
-          },
-          "modalities": {
-            "input": [
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
-          },
-          "limit": {
-            "context": 1000000,
             "output": 100000
           }
         },
@@ -243,7 +223,7 @@
           "fallback": [
             "mistralai/Mistral-Small-4-119B-2603",
             "moonshotai/Kimi-K2.6",
-            "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-FP8"
+            "Qwen/Qwen3.8-27B-FP8"
           ]
         },
         "Qwen/Qwen3-Embedding-8B": {
@@ -486,7 +466,7 @@
       }
     },
     "spark": {
-      "model": "infomaniak/mistral24b",
+      "model": "infomaniak/moonshotai/Kimi-K2.6",
       "permission": {
         "edit": "allow",
         "bash": {

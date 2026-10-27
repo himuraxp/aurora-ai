@@ -1,13 +1,14 @@
 ---
 name: antislop
-description: "Anti Slop: Rules for AI Coding Agents. The core filter: 38 rules in 3 tiers (Hard Gates, Purpose-Gates, Quality Locks), the Liveliness Toolkit (ENERGY/RHYTHM/MOTION dials) and the Delivery Gate. Use when generating or reviewing UI, copy, or landing pages to stop generic AI slop (fake stats, gradient banners, hype copy, dead buttons)."
+description: "Anti Slop: Rules for AI Coding Agents. The core filter: 38 rules in 3 tiers (Hard Gates, Purpose-Gates, Quality Locks), the Liveliness Toolkit (ENERGY/RHYTHM/MOTION dials) and the Delivery Gate. Use when generating or reviewing UI, copy, code comments, or landing pages to stop generic AI slop (fake stats, gradient banners, hype copy, dead buttons). Load with the concern-specific skill."
 allowed-tools: Read Write Edit Glob Grep
 ---
 <!-- Vendored from https://github.com/miqdadbadjuber/anti-slop v3.2.21 (skills/antislop/SKILL.md).
      Adaptations for this repo: removed the First-Run Install Wizard and the mode-resolution
      ceremony (settings file, mode announcements) — mode selection belongs to the Aurora
      orchestrator when delegating. Upstream text otherwise verbatim; rules keep their R-XX numbers.
-     The upstream text self-references this file as `antislop.md`; it lives here as `skills/antislop/SKILL.md`. -->
+     The upstream text self-references this file as `antislop.md`; it lives here as `skills/antislop/SKILL.md`.
+     Frontmatter `description` extended with code-comment trigger (2026-10-26) so OpenCode auto-matches the skill. -->
 # antislop
 
 > Anti Slop: Rules for AI Coding Agents

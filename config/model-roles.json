@@ -18,9 +18,9 @@
         "qwen3.5-397",
         "kimi-k2",
         "glm-5",
-        "nemotron-3-nano"
+        "qwen3.8"
       ],
-      "fallbackFamilies": ["kimi-k2", "nemotron-3-nano"]
+      "fallbackFamilies": ["kimi-k2", "qwen3.8"]
     },
     "multimodal": {
       "description": "Vision/design agents needing multimodal input and large context: designer, vision, aurora-heavy.",
@@ -34,7 +34,7 @@
         "claude-sonnet",
         "claude-opus"
       ],
-      "fallbackFamilies": ["kimi-k2", "nemotron-3-nano"]
+      "fallbackFamilies": ["kimi-k2", "qwen3.8"]
     },
     "intermediate": {
       "description": "SEO content and growth agents: scribe, pulse, echo.",
@@ -42,14 +42,14 @@
       "preferredFamilies": [
         "mistral-small",
         "mistral24b",
-        "qwen3.5-122",
+        "qwen3.8",
         "gpt-4o-mini",
         "gpt-5-mini",
         "claude-haiku",
         "gemini-flash",
         "ministral"
       ],
-      "fallbackFamilies": ["kimi-k2", "nemotron-3-nano"]
+      "fallbackFamilies": ["kimi-k2", "qwen3.8"]
     },
     "cli": {
       "description": "Light CLI skill wrappers: spark (commits, GitLab CLI skills). Reliability-first (2026-10-08): 5/8 task failures on mistral24b (fabricated results, skipped execution, wrong tool path, mojibake) showed it too weak for faithful multi-step tool execution — kimi-k2 promoted, cost impact negligible at commit-task token volumes.",
@@ -57,7 +57,7 @@
       "preferredFamilies": [
         "kimi-k2",
         "mistral-small",
-        "qwen3.5-122",
+        "qwen3.8",
         "mistral24b",
         "ministral",
         "gpt-4o-mini",
@@ -65,7 +65,7 @@
         "gemini-flash",
         "claude-haiku"
       ],
-      "fallbackFamilies": ["mistral-small", "nemotron-3-nano"]
+      "fallbackFamilies": ["mistral-small", "qwen3.8"]
     }
   },
   "optionalRoles": {

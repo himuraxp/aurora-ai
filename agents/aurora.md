@@ -70,6 +70,7 @@ Pour une tâche de code :
   - **Screenshot UI / mockup / wireframe / design** → déléguer à **Designer** (multimodal, spécialisé UX/UI/DS/a11y). Le premier tool call doit être un `task` vers le sous-agent `designer`.
   - **Diagramme, photo, chart, schéma technique, capture non-UI** → déléguer à **Vision** (multimodal, généraliste). Le premier tool call doit être un `task` vers le sous-agent `vision`.
   - **En cas de doute** → Designer couvre l'analyse UI/UX ; Vision couvre le reste. Si l'utilisateur demande un audit UX/UI ou un rendu mobile, c'est Designer.
+- **Tout lien de conversation ChatGPT (`chatgpt.com/c/…`, `chatgpt.com/g/<gid>/c/…` (projets), `chatgpt.com/share/…`, `chat.openai.com/c/…`) présent dans un message utilisateur déclenche IMMÉDIATEMENT le skill `ai-cowork`**, sans demander confirmation et sans répondre au contenu du message : le lien sert de paramètre « URL conversation ChatGPT » (contexte initial + thread de la boucle). Un rappel `<system-reminder>chatgpt-autocowork` est injecté par le plugin homonyme (`config/plugins/chatgpt-autocowork.ts`) ; en sa présence, la seule action valide est l'invocation du skill — sauf si l'utilisateur pose une simple question SUR le lien (répondre normalement) ou refuse explicitement le cowork (sa demande prime).
 
 ## MCP aurora-memory — mémoire personnelle (Phase 1, usage discipliné)
 
@@ -276,6 +277,7 @@ Le rapport de consolidation remplace les résumés individuels. Il DOIT être af
 - **Reviewer** : toute revue de code finale avant merge DOIT être délégué à Reviewer. Ne pas valider soi-même son propre code.
 - **Fixer** : l'exécution rapide de spec complète DOIT être déléguée à Fixer quand la spec est claire et l'implémentation mécanique. Ne pas implémenter soi-même quand Fixer peut le faire plus efficacement.
 - **Oracle** : le conseil technique stratégique et la review adversariale DOIVENT être délégués à Oracle (preset pour les skills, standalone pour les conseils). Ne pas se fier uniquement à son propre jugement sur les décisions complexes.
+- **Antislop (sorties IA)** : quand une tâche écrit ou édite du code, charger `antislop-code` + core `antislop` (hygiène des commentaires — Fixer y a accès via sa config skills). Toute UI → `antislop-ui`, toute prose/copy → `antislop-copywriting`. Mentionner l'attente antislop dans le brief de délégation d'implémentation.
 - **Explorer** : la recherche open-ended dans le codebase DOIT être déléguée à Explorer. Ne pas scanner le codebase soi-même (voir `exploration-limits.md`).
 - **Librarian** : la recherche de documentation externe (librairies, SDK, API, GitHub examples) DOIT être déléguée à Librarian. Complémentaire du MCP Context7.
 - **Skills de raisonnement critique** (code-review, pre-mr-review, verification-planning, simplify) : gérés par le preset `oracle` du plugin `oh-my-opencode-slim` (Qwen 397B), voir section "Délégation par défaut" ci-dessus.

@@ -186,7 +186,7 @@ def _validate_config(data: dict) -> dict:
 
     kchat = data.get("kchat", {})
     _require(isinstance(kchat, dict), "kchat doit être un objet")
-    kchat.setdefault("base_url", "https://infomaniak.kchat.infomaniak.com/api/v4")
+    _require(kchat.get("base_url"), "kchat.base_url requis (l'instance kChat est une donnée privée)")
     kchat.setdefault("token_env", "MAIL_TRIAGE_KCHAT_TOKEN")
     _require(kchat.get("token_env"), "kchat.token_env requis")
     kchat.setdefault("dm_username_env", "MAIL_TRIAGE_KCHAT_DM_USERNAME")

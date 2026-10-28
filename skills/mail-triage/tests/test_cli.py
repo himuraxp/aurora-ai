@@ -32,6 +32,7 @@ def base_config(**writes) -> dict:
                    "imap_enabled": writes.get("imap_enabled", True),
                    "digest_enabled": writes.get("digest_enabled", True)},
         "digest": {"enabled": writes.get("digest", True)},
+        "kchat": {"base_url": "https://kchat.example.com/api/v4"},
     }
 
 

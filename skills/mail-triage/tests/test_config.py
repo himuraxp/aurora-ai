@@ -22,6 +22,7 @@ def base_config() -> dict:
         "source": {"mailbox": "INBOX"},
         "destinations": {"allowlist": ["INBOX/Auto/News"]},
         "writes": {"enabled": True, "imap_enabled": True, "digest_enabled": True},
+        "kchat": {"base_url": "https://kchat.example.com/api/v4"},
     }
 
 
@@ -51,10 +52,19 @@ class ConfigLoadTestCase(unittest.TestCase):
         self.assertEqual(cfg["digest"]["lookback_hours"], 18)
         self.assertEqual(cfg["digest"]["min_interval_hours"], 20)
         self.assertEqual(cfg["kchat"]["base_url"],
-                         "https://infomaniak.kchat.infomaniak.com/api/v4")
+                         "https://kchat.example.com/api/v4")
         self.assertEqual(cfg["plan"]["expire_hours"], 24)
         self.assertEqual(cfg["rules"], {"rules": [], "sensitive_senders": []})
         self.assertIn("_config_dir", cfg)
+
+    def test_missing_kchat_base_url_raises(self) -> None:
+        # L'instance kChat est une donnée privée : requise dans la config,
+        # jamais un défaut en dur dans le code (fail-closed).
+        cfg = base_config()
+        cfg.pop("kchat")
+        self.write(cfg)
+        with self.assertRaises(config_mod.ConfigError):
+            config_mod.load(self.dir)
 
     def test_enrichment_defaults_off(self) -> None:
         # V4.1 (ARCHITECTURE §10) : l'enrichissement est OPT-IN, off par défaut

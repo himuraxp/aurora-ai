@@ -31,7 +31,7 @@
     "sensitive_subject_patterns": ["(?i)contrat", "(?i)salaire", "(?i)mot de passe"]
   },
   "kchat": {
-    "base_url": "https://infomaniak.kchat.infomaniak.com/api/v4",
+    "base_url": "https://your-kchat-domain.example.com/api/v4",
     "token_env": "MAIL_TRIAGE_KCHAT_TOKEN",
     "dm_username_env": "MAIL_TRIAGE_KCHAT_DM_USERNAME",
     "timeout_seconds": 15

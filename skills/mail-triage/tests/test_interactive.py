@@ -886,7 +886,8 @@ class ConfigInteractiveTestCase(unittest.TestCase):
                 '              "password_env": "MAIL_TRIAGE_IMAP_PASSWORD"},\n'
                 '  "source": {"mailbox": "INBOX"},\n'
                 '  "destinations": {"allowlist": ["INBOX/Auto/X"]},\n'
-                '  "writes": {"enabled": true, "imap_enabled": true, "digest_enabled": true}')
+                '  "writes": {"enabled": true, "imap_enabled": true, "digest_enabled": true},\n'
+                '  "kchat": {"base_url": "https://kchat.example.com/api/v4"}')
 
     def test_interactive_default_false(self) -> None:
         (self.dir_path / "config.json").write_text(self._base() + '\n}\n', encoding="utf-8")

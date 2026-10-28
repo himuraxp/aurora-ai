@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.7.0](https://github.com/himuraxp/aurora-ai/compare/v1.6.0...v1.7.0) (2026-10-28)
+
+
+### Features
+
+* **config:** add Infomaniak official calendar MCP (locked locally via setup-mcp-lock) ([6fa7196](https://github.com/himuraxp/aurora-ai/commit/6fa7196ad30aa9f2fb3e0aa1a0b49ce73a243a82))
+* **config:** add Infomaniak official calendar MCP (locked locally) ([5c65f24](https://github.com/himuraxp/aurora-ai/commit/5c65f24710283241adf27087fa5ef0dee4b072f9))
+* **config:** Sync model catalog with Infomaniak live API ([f239086](https://github.com/himuraxp/aurora-ai/commit/f239086d6b4ab27682f65617168cde2201a4f19f))
+* **mail-triage:** add autonomous IMAP triage engine and kChat digest ([9877fe3](https://github.com/himuraxp/aurora-ai/commit/9877fe33c42a64ad82f0a67f6722bf7b47ade96e))
+
+
+### Bug Fixes
+
+* **config:** point spark and fixer at catalogue-valid models, refresh docs ([9eb688d](https://github.com/himuraxp/aurora-ai/commit/9eb688d379313659e98cd39f9b6e6fdaf8f21bdb))
+* **config:** point spark and fixer at catalogue-valid models, refresh docs ([f95bae6](https://github.com/himuraxp/aurora-ai/commit/f95bae6fee82d8f055c9f187c02835d6f3c9a50e))
+* **mail-triage:** require kchat.base_url in private config — no default instance URL ([3b93025](https://github.com/himuraxp/aurora-ai/commit/3b9302522bc2ef65d9df3bd5877f12ce34d64e46))
+
 ## [1.6.0](https://github.com/himuraxp/aurora-ai/compare/v1.5.0...v1.6.0) (2026-10-26)
 
 

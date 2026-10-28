@@ -1,0 +1,33 @@
+{
+  "rules": [
+    {
+      "id": "guard-sensitive",
+      "priority": 1,
+      "mode": "never",
+      "match": {
+        "subject_any": ["contrat", "facture", "paie", "salaire", "confidentiel"]
+      }
+    },
+    {
+      "id": "newsletters",
+      "priority": 50,
+      "mode": "propose",
+      "match": {
+        "from_domain_any": ["exemple-newsletter.com"],
+        "subject_any": ["newsletter"]
+      },
+      "folder": "INBOX/Auto/Newsletters"
+    },
+    {
+      "id": "system-notifications",
+      "priority": 60,
+      "mode": "auto",
+      "match": {
+        "from_contains_any": ["noreply@exemple.com"],
+        "subject_any": ["notification"]
+      },
+      "folder": "INBOX/Auto/Notifications"
+    }
+  ],
+  "sensitive_senders": []
+}

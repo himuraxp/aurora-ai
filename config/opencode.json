@@ -856,6 +856,18 @@
       ],
       "enabled": false,
       "timeout": 30000
+    },
+    "calendar": {
+      "type": "local",
+      "command": [
+        "node",
+        "{env:HOME}/.config/opencode/mcp-npm/node_modules/@infomaniak/mcp-server-calendar/dist/index.js"
+      ],
+      "enabled": true,
+      "timeout": 30000,
+      "env": {
+        "CALENDAR_TOKEN": "{env:CALENDAR_TOKEN}"
+      }
     }
   },
   "lsp": true,

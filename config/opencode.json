@@ -836,6 +836,18 @@
         "INFOMANIAK_MCP_ALLOW_WRITES": "0"
       }
     },
+    "calendar": {
+      "type": "local",
+      "command": [
+        "node",
+        "{env:HOME}/.config/opencode/mcp-npm/node_modules/@infomaniak/mcp-server-calendar/dist/index.js"
+      ],
+      "enabled": true,
+      "timeout": 30000,
+      "env": {
+        "CALENDAR_TOKEN": "{env:CALENDAR_TOKEN}"
+      }
+    },
     "angular-elements": {
       "type": "local",
       "command": [

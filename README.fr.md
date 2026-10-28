@@ -26,7 +26,7 @@ Les agents IA (OpenCode, Cursor, Claude...) ne savent pas quel standard utiliser
 **Ce que vous obtenez :**
 
 - **19 agents spécialisés + 4 agents plugin** — rôles ingénierie (reviewer, tester, security, architect, designer...), équipe Search & Growth et product owner délégué
-- **17 standards universels + 44 skills** — review adversariale, vérification, commits, et la suite accessibilité de 17 sous-skills
+- **17 standards universels + 45 skills** — review adversariale, vérification, commits, et la suite accessibilité de 17 sous-skills
 - **Noyau d'exécution en graphe (nouveau en v1.4.0)** — paquet Python stdlib `skills/graph_core/` : moteur de transitions, journal transactionnel, scheduler clôturé — piloté par RFC, 84 tests, en pilote shadow ; doc complète dans [docs/graph-engineering/](docs/graph-engineering/)
 - **Mémoire projet persistante** — 7 documents `docs/ai/` lus automatiquement en début de session : les agents gardent le contexte entre les sessions
 - **14 modèles avec fallback automatique** — contexte 250k → 1M, assignation des agents par coût
@@ -617,6 +617,7 @@ aurora-ai/
 │   ├── commit/                Messages de commit (conventions Infomaniak)
 │   ├── council/               Conseil technique — 3 sièges de délibération read-only + Decision Gate
 │   ├── create-mr/             Création de merge requests (scripts + tests)
+│   ├── daily-brief/           Routine de briefing du matin (réunions kCalendar + résumé mail-triage + triage au GO)
 │   ├── deepwork/              Workflow orchestré multi-phases avec gates de review (chantiers lourds)
 │   ├── deployment-changelog/  Changelog de déploiement
 │   ├── design-qa/              QA de conformité design (Design Contract, boucle de convergence, gate fail-closed)

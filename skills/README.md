@@ -56,6 +56,12 @@ Reusable skills for OpenCode. Each skill is a folder containing at least a `SKIL
 |-------|-------------|
 | `figma-ds-sync` | Infomaniak Figma design system sync to local JSON snapshots (check/sync/diff/mapping) |
 
+### Personal routines
+
+| Skill | Description |
+|-------|-------------|
+| `daily-brief` | Morning briefing: kCalendar meetings of the day + mail-triage digest + email triage on explicit GO |
+
 ### Code quality & workflow
 
 | Skill | Description |

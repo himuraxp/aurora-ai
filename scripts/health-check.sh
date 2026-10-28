@@ -1021,6 +1021,68 @@ else
   unset _am_out _am_rc _am_line _am_had_warn _am_saw_fail
 fi
 
+# ─── 13. Daily-brief skill (morning routine: calendar + mail digest + triage) ─
+
+echo ""
+echo "--- daily-brief skill ---"
+DB_SKILL="$ROOT_DIR/skills/daily-brief/SKILL.md"
+DB_SENDER="$ROOT_DIR/skills/daily-brief/scripts/send_kchat.py"
+if [[ -f "$DB_SKILL" ]]; then
+  ok "skills/daily-brief/SKILL.md present"
+  if ruby -ryaml -e "YAML.safe_load(File.read('$DB_SKILL').split(/^---\n/)[1], permitted_classes: [], aliases: false)" >/dev/null 2>&1; then
+    ok "daily-brief frontmatter YAML valid"
+  else
+    fail "skills/daily-brief/SKILL.md — invalid YAML frontmatter"
+  fi
+  # Mutation calendar hard-banned (token is read-scoped; the skill must not use write tools).
+  if grep -q 'calendar_create_event' "$DB_SKILL" \
+    && grep -q 'calendar_update_event' "$DB_SKILL" \
+    && grep -q 'calendar_delete_event' "$DB_SKILL" \
+    && grep -q 'Interdit en dur' "$DB_SKILL"; then
+    ok "daily-brief bans calendar mutation tools explicitly"
+  else
+    fail "skills/daily-brief/SKILL.md — missing explicit calendar mutation ban (safety invariant)"
+  fi
+  # Triage apply requires human validation (mail-triage engine invariants preserved).
+  if grep -q 'sans validation humaine explicite' "$DB_SKILL" \
+    && grep -q 'confirm-apply' "$DB_SKILL"; then
+    ok "daily-brief triage gated by human validation"
+  else
+    fail "skills/daily-brief/SKILL.md — triage apply not explicitly human-gated"
+  fi
+  # Extensibility contract (rubrics table) must stay declared.
+  grep -q 'Rubriques (extensibles)' "$DB_SKILL" \
+    && ok "daily-brief rubrics table declared" \
+    || fail "skills/daily-brief/SKILL.md — rubrics (extensibility) table missing"
+else
+  fail "skills/daily-brief/SKILL.md missing"
+fi
+if [[ -f "$DB_SENDER" ]]; then
+  if python3 -m py_compile "$DB_SENDER" >/dev/null 2>&1; then
+    ok "daily-brief send_kchat.py compiles"
+  else
+    fail "skills/daily-brief/scripts/send_kchat.py — does not compile"
+  fi
+else
+  fail "skills/daily-brief/scripts/send_kchat.py missing"
+fi
+if [[ -f "$ROOT_DIR/skills/daily-brief/templates/config.example.json" ]]; then
+  if python3 -c "import json,sys; json.load(open('$ROOT_DIR/skills/daily-brief/templates/config.example.json'))" >/dev/null 2>&1; then
+    ok "daily-brief config template JSON valid"
+  else
+    fail "skills/daily-brief/templates/config.example.json — invalid JSON"
+  fi
+else
+  fail "skills/daily-brief/templates/config.example.json missing"
+fi
+# MCP calendar declared in repo config (locked locally by setup-mcp-lock.py).
+if grep -q '"calendar"' "$ROOT_DIR/config/opencode.json" \
+  && grep -q 'CALENDAR_TOKEN' "$ROOT_DIR/config/opencode.json"; then
+  ok "MCP calendar declared in opencode.json (CALENDAR token env wired)"
+else
+  fail "config/opencode.json — MCP calendar declaration missing"
+fi
+
 # ─── Summary ─────────────────────────────────────────────────────────────────
 
 echo ""

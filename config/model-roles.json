@@ -41,7 +41,6 @@
       "requires": { "chat": true, "minContext": 100000 },
       "preferredFamilies": [
         "mistral-small",
-        "mistral24b",
         "qwen3.8",
         "gpt-4o-mini",
         "gpt-5-mini",
@@ -52,13 +51,12 @@
       "fallbackFamilies": ["kimi-k2", "qwen3.8"]
     },
     "cli": {
-      "description": "Light CLI skill wrappers: spark (commits, GitLab CLI skills). Reliability-first (2026-10-08): 5/8 task failures on mistral24b (fabricated results, skipped execution, wrong tool path, mojibake) showed it too weak for faithful multi-step tool execution — kimi-k2 promoted, cost impact negligible at commit-task token volumes.",
+      "description": "Light CLI skill wrappers: spark (commits, GitLab CLI skills). Reliability-first (2026-10-08): 5/8 task failures on mistral24b (fabricated results, skipped execution, wrong tool path, mojibake) showed it too weak for faithful multi-step tool execution — kimi-k2 promoted, cost impact negligible at commit-task token volumes. mistral24b dropped from all family lists 2026-10-29: no longer in the Infomaniak private catalog (the opencode.json config alias still resolves it to Mistral-Small-4-119B-2603).",
       "requires": { "chat": true, "minContext": 100000 },
       "preferredFamilies": [
         "kimi-k2",
         "mistral-small",
         "qwen3.8",
-        "mistral24b",
         "ministral",
         "gpt-4o-mini",
         "gpt-5-mini",

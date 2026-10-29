@@ -860,14 +860,12 @@
     "calendar": {
       "type": "local",
       "command": [
-        "node",
-        "{env:HOME}/.config/opencode/mcp-npm/node_modules/@infomaniak/mcp-server-calendar/dist/index.js"
+        "/bin/sh",
+        "-c",
+        "export CALENDAR_TOKEN=\"$(sed -n 's/^CALENDAR_TOKEN=//p' \"$HOME/.config/opencode/.env\" | head -1 | tr -d '\\r')\"; exec node \"$HOME/.config/opencode/mcp-npm/node_modules/@infomaniak/mcp-server-calendar/dist/index.js\""
       ],
       "enabled": true,
-      "timeout": 30000,
-      "env": {
-        "CALENDAR_TOKEN": "{env:CALENDAR_TOKEN}"
-      }
+      "timeout": 30000
     }
   },
   "lsp": true,

@@ -45,6 +45,8 @@ Ce skill sert **pendant le développement comme pendant les QA**. Il ne sert pas
 - **Par défaut 50 à 90 mots ; maximum 120 mots**, sauf demande explicite de l'utilisateur.
 - **1 à 3 points au maximum**. Pour un seul sujet, préférer **un paragraphe de 2 à 4 phrases** plutôt qu'une liste artificielle.
 - Ton **naturel, direct, cordial, entre collègues**. Une accroche simple (« Hello 👋 ») suffit.
+- **Écrire le message en Markdown que kChat rend** (le style doit rester après le copier-coller) : gras `**…**` pour le sujet du point et l'écart clé, code inline pour les éléments techniques, listes `-` pour plusieurs points.
+- **Gras parcimonieux** : le sujet de chaque point et 1 à 2 éléments clés au total — jamais une phrase longue entière, jamais le message entier.
 - Formuler les demandes sans accusation : « Je constate… », « J'aurais besoin de… », « Vous pouvez confirmer… ? ».
 - Conserver les éléments techniques qui permettent d'agir (`GET /route`, `field_name`, `404`, MR), mais **pas de payload complet**, stacktrace, longue liste d'enums ou chronologie.
 - Éviter les titres de rapport, les tableaux, les longs blocs Markdown et les conclusions bureaucratiques.
@@ -58,18 +60,18 @@ Ce skill sert **pendant le développement comme pendant les QA**. Il ne sert pas
 
 **Un besoin unique :**
 
-> Hello 👋 Pendant l'intégration de [fonctionnalité], je constate [fait observé] sur `[endpoint]`. Il me faudrait [besoin frontend]. Vous pouvez me confirmer si c'est prévu / possible ? Merci !
+> Hello 👋 **[Fonctionnalité]** : [fait observé] sur `[endpoint]`. **Il me faudrait [besoin frontend]**. Vous pouvez me confirmer si c'est prévu / possible ? Merci !
 
 **Plusieurs sujets indépendants :**
 
-> Hello 👋 Sur [fonctionnalité] en [environnement], j'ai quelques points à voir avec vous :
+> Hello 👋 **[Fonctionnalité] (en [environnement])**, j'ai quelques points à voir avec vous :
 >
 > - **[Sujet]** : [fait]. [besoin ou question].
 > - **[Sujet]** : [fait]. [besoin ou question].
 >
 > [Impact concret si utile.] Merci !
 
-Ne jamais laisser les placeholders dans la réponse finale. Ne pas ajouter artificiellement un environnement ou une liste s'ils ne sont pas utiles.
+Ne jamais laisser les placeholders dans la réponse finale. Ne pas ajouter artificiellement un environnement ou une liste s'ils ne sont pas utiles. Livrer le message en texte Markdown brut — pas dans un bloc de code.
 
 ## Exemples de calibration
 
@@ -79,7 +81,7 @@ Ne jamais laisser les placeholders dans la réponse finale. Ne pas ajouter artif
 
 **Message attendu :**
 
-Hello 👋 Sur l'affichage du détail d'une tâche, `GET /tasks/{id}` retourne bien `status`, mais pas de valeur `progress`. On en aurait besoin pour afficher l'avancement côté front. Vous pensez pouvoir l'exposer, ou il existe déjà un autre champ/endpoint prévu pour ça ? Merci !
+Hello 👋 **Détail des tâches** : `GET /tasks/{id}` retourne bien `status`, mais **pas de valeur `progress`** — on en aurait besoin pour afficher l'avancement côté front. Vous pensez pouvoir l'exposer, ou il existe déjà un autre champ/endpoint prévu ? Merci !
 
 ### B. Pendant le développement : route à confirmer
 
@@ -87,7 +89,7 @@ Hello 👋 Sur l'affichage du détail d'une tâche, `GET /tasks/{id}` retourne b
 
 **Message attendu :**
 
-Hello 👋 Je travaille sur la duplication des profils côté front, mais je n'ai pas trouvé de route prévue pour cette action dans la doc API. Est-ce qu'un endpoint existe déjà ou faut-il en prévoir un ? Merci !
+Hello 👋 **Duplication des profils** : je n'ai pas trouvé de route prévue pour cette action dans la doc API. Est-ce qu'un endpoint existe déjà ou faut-il en prévoir un ? Merci !
 
 ### C. Pendant la QA : plusieurs blocages confirmés
 
@@ -95,11 +97,11 @@ Hello 👋 Je travaille sur la duplication des profils côté front, mais je n'a
 
 **Message attendu :**
 
-Hello 👋 Suite aux tests des callbacks VOD en préprod, j'ai 3 points à vérifier avec vous :
+Hello 👋 **Callbacks VOD (préprod)**, j'ai 3 points à vérifier avec vous :
 
 - **Événements (422)** : les 15 valeurs testées sont rejetées. Vous pouvez confirmer les valeurs autorisées ?
 - **Création (500)** : erreur `vod_connect` avec `event_list` vide ou absent. À vérifier côté API.
-- **Secrets (404)** : `GET /secrets` est indisponible. La MR API !304 est-elle déjà déployée en préprod ?
+- **Secrets (404)** : `GET /secrets` est indisponible. La MR API `!304` est-elle déjà déployée en préprod ?
 
 Ça bloque la validation complète du parcours. Merci !
 
@@ -109,4 +111,5 @@ Hello 👋 Suite aux tests des callbacks VOD en préprod, j'ai 3 points à véri
 - Chaque constat est étayé ; aucune hypothèse n'est transformée en certitude.
 - Chaque point contient une action ou une question compréhensible.
 - Le message est court, lisible d'un coup d'œil et **prêt à copier-coller**.
+- Le Markdown employé est rendu par kChat (gras, code inline, listes) et le message reste lisible en texte brut.
 - Aucune explication d'agent n'entoure le message.

@@ -5,5 +5,6 @@
 useDefault = true
 
 [allowlist]
-description = "Hook fixture suite contains sample secret SHAPES by design (regex-layer e2e test)"
-paths = ['''(^|/)scripts/hooks/test-pre-commit-patterns\.sh$''']
+description = "Hook fixture suite contains sample secret SHAPES by design (regex-layer e2e test); local default DB URL (docker compose defaults aurora/aurora on loopback — documented in mcp/aurora-memory/.env.example, not a secret)"
+paths = ['''(^|/)scripts/hooks/test-pre-commit-patterns\.sh$''', '''(^|/)skills/design-qa/tests/''']
+regexes = ['''postgresql://aurora:aurora@127\.0\.0\.1:5433/aurora''']

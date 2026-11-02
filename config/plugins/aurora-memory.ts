@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process"
+import { existsSync } from "node:fs"
 import { homedir } from "node:os"
 
 /**
@@ -21,18 +22,31 @@ import { homedir } from "node:os"
  * - Capability agents must never call this: they receive memory context injected
  *   by aurora in their delegation brief and return `memory_observations`.
  *
- * Server path (override with AURORA_MEMORY_SERVER env var):
- *   ~/dev/aurora-core/services/aurora-memory/dist/index.mjs
- * (esbuild ESM bundle; build with the service's build:mcp script — see ADR-021.)
+ * Server path (ADR-025 multi-path resolution, first existing candidate wins):
+ *   1. AURORA_MEMORY_SERVER env var (explicit override)
+ *   2. ~/dev/aurora-core/services/aurora-memory/dist/index.mjs  (dev checkout — upstream)
+ *   3. ~/.config/opencode-config/mcp/aurora-memory/dist/index.mjs (distribution copy — same repo layout as mcp/infomaniak & mcp/angular-elements, cf. opencode.json)
+ * (esbuild ESM bundle; build with the service's build:mcp script — see ADR-021/025.)
  *
  * OpenCode v2 plugin format: default export { id, setup }; the tool is
  * registered via ctx.tool.transform(draft.add(...)).
  */
 
 const ORCHESTRATOR_AGENTS = new Set(["aurora", "orchestrator"])
-const SERVER_PATH =
-  process.env.AURORA_MEMORY_SERVER ??
-  `${homedir()}/dev/aurora-core/services/aurora-memory/dist/index.mjs`
+const SERVER_PATH_CANDIDATES = [
+  process.env.AURORA_MEMORY_SERVER,
+  `${homedir()}/dev/aurora-core/services/aurora-memory/dist/index.mjs`,
+  `${homedir()}/.config/opencode-config/mcp/aurora-memory/dist/index.mjs`,
+].filter((candidate): candidate is string => typeof candidate === "string" && candidate.length > 0)
+/** Resolved once on first call (existsSync is cheap; late setup on a fresh
+ * install must not require a host restart). */
+let SERVER_PATH: string | null = null
+function serverPath(): string {
+  if (SERVER_PATH === null) {
+    SERVER_PATH = SERVER_PATH_CANDIDATES.find((candidate) => existsSync(candidate)) ?? SERVER_PATH_CANDIDATES[0]
+  }
+  return SERVER_PATH
+}
 const CALL_TIMEOUT_MS = 30_000
 const PROTOCOL_VERSION = "2024-11-05"
 
@@ -76,7 +90,7 @@ function killServer(proc: ReturnType<typeof spawn>): void {
 }
 
 const OPERATIONS_HINT =
-  "entity_upsert, entity_search, relation_upsert, relation_query, fact_insert, fact_query, preference_set, preference_query, goal_create, goal_list, goal_update_status, event_append, event_list, memory_search, projection_generate"
+  "entity_upsert, entity_search, relation_upsert, relation_query, fact_insert, fact_query, preference_set, preference_query, goal_create, goal_list, goal_update_status, event_append, event_list, memory_search, projection_generate, lesson_create, lesson_transition, lesson_list"
 
 type JsonRpcResponse = {
   jsonrpc: string
@@ -103,10 +117,10 @@ async function callMcpTool(operation: string, args: Record<string, unknown>): Pr
     let timer: NodeJS.Timeout
     let proc: ReturnType<typeof spawn>
     try {
-      proc = spawn("node", [SERVER_PATH], { stdio: ["pipe", "pipe", "pipe"] })
+      proc = spawn("node", [serverPath()], { stdio: ["pipe", "pipe", "pipe"] })
     } catch (err) {
       release()
-      reject(new Error(`aurora_memory: cannot spawn memory server (${(err as Error).message}). Check that the bundle exists: ${SERVER_PATH} (build it with the service's build:mcp script).`))
+      reject(new Error(`aurora_memory: cannot spawn memory server (${(err as Error).message}). Check that the bundle exists: ${serverPath()} (build it with the service's build:mcp script).`))
       return
     }
     let stdout = Buffer.alloc(0)
@@ -116,7 +130,7 @@ async function callMcpTool(operation: string, args: Record<string, unknown>): Pr
 
     proc.on("error", (err) => {
       settle(() => reject(new Error(
-        `aurora_memory: cannot spawn memory server (${err.message}). Check that the bundle exists: ${SERVER_PATH} (build it with the service's build:mcp script).`
+        `aurora_memory: cannot spawn memory server (${err.message}). Check that the bundle exists: ${serverPath()} (build it with the service's build:mcp script).`
       )))
     })
 

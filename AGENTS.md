@@ -23,7 +23,7 @@ scripts/     Installation and maintenance (setup.sh, install.sh, configure-model
 templates/   Files injected into projects (AGENTS.md, docs/ai/*)
 docs/        User guides (workflow, customization, angular-20, code-review, testing, architecture) + graph-engineering/ (execution graph project: RFC, ADR, QA report)
 examples/    Ready-to-use examples (angular-app, node-api, monorepo)
-mcp/         Local MCP servers (infomaniak, angular-elements)
+mcp/         Local MCP servers (infomaniak, angular-elements, aurora-memory — distribution copy of the private aurora-core server, synced via scripts/sync-memory-server.sh; onboarding: scripts/setup-memory.sh — ADR-025)
 tools/       Repo infrastructure CLIs (figma-ds — Infomaniak Figma design system sync, procedure in skills/figma-ds-sync/)
 ```
 

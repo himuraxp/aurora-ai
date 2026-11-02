@@ -67,6 +67,7 @@ SKIP_FILES=(
   pnpm-lock.yaml
   .env.example
   test-pre-commit-patterns.sh   # fixture suite: contains sample secret SHAPES by design
+  .gitleaks.toml                # gitleaks config of record: allowlist regexes contain secret SHAPES by nature — gitleaks itself remains the authority (fail-closed above)
 )
 
 # Get staged files

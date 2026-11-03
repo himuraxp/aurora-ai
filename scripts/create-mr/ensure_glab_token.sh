@@ -25,9 +25,13 @@
 # docs/SECURITY-ACCEPTANCE.md):
 #   1. first argument, if provided
 #   2. ENSURE_GLAB_TOKEN_HOST env var
-#   3. the host of the origin remote of the current repo (for MR workflows the
-#      GitLab host IS the remote host)
-#   4. fail with instructions — never guess.
+#   3. ENSURE_GLAB_TOKEN_HOST in ~/.config/opencode/.env (machine-wide
+#      default — private user config, mirrors where tokens live)
+#   4. the host of the origin remote of the current repo (for MR workflows the
+#      GitLab host IS the remote host). Reached only when no explicit host is
+#      configured anywhere: a non-GitLab origin (e.g. a public GitHub repo)
+#      is NOT a valid GitLab host, which is why the .env fallback precedes it.
+#   5. fail with instructions — never guess.
 _egt_host_from_remote() {
   local url
   url="$(git -C "${GLAB_PROJECT_DIR:-$PWD}" remote get-url origin 2>/dev/null || true)"
@@ -35,14 +39,24 @@ _egt_host_from_remote() {
   printf '%s' "$url" | sed -E 's#^(ssh://)?(git@|https?://)##; s#[/:].*##'
 }
 
+_egt_host_from_env_file() {
+  local env_file="$HOME/.config/opencode/.env"
+  [[ -f "$env_file" ]] || return 1
+  grep -E '^ENSURE_GLAB_TOKEN_HOST=' "$env_file" 2>/dev/null |
+    head -1 |
+    sed -E 's/^ENSURE_GLAB_TOKEN_HOST=//; s/^"//; s/"[[:space:]]*$//'
+}
+
 if [[ -n "${1:-}" ]]; then
   ensure_glab_token_host="$1"
 elif [[ -n "${ENSURE_GLAB_TOKEN_HOST:-}" ]]; then
   ensure_glab_token_host="$ENSURE_GLAB_TOKEN_HOST"
+elif ensure_glab_token_host="$(_egt_host_from_env_file)" && [[ -n "$ensure_glab_token_host" ]]; then
+  :
 elif ensure_glab_token_host="$(_egt_host_from_remote)" && [[ -n "$ensure_glab_token_host" ]]; then
   :
 else
-  echo "ERROR: GitLab host unknown — pass it as \$1 or set ENSURE_GLAB_TOKEN_HOST" >&2
+  echo "ERROR: GitLab host unknown — pass it as \$1 or set ENSURE_GLAB_TOKEN_HOST (env or ~/.config/opencode/.env)" >&2
   echo "       (no default host is built in: the repo is public)." >&2
   return 1 2>/dev/null || exit 1
 fi

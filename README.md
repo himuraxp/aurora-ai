@@ -26,7 +26,7 @@ AI agents (OpenCode, Cursor, Claude...) don't know which standard to follow unle
 **What you get:**
 
 - **19 specialized agents + 4 plugin agents** — engineering roles (reviewer, tester, security, architect, designer...), a Search & Growth team and a delegated product owner
-- **17 universal standards + 44 skills** — adversarial review, verification, commits, plus the 17-skill accessibility suite
+- **17 universal standards + 47 skills** — adversarial review, verification, commits, plus the 17-skill accessibility suite
 - **Execution graph core (new in v1.4.0)** — stdlib Python package `skills/graph_core/`: transition engine, transactional journal, fenced scheduler — spec-first (RFC), 84 tests, running as a shadow pilot; full docs in [docs/graph-engineering/](docs/graph-engineering/)
 - **Persistent project memory** — 7 `docs/ai/` documents auto-read at session start: agents keep context across sessions
 - **14 models with automatic fallback** — 250k → 1M context, cost-based agent assignment
@@ -610,6 +610,7 @@ aurora-ai/
 │   ├── antislop-code/          Code comment hygiene (remove AI-slop comments, keep valuable ones, never touch code)
 │   ├── antislop-copywriting/   Copy & text anti-slop (headlines, CTAs, tone, anti-AI-writing patterns)
 │   ├── antislop-ui/            UI/visual anti-slop (color, layout, components, motion)
+│   ├── clean-worktrees/        Cleanup of merged / origin-gone worktrees + branches (plan → user GO → --apply)
 │   ├── clonedeps/             Clone dependency sources to inspect library internals
 │   ├── code-review/           Adversarial code review
 │   ├── codemap/               Hierarchical code maps for unknown repos
@@ -627,8 +628,10 @@ aurora-ai/
 │   ├── gitlab-summary/        GitLab activity summary
 │   ├── goals/                 Personal goals tracking (aurora-memory, orchestrator-only)
 │   ├── image-transparent-background/  White background removal (ImageMagick)
+│   ├── kchat-dev-brief/        Draft a short kChat dev/QA message (copy-paste, no auto-send)
 │   ├── laravel-cruddy-by-design/  Strict RESTful Laravel controllers/routes (max 7 methods)
 │   ├── loop-engineering/      Grill + Monitor runtime for engineering loops
+│   ├── mail-triage/           IMAP triage engine + kChat digest (private config, public engine)
 │   ├── meeting/               Cross-functional pre-implementation gate (READY/CONDITIONAL/BLOCKED)
 │   ├── mr-review/             MR review with inline comments
 │   ├── mr-review-feedback/    Apply MR review feedback

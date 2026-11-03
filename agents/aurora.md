@@ -17,6 +17,9 @@ permission:
   aurora-memory_event_append: allow
   aurora-memory_memory_search: allow
   aurora-memory_projection_generate: allow
+  aurora-memory_lesson_create: allow
+  aurora-memory_lesson_transition: allow
+  aurora-memory_lesson_list: allow
   infomaniak_infomaniak_api_call: allow
 ---
 

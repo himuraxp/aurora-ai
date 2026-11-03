@@ -26,7 +26,7 @@ Les agents IA (OpenCode, Cursor, Claude...) ne savent pas quel standard utiliser
 **Ce que vous obtenez :**
 
 - **19 agents spécialisés + 4 agents plugin** — rôles ingénierie (reviewer, tester, security, architect, designer...), équipe Search & Growth et product owner délégué
-- **17 standards universels + 44 skills** — review adversariale, vérification, commits, et la suite accessibilité de 17 sous-skills
+- **17 standards universels + 47 skills** — review adversariale, vérification, commits, et la suite accessibilité de 17 sous-skills
 - **Noyau d'exécution en graphe (nouveau en v1.4.0)** — paquet Python stdlib `skills/graph_core/` : moteur de transitions, journal transactionnel, scheduler clôturé — piloté par RFC, 84 tests, en pilote shadow ; doc complète dans [docs/graph-engineering/](docs/graph-engineering/)
 - **Mémoire projet persistante** — 7 documents `docs/ai/` lus automatiquement en début de session : les agents gardent le contexte entre les sessions
 - **14 modèles avec fallback automatique** — contexte 250k → 1M, assignation des agents par coût
@@ -611,6 +611,7 @@ aurora-ai/
 │   ├── antislop-code/          Hygiène des commentaires de code (supprime le slop IA, préserve les porteurs, ne touche jamais au code)
 │   ├── antislop-copywriting/   Anti-slop copy & texte (titres, CTAs, ton, patterns d'écriture IA)
 │   ├── antislop-ui/            Anti-slop UI/visuel (couleur, layout, composants, motion)
+│   ├── clean-worktrees/       Nettoyage des worktrees + branches mergées ou absentes d'origin (plan → GO → --apply)
 │   ├── clonedeps/             Cloner les sources des dépendances pour inspecter les internals des librairies
 │   ├── code-review/           Review adversariale de code
 │   ├── codemap/               Cartes de code hiérarchiques pour repos inconnus
@@ -628,8 +629,10 @@ aurora-ai/
 │   ├── gitlab-summary/        Résumé d'activité GitLab
 │   ├── goals/                 Suivi d'objectifs personnels (aurora-memory, orchestrator-only)
 │   ├── image-transparent-background/  Suppression de fond blanc (ImageMagick)
+│   ├── kchat-dev-brief/        Rédige un court message kChat dev/QA (copier-coller, jamais d'envoi auto)
 │   ├── laravel-cruddy-by-design/  Contrôleurs/routes Laravel RESTful stricts (max 7 méthodes)
 │   ├── loop-engineering/      Runtime Grill + Monitor pour boucles d'ingénierie
+│   ├── mail-triage/           Moteur de tri IMAP + digest kChat (config privée, moteur public)
 │   ├── meeting/               Porte multi-métiers pré-implémentation (READY/CONDITIONAL/BLOCKED)
 │   ├── mr-review/             Review de MR avec commentaires inline
 │   ├── mr-review-feedback/    Application des retours de review MR

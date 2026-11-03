@@ -12,7 +12,7 @@
 #      per-tool denies are removed (they were cosmetic, ADR-021).
 #   3. agent.plan is minimal (no tools/permission field that would block MCP spawn).
 #   4. Plugin is pinned (oh-my-opencode-slim@<version>) — cache version skew.
-#   5. agents/*.md: no aurora-memory_* frontmatter permission except aurora.md (15 allows,
+#   5. agents/*.md: no aurora-memory_* frontmatter permission except aurora.md (18 allows,
 #      documentation of intent); READ agents carry the "broker via aurora" section.
 #   6. B3 bridge plugin present in repo and live, identical
 #      (config/plugins/aurora-memory.ts -> ~/.config/opencode/plugins/).
@@ -70,7 +70,7 @@ echo "== 2. Agent frontmatters =="
 BAD=$(grep -l "aurora-memory_" "$AGENTS_DIR"/*.md 2>/dev/null | grep -v "/aurora\.md$" || true)
 if [[ -z "$BAD" ]]; then pass "no aurora-memory_* frontmatter outside aurora.md"; else fail "memory keys in: $(echo "$BAD" | xargs -n1 basename | tr '\n' ' ')"; fi
 AA=$(grep -c "aurora-memory_" "$AGENTS_DIR/aurora.md" || true)
-if [[ "$AA" == "15" ]]; then pass "aurora.md keeps 15 intent allows"; else fail "aurora.md: $AA/15 memory allows"; fi
+if [[ "$AA" == "18" ]]; then pass "aurora.md keeps 18 intent allows (15 legacy + 3 lesson_*, ADR-024)"; else fail "aurora.md: $AA/18 memory allows"; fi
 BROKER=$(grep -l "Mémoire personnelle (broker via aurora)" "$AGENTS_DIR"/{architect,reviewer,designer,mobile}.md 2>/dev/null | wc -l | tr -d ' ')
 if [[ "$BROKER" == "4" ]]; then pass "4 READ agents carry the broker contract"; else fail "broker contract missing in $BROKER/4 READ agents"; fi
 

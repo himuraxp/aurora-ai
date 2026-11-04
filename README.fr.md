@@ -441,7 +441,8 @@ frameworks/
 ├── angular-20.md   # Angular 20+ stand-alone
 ├── nodejs.md       # API Node.js / Express
 ├── nestjs.md       # Architecture modulaire NestJS
-└── astro.md        # Sites statiques Astro, SEO, i18n
+├── astro.md        # Sites statiques Astro, SEO, i18n
+└── wordpress.md    # Thèmes & plugins WordPress
 ```
 
 Le nom du fichier sera le nom du framework. Relancez `npm run update` (ou `./scripts/install.sh`) pour le déployer.
@@ -465,6 +466,7 @@ Le template `AGENTS.md` est volontairement générique. Ajoutez dans le `AGENTS.
 - `frameworks/nodejs.md`
 - `frameworks/nestjs.md`
 - `frameworks/astro.md`
+- `frameworks/wordpress.md`
 
 ---
 
@@ -575,7 +577,8 @@ aurora-ai/
 │   ├── angular-20.md          Conventions Angular 20+ stand-alone
 │   ├── nodejs.md              Conventions Node.js API
 │   ├── nestjs.md              Conventions NestJS
-│   └── astro.md               Conventions Astro
+│   ├── astro.md               Conventions Astro
+│   └── wordpress.md           Thèmes & plugins WordPress
 │
 ├── templates/                 Ce que chaque projet reçoit
 │   ├── AGENTS.md              Template racine pour chaque projet
@@ -694,7 +697,7 @@ L'agent reçoit et applique dans cet ordre (du plus général au plus spécifiqu
 
 1. **Standards** globaux `~/.config/opencode/standards/` (workflow, memory-session-flow, memory-auto-update, memory-checklist, verification, communication, escalation, commits, review-before-done, audit, exploration-limits, error-correction, anti-patterns, artifact-authoring, delegation-failure, agent-output, product-authority).
 2. **Agents** globaux `~/.config/opencode/agents/` (aurora, aurora-heavy, reviewer, tester, security, cybersec, architect, spark, vision, atlas, crawler, sage, scribe, pulse, echo, beacon, designer, mobile, product-owner) + agents du plugin oh-my-opencode-slim (explorer, fixer, librarian, oracle).
-3. **Frameworks** globaux `~/.config/opencode/frameworks/` (angular-20, nodejs, nestjs, astro).
+3. **Frameworks** globaux `~/.config/opencode/frameworks/` (angular-20, nodejs, nestjs, astro, wordpress).
 4. Standards entreprise (si configurés).
 5. **`AGENTS.md`** local du projet.
 6. Instructions explicites de la tâche en cours.

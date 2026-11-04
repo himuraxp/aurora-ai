@@ -94,6 +94,8 @@ Enregistrer la branche utilisée pour le diff dans le contexte de la session. **
 **OBLIGATOIRE** — Avant de commencer la revue, vérifier la présence du fichier `AGENTS.md` à la racine du projet :
 
 - Si `AGENTS.md` existe : **le consulter impérativement** et extraire toutes les conventions, règles de nommage, patterns d'architecture, directives de style et autres règles projet spécifiques. Ces conventions doivent être **intégrées à toutes les vérifications** et prendre la priorité sur les règles génériques.
+- Si `AGENTS.md` référence un standard global (`frameworks/<stack>.md`) : **charger impérativement le fichier référencé** et appliquer ses règles à la revue, au même titre que les conventions du projet.
+- Si aucun framework n'est référencé mais que la stack du projet correspond à un framework disponible : **détecter et charger le framework applicable s'il existe** (`~/.config/opencode/frameworks/`) — signaux de détection et priorité : tableau « Supported frameworks » de `frameworks/README.md`. Noter dans le récapitulatif les frameworks chargés par détection.
 - Si `AGENTS.md` n'existe pas : utiliser les défauts, mais noter dans le récapitulatif final l'absence de conventions explicites. Les règles génériques s'appliquent alors.
 - Si `AGENTS.md` contient des 🚫 (STOP) ou des warnings critiques : **ne pas procéder** à des modifications dans les zones concernées et signaler le blocage dans le récapitulatif.
 - Si `AGENTS.md` contient des contradictions avec `docs/ai/DECISIONS.md` : **STOPPER immédiatement** et demander clarification à l'utilisateur.

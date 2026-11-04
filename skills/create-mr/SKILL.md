@@ -133,12 +133,23 @@ premier token valide trouvé dans `~/.config/opencode/.env` puis `~/.zshrc` ;
 (3) échoue avec la procédure de rotation si toutes les sources sont périmées.
 Il n'affiche jamais de secret.
 
+**Résolution de l'hôte GitLab** (aucun défaut interne — repo public, cf.
+`docs/SECURITY-ACCEPTANCE.md`) : 1ᵉʳ argument du script, puis
+`ENSURE_GLAB_TOKEN_HOST` (env, puis `~/.config/opencode/.env`), puis l'hôte de
+l'origin du repo courant. Si le sourcing a lieu depuis un repo dont l'origin
+n'est pas l'hôte GitLab visé (ex. origin GitHub), passer l'hôte explicitement :
+sinon le fallback origin résout le mauvais hôte → faux 401 « Token was
+revoked » + glab retombe sur un token OAuth révoqué du glab-cli
+(incident 2026-11-03).
+
 ## Cycle de création
 
 ### 0. Assurer la fraîcheur du token
 
 ```bash
 source "${SCRIPTS_DIR}/ensure_glab_token.sh" || exit 1
+# Si l'origin du repo courant n'est pas l'hôte GitLab visé, hôte explicite :
+#   source "${SCRIPTS_DIR}/ensure_glab_token.sh" gitlab.infomaniak.ch || exit 1
 ```
 
 ### 1. Vérifier le workspace

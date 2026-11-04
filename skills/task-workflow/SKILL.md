@@ -405,7 +405,7 @@ Une fois tous les contrôles bloquants verts : skill **`create-mr`**.
   l'issue à la MR **sans fermeture prématurée**.
 - Avant publication : vérifier source, cible, diff final, commits, résultats de
   tests, **rapport Design QA** (`PASSED` ou waived tracés — un `BLOCKED`
-  interdit la MR), template, ressources. Étape 0 `ensure_glab_token` du skill.
+  interdit la MR), template, ressources. Étape 0 `ensure_glab_token` du skill (hôte explicite si l'origin du repo n'est pas l'hôte GitLab visé).
 - **Jamais** de merge automatique — la finalité est une **MR prête pour revue
   humaine**. `mergeRequestUrl` → état.
 

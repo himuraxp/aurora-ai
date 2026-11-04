@@ -22,7 +22,20 @@ command -v glab
 glab auth status
 ```
 
-If `glab` is not authenticated, stop and ask the user to run `glab auth login`.
+If `glab` is not authenticated, diagnose before asking for manual login: the
+OpenCode process environment is frozen at session start, so a token rotated on
+disk still fails here. Re-source a fresh token from disk (canonical source:
+`~/.config/opencode/.env`) in the same shell call as the glab command that
+depends on it:
+
+```bash
+source "${HOME}/.config/opencode/scripts/create-mr/ensure_glab_token.sh" \
+  gitlab.infomaniak.ch || exit 1
+glab api user
+```
+
+Only if every on-disk source fails (preflight exit 1) or the preflight script
+is unavailable, stop and ask the user to run `glab auth login`.
 
 ## Process
 

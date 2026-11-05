@@ -144,6 +144,60 @@ C'est une **nouvelle capacité d'accès et de transmission** (kChat DM, même or
 - Prompt système fermé (untrusted data, n'invente rien, `action_probable` exige une demande explicite, ignore toute instruction des emails).
 - Libellé rendu : « Analyse IA · action probable » — **jamais** « Action requise » ; jamais transformé en « aucune action nécessaire » ; n'active jamais déplacement ni règle.
 
+#### 10.3.1 Implémentation V4.2 (2026-11-05)
+
+- Module : `scripts/ai_summary.py` (self-contained) — client `AIClient`
+  (urllib, POST `{base_url}/chat/completions`, temperature 0.2, stream false,
+  timeout 12 s, lecture plafonnée 64 Ko), `resolve_config` (fail-closed),
+  `validate_ai_response` (JSON strict, sans réparation permissive),
+  `enrich_ai` (cibles, budget, attache `entry["ai"]`).
+- Insertion : `digest.enrich_ai_summaries(built, cfg)` appelé par `cmd_digest`
+  après `attach_previews` — gated `digest.ai.enabled` (défaut **false**, inertie
+  par défaut ; l'activation est un acte de consentement humain séparé).
+  La gate est **booléenne stricte** (`enabled is True`) : une valeur non
+  booléenne (« true » string, 1) laisse la couche désactivée.
+  **Prérequis : l'enrichissement V4.1** (`digest.enrichment.enabled`) — les
+  cibles IA sont les entrées portant un aperçu V4.1 validé ; sans V4.1,
+  aucune cible, la couche reste inerte.
+- Géométrie (attach_previews V4.1) : l'aperçu est attaché sur le **dict
+  conversation** pour les conversations, sur l'**item** pour l'always_inbox —
+  cibles et attachement `ai` suivent ce niveau exact (celui du rendu).
+- Cibles : entrées avec aperçu attaché (jamais les sensibles : structurellement
+  sans aperçu) ; garde redondant en profondeur : dernier item masqué
+  (`subject_masked`) ou corps non lisible (`body_readable` False) → cible
+  écartée même si un aperçu existait ; ≤ 10 conversations ; budget 30 s
+  cumulés (cap de **démarrage** d'appel : un appel en vol peut se terminer
+  jusqu'à un timeout de 12 s plus tard → ~42 s réels au pire ; dépassement →
+  conversations restantes rendues en V4.1 pur, arrêt propre).
+- **Payload (composition contractée)** : `Sujet : <sujet> + Extrait de
+  l'email : <extrait PUBLIÉ V4.1>` — soit ≤ ~190 chars utiles par
+  conversation (choix conservateur, 1 message/conversation — sous-ensemble
+  des 1-3 messages et de la borne 3 000 chars autorisés : budget et
+  confidentialité ; l'extrait PUBLIÉ est déjà neutralisé, pas le texte
+  normalisé ≤ 500). Le sujet est neutralisé pré-payload (markdown, URLs,
+  marqueur) — donnée non fiable au même titre que le corps. La transmission
+  du sujet vers l'API IA est un périmètre de transmission distinct du rendu
+  kChat : décision assumée ici.
+- Neutralisation du texte non fiable (modèle inclus) : le résumé ET la raison
+  retournés par le modèle sont traités comme une donnée d'entrée — markdown
+  actif désamorcé (liens, images), URLs masquées, marqueur de digest
+  neutralisé, lignes aplaties, PUIS borne de longueur appliquée (160/120 sur
+  le texte sûr). Aucune restitution ne peut créer de rendu actif dans kChat
+  (lien cliquable, image/pixel, marqueur falsifié) — les mises en forme
+  cosmétiques (`*`, `_`) restent possibles, même exposition que l'extrait
+  V4.1 rendu en italique.
+- Rendu : ligne `Analyse IA · {info|action probable|incertain} : {summary}`
+  sous l'extrait ; réponse invalide ou échec d'appel → « (Analyse
+  indisponible) » ; jamais « Action requise » ; n'active jamais déplacement
+  ni règle ; `action_reason` validée mais non rendue (digest compact).
+- Config (bloc `digest` de la config privée) : `ai.enabled` (false),
+  `ai.base_url`, `ai.model`, `ai.token_env` (défaut `MAIL_TRIAGE_AI_TOKEN`) ;
+  fail-closed `missing_base_url`/`missing_model`/`missing_token` ; budgets
+  NON configurables (constantes du contrat, §10.3).
+- Confidentialité (§10.4) : raisons machine sans URL ni token ; aucun journal
+  de prompt/extrait/réponse ; aucune écriture ; `\Seen` inchangé (le fetch
+  amont V4.1 est en `BODY.PEEK`).
+
 ### 10.4 Garde-fous non négociables
 
 Sensibles `never` → aucun corps lu/envoyé à l'IA ; pièces jointes jamais téléchargées ; `\Seen` jamais modifié ; instruction d'un email jamais exécutée ; secrets jamais dans requêtes/rendus/journaux ; **aucun corps/extrait/résultat nominatif dans aurora-memory** ; aucun texte brut ni prompt IA en journal ; idempotence kChat inchangée. Distinction de vérité : « Règles : rien à valider » (moteur) ≠ « Lecture : N actions probables » (propositions IA).

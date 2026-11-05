@@ -814,6 +814,9 @@ def cmd_digest(cfg: dict, args) -> int:
     finally:
         imap_mod.logout(conn)
     digest_mod.attach_previews(built, previews)
+    # V4.2 (opt-in digest.ai.enabled, ARCHITECTURE §10.3) : résumés IA — gated
+    # off ou config incomplète → built inchangé, aucun appel (fail-closed).
+    digest_mod.enrich_ai_summaries(built, cfg)
     # Références courtes (V4, §11.5 corrigé t10) : GLOBALEMENT non ambiguës —
     # compteur monotone de l'état, assignées AVANT rendu et persistance.
     digest_mod.assign_refs(built, state)

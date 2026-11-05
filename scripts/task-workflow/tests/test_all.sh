@@ -205,7 +205,7 @@ assert_eq "dry-run → exit 0" "0" "$code"
 assert_eq "outcome dry-run" "dry-run" "$(JSON_OUTCOME "$out")"
 assert_contains "dry-run shows the MR url" "https://gitlab.infomaniak.ch/g/p/-/merge_requests/602" "$out"
 assert_contains "dry-run shows the title" "feat: select multi-extension" "$out"
-assert_contains "dry-run shows the review-humanity footer" "jamais de merge automatique" "$out"
+assert_not_contains "dry-run does not show the review-humanity footer" "jamais de merge automatique" "$out"
 assert_eq "dry-run makes no network call" "" "$(cat "$CASE_DIR/curl-argv.log")"
 
 # ─── 4. Idempotence: GET-before-POST ─────────────────────────────────────────

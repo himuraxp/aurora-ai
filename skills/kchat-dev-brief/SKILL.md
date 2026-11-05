@@ -28,11 +28,13 @@ Ce skill sert pendant le développement comme pendant les QA. Il ne produit pas 
 
 **Format privilégié — un point (1 à 3 points au maximum par message) :**
 
-> Hello 👋 **Sujet — `MÉTHODE /route`**
->
-> Constat en une phrase. **Question directe ?**
->
-> Payload JSON minimal uniquement s'il apporte une information indispensable.
+````markdown
+Hello 👋 **Sujet — `MÉTHODE /route`**
+
+Constat en une phrase. **Question directe ?**
+````
+
+Payload JSON minimal dans un bloc de code json multiligne, uniquement s'il apporte une information indispensable.
 
 Plusieurs sujets indépendants : un bloc numéroté par sujet, même squelette (**1. Sujet — `MÉTHODE /route`**, constat, question). Un seul sujet : pas de numérotation.
 
@@ -43,7 +45,7 @@ Plusieurs sujets indépendants : un bloc numéroté par sujet, même squelette (
 - **Conclusion facultative** : supprimer les formules de politesse si elles allongent le message sans le rendre plus agréable.
 - **Regrouper les demandes similaires** (mêmes routes, même question) et **séparer les sujets indépendants**.
 - Plus de 3 sujets indépendants : regrouper d'abord tout ce qui se fusionne sans perte ; sinon dépasser le plafond en gardant le même squelette, plutôt que de perdre un point bloquant.
-- Markdown que kChat rend : gras pour le sujet du point et l'écart clé, code inline pour les éléments techniques. Le message reste lisible en texte brut.
+- Le message reste **un message de chat, pas un document** : gras pour le sujet du point et l'écart clé, code inline pour les éléments techniques, listes `-` et blocs de code json — **jamais de titres `#`**, jamais de tableaux.
 
 ## Précisions techniques API (quand connues)
 
@@ -76,9 +78,11 @@ Plusieurs sujets indépendants : un bloc numéroté par sujet, même squelette (
 
 ## Livrable
 
-Uniquement le message, en Markdown brut (pas dans un bloc de code), sans annonce du skill, sans analyse, sans variantes, sans placeholder. Ne jamais l'envoyer automatiquement ni mentionner des collègues sans indication explicite. Si une information indispensable manque, l'intégrer comme question ouverte dans le message ; demander une clarification à l'utilisateur seulement si aucun message ne peut raisonnablement être rédigé.
+Uniquement le message, livré dans un bloc de code Markdown fermé par **au moins 4 backticks** — les blocs de code json internes (3 backticks) ne coupent pas le bloc, et la syntaxe brute (gras, code inline, json multiligne) est copiée telle quelle, puis rendue par kChat après collage. Le contenu reste un message de chat : jamais de titres `#`. Sans annonce du skill, sans analyse, sans variantes, sans placeholder. Ne jamais l'envoyer automatiquement ni mentionner des collègues sans indication explicite. Si une information indispensable manque, l'intégrer comme question ouverte dans le message ; demander une clarification à l'utilisateur seulement si aucun message ne peut raisonnablement être rédigé.
 
 ## Exemples de calibration
+
+Les exemples montrent le contenu ; à la restitution, livrer chaque message dans un bloc de code Markdown décrit dans Livrable.
 
 ### A. Développement — champ manquant
 
@@ -86,9 +90,11 @@ Uniquement le message, en Markdown brut (pas dans un bloc de code), sans annonce
 
 **Message attendu :**
 
-> Hello 👋 **Détail des tâches — `GET /tasks/{id}`**
->
-> La route retourne `status` mais pas `progress`, nécessaire pour afficher l'avancement. **Possible de l'exposer, ou une autre route la fournit déjà ?** Merci !
+````markdown
+Hello 👋 **Détail des tâches — `GET /tasks/{id}`**
+
+La route retourne `status` mais pas `progress`, nécessaire pour afficher l'avancement. **Possible de l'exposer, ou une autre route la fournit déjà ?** Merci !
+````
 
 ### B. Développement — migration VOD v3 : payload rejeté
 
@@ -96,13 +102,15 @@ Uniquement le message, en Markdown brut (pas dans un bloc de code), sans annonce
 
 **Message attendu :**
 
-> Hello 👋 **Migration VOD v3 — `PUT /3/vod/{id}`**
->
-> ```json
-> { "url": "https://cdn.exemple.com/video.mp4", "format": "mp4" }
-> ```
->
-> Ce payload passait en v2, il renvoie **400 Invalid format** en v3. **Nouvelle validation attendue ou régression ?** Merci !
+````markdown
+Hello 👋 **Migration VOD v3 — `PUT /3/vod/{id}`**
+
+```json
+{ "url": "https://cdn.exemple.com/video.mp4", "format": "mp4" }
+```
+
+Ce payload passait en v2, il renvoie **400 Invalid format** en v3. **Nouvelle validation attendue ou régression ?** Merci !
+````
 
 ### C. API — fonctionnalité manquante
 
@@ -110,9 +118,11 @@ Uniquement le message, en Markdown brut (pas dans un bloc de code), sans annonce
 
 **Message attendu :**
 
-> Hello 👋 **Profils**
->
-> Je ne trouve pas de route pour dupliquer un profil dans la doc v3. **Une route existe-t-elle déjà, ou est-ce prévu ?** Merci !
+````markdown
+Hello 👋 **Profils**
+
+Je ne trouve pas de route pour dupliquer un profil dans la doc v3. **Une route existe-t-elle déjà, ou est-ce prévu ?** Merci !
+````
 
 ### D. QA — plusieurs blocages indépendants
 
@@ -120,19 +130,21 @@ Uniquement le message, en Markdown brut (pas dans un bloc de code), sans annonce
 
 **Message attendu :**
 
-> Hello 👋 **Callbacks VOD (préprod)** — 3 points qui bloquent la validation :
->
-> **1. Valeurs d'événement — `POST /3/vod/{id}/callbacks`**
->
-> Les 15 valeurs testées renvoient **422**. **Quelles valeurs sont autorisées ?**
->
-> **2. Création — 500 `vod_connect`**
->
-> L'erreur survient quand `event_list` est vide ou absent. **Vous pouvez regarder ?**
->
-> **3. `GET /3/vod/secrets` — 404**
->
-> **La MR API !304 est-elle déployée en préprod ?**
+````markdown
+Hello 👋 **Callbacks VOD (préprod)** — 3 points qui bloquent la validation :
+
+**1. Valeurs d'événement — `POST /3/vod/{id}/callbacks`**
+
+Les 15 valeurs testées renvoient **422**. **Quelles valeurs sont autorisées ?**
+
+**2. Création — 500 `vod_connect`**
+
+L'erreur survient quand `event_list` est vide ou absent. **Vous pouvez regarder ?**
+
+**3. `GET /3/vod/secrets` — 404**
+
+**La MR API !304 est-elle déployée en préprod ?**
+````
 
 ### E. Clarification — contrat à reconfirmer
 
@@ -140,6 +152,8 @@ Uniquement le message, en Markdown brut (pas dans un bloc de code), sans annonce
 
 **Message attendu :**
 
-> Hello 👋 **Webhooks VOD (v3)**
->
-> Les valeurs `event_type` de la doc v2 renvoient **422** en préprod. **Quelles sont les valeurs autorisées en v3 ?** Merci !
+````markdown
+Hello 👋 **Webhooks VOD (v3)**
+
+Les valeurs `event_type` de la doc v2 renvoient **422** en préprod. **Quelles sont les valeurs autorisées en v3 ?** Merci !
+````

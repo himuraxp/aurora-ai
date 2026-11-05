@@ -105,6 +105,7 @@ Examples:
 - Node.js API: apply `frameworks/nodejs.md`.
 - NestJS: apply `frameworks/nestjs.md`.
 - Astro: apply `frameworks/astro.md`.
+- WordPress: apply `frameworks/wordpress.md`.
 
 ## Expected workflow
 

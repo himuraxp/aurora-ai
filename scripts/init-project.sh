@@ -43,17 +43,32 @@ detect_stack() {
     framework_ref="frameworks/nestjs.md"
   elif [[ -f "$PROJECT_DIR/astro.config.mjs" ]] || [[ -f "$PROJECT_DIR/astro.config.ts" ]] || [[ -f "$PROJECT_DIR/astro.config.js" ]]; then
     framework_ref="frameworks/astro.md"
+  elif [[ -f "$PROJECT_DIR/wp-config.php" ]] || [[ -d "$PROJECT_DIR/wp-content" ]]; then
+    framework_ref="frameworks/wordpress.md"
+  elif [[ -f "$PROJECT_DIR/style.css" ]] && grep -qE "^[[:space:]]*Theme Name:" "$PROJECT_DIR/style.css" 2>/dev/null; then
+    framework_ref="frameworks/wordpress.md"
+  elif grep -qs "Plugin Name:" "$PROJECT_DIR"/*.php 2>/dev/null; then
+    framework_ref="frameworks/wordpress.md"
   elif [[ -f "$PROJECT_DIR/package.json" ]]; then
     framework_ref="frameworks/nodejs.md"
   fi
 
   if [[ -n "$framework_ref" && -f "$agents_file" ]]; then
-    if ! grep -q "$framework_ref" "$agents_file" 2>/dev/null; then
+    # Idempotency: only an injected reference counts ("Apply `…`." / "Appliquer `…`.")
+    # — the template's examples list also mentions every framework file.
+    if ! grep -qF "Apply \`${framework_ref}\`." "$agents_file" 2>/dev/null \
+       && ! grep -qF "Appliquer \`${framework_ref}\`." "$agents_file" 2>/dev/null; then
       if [[ "$DRY_RUN" == true ]]; then
         echo "would add framework reference: $framework_ref"
       else
-        # Replace the placeholder section in AGENTS.md
-        if grep -q "Décrire ici les conventions techniques" "$agents_file" 2>/dev/null; then
+        # Replace the placeholder section in AGENTS.md. The template is English
+        # since the 2026-10-05 translation; keep the FR pattern for projects
+        # initialized before it.
+        if grep -q "Describe here the project-specific technical conventions" "$agents_file" 2>/dev/null; then
+          sed -i.bak "s|Describe here the project-specific technical conventions, or reference a global standard in \`~/.config/opencode/frameworks/\`.|Apply \`$framework_ref\`.|" "$agents_file"
+          rm -f "$agents_file.bak" 2>/dev/null || true
+          echo "framework reference added: $framework_ref"
+        elif grep -q "Décrire ici les conventions techniques" "$agents_file" 2>/dev/null; then
           sed -i.bak "s|Décrire ici les conventions techniques spécifiques au projet, ou référencer un standard global dans \`~/.config/opencode/frameworks/\`.|Appliquer \`$framework_ref\`.|" "$agents_file"
           rm -f "$agents_file.bak" 2>/dev/null || true
           echo "framework reference added: $framework_ref"

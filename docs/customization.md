@@ -47,7 +47,8 @@ frameworks/
 ├── angular-20.md   # Angular 20 stand-alone, signals, inject(), etc.
 ├── nodejs.md       # Node.js API / TypeScript
 ├── nestjs.md       # Modular NestJS architecture
-└── astro.md        # Astro static sites, SEO, i18n
+├── astro.md        # Astro static sites, SEO, i18n
+└── wordpress.md    # WordPress themes & plugins, security, hooks, perf
 ```
 
 To add a framework:

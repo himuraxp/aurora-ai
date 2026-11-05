@@ -11,6 +11,7 @@ Per-stack rules and conventions. Each file defines the patterns, structures and 
 | Angular 20 | `angular-20.md` | `angular.json` or `.angular-cli.json` |
 | NestJS | `nestjs.md` | `nest-cli.json` |
 | Astro | `astro.md` | `astro.config.*` |
+| WordPress | `wordpress.md` | `wp-config.php`, `wp-content/`, `style.css` with `Theme Name:`, or root PHP with `Plugin Name:` |
 | Node.js | `nodejs.md` | `package.json` (fallback) |
 
 ## Automatic detection

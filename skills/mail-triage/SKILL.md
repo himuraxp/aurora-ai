@@ -28,6 +28,7 @@ python3 "$SCRIPT" scan                          # lecture seule : dossiers + mes
 python3 "$SCRIPT" plan                          # construit un plan de déplacements (dry-run, enregistré + SHA-256)
 python3 "$SCRIPT" apply --plan <id> --confirm-apply   # exécute un plan (autorisation + revalidation)
 python3 "$SCRIPT" status                        # état du moteur
+python3 "$SCRIPT" workflow [--sync]             # état workflow A lire/A traiter/INBOX (--sync : dispatch les lus, §12.5)
 python3 "$SCRIPT" reconcile --digest            # réconcilie une publication kChat incertaine
 python3 "$SCRIPT" digest [--send]               # construit (et envoie) le résumé kChat
 ```
@@ -36,11 +37,12 @@ Toutes les sorties sont en JSON, exit 0/1/2. Les sorties CLI sont **pseudonymis�
 
 ## Procédure (invocation conversationnelle)
 
-1. **Scan** : exécuter `scan`, présenter le résumé à l'utilisateur (catégories, compteurs, propositions) — jamais les données brutes sensibles. Le scan lit les en-têtes des messages réels de la boîte : c'est une **inspection volontaire** déclenchée par l'utilisateur (la sortie est lisible, pseudonymisée et porte la mention « ne pas journaliser »).
-2. **Plan** : exécuter `plan`, présenter les déplacements proposés (depuis → vers, règle).
-3. **Validation humaine batchée** : l'utilisateur valide ou refuse. En cas d'accord, `apply --confirm-apply` (l'empreinte SHA-256 du plan est re-vérifiée ; l'expiration contrôlée).
-4. **Rapport** : résultat JSON du apply, incluant les déplacements effectués et les messages conservés.
-5. Jamais de `apply` sans validation humaine explicite du plan. En V1, **aucune règle `mode: auto` ne s'exécute seule** : l'automatisme se limite à l'inclusion des déplacements dans le plan proposé — l'exécution exige toujours un `apply --confirm-apply` humain.
+1. **Dispatch des lus (workflow --sync)** : exécuter `workflow --sync` — les messages lus (`\Seen` posé par la lecture humaine) du dossier « A lire » sont déplacés vers leur stockage final (règle courante réévaluée au moment T ; sans destination déterminée → fail-safe, le message reste). Lancé à **chaque session de tri**, en premier (préférence du propriétaire, 2026-11-05) ; ce dispatch ne passe pas par le cycle plan/apply (ratifié ARCHITECTURE.md §12.5). « A traiter » n'est pas concerné : la lecture n'y suffit pas — la clôture explicite « traité » reste la voie. Items pending/uncertain jamais dispatchés.
+2. **Scan** : exécuter `scan`, présenter le résumé à l'utilisateur (catégories, compteurs, propositions) — jamais les données brutes sensibles. Le scan lit les en-têtes des messages réels de la boîte : c'est une **inspection volontaire** déclenchée par l'utilisateur (la sortie est lisible, pseudonymisée et porte la mention « ne pas journaliser »).
+3. **Plan** : exécuter `plan`, présenter les déplacements proposés (depuis → vers, règle).
+4. **Validation humaine batchée** : l'utilisateur valide ou refuse. En cas d'accord, `apply --confirm-apply` (l'empreinte SHA-256 du plan est re-vérifiée ; l'expiration contrôlée).
+5. **Rapport** : résultat JSON du apply, incluant les déplacements effectués et les messages conservés.
+6. Jamais de `apply` sans validation humaine explicite du plan. En V1, **aucune règle `mode: auto` ne s'exécute seule** : l'automatisme se limite à l'inclusion des déplacements dans le plan proposé — l'exécution exige toujours un `apply --confirm-apply` humain.
 
 ## Digest kChat
 

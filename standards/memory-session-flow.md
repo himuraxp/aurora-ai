@@ -46,6 +46,29 @@ Puis lire `docs/ai/BUFFER.md` **uniquement si** :
 - l'utilisateur demande explicitement de reprendre une tâche ;
 - le contexte projet est insuffisant.
 
+## Préflight recommandé en ouverture — project-context-health
+
+Avant toute tâche d'implémentation sur un projet disposant de `docs/ai/`,
+exécuter le préflight L1 (lecture seule, borné, < 1 s) :
+
+```bash
+python3 skills/project-context-health/context_health.py --project .
+```
+
+Interprétation (le verdict est une preuve pour l'agent, jamais un verrou) :
+
+- `pass` — mémoire stable mécaniquement depuis la dernière baseline : travailler normalement.
+- `incomplete` (premier run, journal absent) — état légitime normal : procéder à la lecture parallèle ci-dessus et baseliner via `--record` après la première clôture vérifiée (certificat `session-finalize`).
+- `warning` / `stale` — la référence git a bougé ou le contenu a changé : relire les fichiers concernés, ne pas se fier au BUFFER.
+- `unknown` sur freshness (journal tronqué/corrupte) — l'évidence la plus récente est illisible : lancer `--deep --history` pour le diagnostic borné, puis re-baseliner après clôture.
+- `fail` / `no_docs` — voir « Découverte automatique » ci-dessus.
+
+Le mode `--record` (seul mode d'écriture, journal JSONL append-only isolé par
+worktree sous `$(git rev-parse --absolute-git-dir)/project-context-health/`)
+fige une **baseline mécanique** — normalement après une clôture vérifiée, en
+complément du certificat de `session-finalize` (fin de session). Il refuse de
+baseliner un état `fail`/`unknown`. Détails : `skills/project-context-health/SKILL.md`.
+
 ## Fin de session — Persistance mémoire
 
 Appliquer la procédure détaillée dans `memory-auto-update.md` (7 étapes : STATUS, PLAN, CHANGELOG, INDEX, BUFFER, WARNINGS, DECISIONS). Vérifier via `memory-checklist.md`.

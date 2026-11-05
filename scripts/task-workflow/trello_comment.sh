@@ -94,8 +94,6 @@ if [[ -n "$mr_title" ]]; then body="${body}
 📝 ${mr_title}"; fi
 if [[ -n "$branch" ]]; then body="${body}
 🌿 Branche : ${branch}"; fi
-body="${body}
-✔️ Prête pour revue humaine — jamais de merge automatique (task-workflow)"
 
 if [[ "$dry_run" == "yes" ]]; then
   printf '%s\n' "--- comment body ---"

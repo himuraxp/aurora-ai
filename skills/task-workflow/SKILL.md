@@ -386,8 +386,7 @@ Une fois tous les contrôles bloquants verts : skill **`create-mr`**.
      que l'URL de la MR n'est pas déjà dans les commentaires visibles
      (dédoublon **best-effort** en lecture DOM), poster le même corps :
      `🔗 Merge request liée : <mergeRequestUrl>` /
-     `📝 <titre>` (si connu) / `🌿 Branche : <featureBranch>` (si connu) /
-     `✔️ Prête pour revue humaine — jamais de merge automatique (task-workflow)`.
+     `📝 <titre>` (si connu) / `🌿 Branche : <featureBranch>` (si connu).
   3. Session non authentifiée → demander à l'utilisateur de se connecter dans
      le navigateur debug, puis reprendre au 2.
   4. Navigateur non disponible ou utilisateur hors ligne → skip **tracé**.

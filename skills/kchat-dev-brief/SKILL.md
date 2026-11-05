@@ -7,109 +7,139 @@ description: "Prépare un message kChat court, naturel et prêt à copier-coller
 
 ## Mission
 
-Transformer des notes de développement, échanges techniques, rapports QA, captures, erreurs API ou observations dans le code en **un seul message kChat concis, compréhensible et actionnable**.
+Transformer des notes de dev, erreurs API, rapports QA, captures ou observations dans le code en **un seul message kChat extrêmement concis, que le destinataire lit en un seul passage** et auquel il sait quoi répondre.
 
-**But :** que l'équipe destinataire comprenne immédiatement **le contexte, le constat et ce qui est attendu d'elle**, sans devoir parcourir un rapport complet.
+**Priorité absolue : minimum de lecture, maximum d'informations utiles.** Un message trop long décourage de le lire et d'y répondre.
 
-Ce skill sert **pendant le développement comme pendant les QA**. Il ne sert pas à faire un diagnostic exhaustif, une review ni à corriger du code.
+Ce skill sert pendant le développement comme pendant les QA. Il ne produit pas un diagnostic exhaustif, une review ni une correction de code.
 
-## Situations couvertes
+## Collecte des faits
 
-- Endpoint absent ou non disponible (`404`, route non déployée, méthode non prévue).
-- Champ manquant ou valeur absente dans la réponse API.
-- Format, type, enum, valeur, pagination ou comportement API différent du besoin frontend ou du contrat convenu.
-- Erreur serveur ou validation inattendue (`422`, `500`, etc.).
-- Fonctionnalité backend manquante pour poursuivre l'intégration frontend.
-- Clarification attendue : contrat API, valeurs autorisées, responsabilité, disponibilité en préprod/prod, calendrier de déploiement.
-- Blocages identifiés lors d'une QA, d'un test E2E ou d'une phase de développement.
+- Utiliser uniquement les éléments fournis dans la conversation : constats, requêtes/réponses, logs, captures, MR, environnements. Ne pas explorer le dépôt, lancer de tests ni appeler une API si ces éléments suffisent à rédiger le message.
+- Ne jamais inventer une route, un payload, une réponse, un code HTTP, un lien, une cause racine ou un statut de déploiement. Si le payload réel n'est pas disponible, ne pas afficher de bloc JSON fictif.
+- Séparer les faits constatés des hypothèses et des attentes front. Ne jamais présenter une hypothèse comme une certitude (« route non déployée », « bug backend ») tant que ce n'est pas vérifié.
+- Si un problème peut ne pas relever du backend, poser une question de confirmation plutôt qu'attribuer la responsabilité.
+- Adresser le message à l'équipe indiquée par l'utilisateur.
+- Ne jamais divulguer token, secret, identifiant, données personnelles ou données clients.
 
-## Sources et comportement
+## Format et budget de lecture
 
-- Utiliser uniquement les éléments déjà fournis ou clairement disponibles dans la conversation : constats, requêtes/réponses, logs, extraits de code, captures, MR, environnements.
-- Ne pas inventer de route, de champ, de valeur attendue, de code HTTP, de lien, de cause racine ou de statut de déploiement.
-- Ne pas explorer le dépôt, lancer de tests ni appeler une API si les éléments transmis suffisent à rédiger le message.
-- Séparer les **faits constatés** des **attentes frontend**, des **hypothèses** et des **questions à confirmer**.
-- Ne jamais présenter « il manque un champ », « bug backend » ou « route non déployée » comme une certitude si le contrat ou le déploiement n'a pas été vérifié.
-- Adresser le message à l'équipe indiquée par l'utilisateur ; ne pas supposer systématiquement que le backend est fautif.
+**Budget : 10 à 15 secondes de lecture ciblée par message simple (≈ 30 à 60 mots hors code) ; 30 secondes maximum pour un message multi-points.** Dépasser uniquement lorsque la compréhension l'exige ; ne jamais sacrifier l'exactitude technique pour respecter le budget.
 
-## Méthode
+**Format privilégié — un point (1 à 3 points au maximum par message) :**
 
-1. **Identifier la demande** : s'agit-il de corriger un problème, d'ajouter une donnée, de confirmer un contrat ou de vérifier un déploiement ?
-2. **Garder seulement l'utile** : fonctionnalité, environnement si pertinent, endpoint/champ précis, comportement observé, comportement nécessaire au front, action/question attendue.
-3. **Regrouper** les constats connexes et classer les points bloquants en premier. Ignorer les tests PASS, le bruit de console et les explications d'implémentation non nécessaires.
-4. **Formuler une demande par point** : « Est-ce prévu ? », « Vous pouvez ajouter `x` ? », « Pouvez-vous confirmer les valeurs possibles ? », « La route est-elle disponible en préprod ? ».
-5. **Produire uniquement le message kChat**, sans annoncer que le skill a été exécuté, sans analyse ou variantes après le texte.
+> Hello 👋 **Sujet — `MÉTHODE /route`**
+>
+> Constat en une phrase. **Question directe ?**
+>
+> Payload JSON minimal uniquement s'il apporte une information indispensable.
+
+Plusieurs sujets indépendants : un bloc numéroté par sujet, même squelette (**1. Sujet — `MÉTHODE /route`**, constat, question). Un seul sujet : pas de numérotation.
+
+**Règles de structure :**
+
+- **Une seule idée par point** : constat court, puis **une question par sujet**.
+- **Introduction facultative** : une ligne maximum (fonctionnalité, environnement si utile, impact concret si réel).
+- **Conclusion facultative** : supprimer les formules de politesse si elles allongent le message sans le rendre plus agréable.
+- **Regrouper les demandes similaires** (mêmes routes, même question) et **séparer les sujets indépendants**.
+- Plus de 3 sujets indépendants : regrouper d'abord tout ce qui se fusionne sans perte ; sinon dépasser le plafond en gardant le même squelette, plutôt que de perdre un point bloquant.
+- Markdown que kChat rend : gras pour le sujet du point et l'écart clé, code inline pour les éléments techniques. Le message reste lisible en texte brut.
+
+## Précisions techniques API (quand connues)
+
+- **Route visible** dès qu'elle est connue et utile : `MÉTHODE /route` dans le titre du point.
+- **Payload** : uniquement si nécessaire pour comprendre ou reproduire le problème. JSON réduit aux champs utiles — jamais le payload complet par défaut, jamais de JSON inventé.
+- **Réponse API** : statut HTTP et message d'erreur lorsqu'ils aident à identifier le problème.
+- **Attendu / constaté** : une phrase simple sur la différence lorsqu'il s'agit d'un bug.
+- Plusieurs routes concernées par la même question : les regrouper dans un seul point.
+- Ne pas répéter la route ni le payload dans l'explication.
 
 ## Règles de rédaction
 
-- **Par défaut 50 à 90 mots ; maximum 120 mots**, sauf demande explicite de l'utilisateur.
-- **1 à 3 points au maximum**. Pour un seul sujet, préférer **un paragraphe de 2 à 4 phrases** plutôt qu'une liste artificielle.
-- Ton **naturel, direct, cordial, entre collègues**. Une accroche simple (« Hello 👋 ») suffit.
-- **Écrire le message en Markdown que kChat rend** (le style doit rester après le copier-coller) : gras `**…**` pour le sujet du point et l'écart clé, code inline pour les éléments techniques, listes `-` pour plusieurs points.
-- **Gras parcimonieux** : le sujet de chaque point et 1 à 2 éléments clés au total — jamais une phrase longue entière, jamais le message entier.
-- Formuler les demandes sans accusation : « Je constate… », « J'aurais besoin de… », « Vous pouvez confirmer… ? ».
-- Conserver les éléments techniques qui permettent d'agir (`GET /route`, `field_name`, `404`, MR), mais **pas de payload complet**, stacktrace, longue liste d'enums ou chronologie.
-- Éviter les titres de rapport, les tableaux, les longs blocs Markdown et les conclusions bureaucratiques.
-- Mentionner l'impact sur le développement uniquement s'il est concret : « ça bloque l'intégration du formulaire » plutôt que « point critique » sans preuve.
+- Phrases courtes et directes, mots simples. Pas de jargon ni de formulation artificielle (« arbitrage du contrat », « runtime conforme »).
+- **Aucune répétition** : une information n'apparaît qu'une fois.
+- **Aucun contexte superflu** : ne pas raconter les investigations, les tests effectués ni l'historique du problème.
+- Détails techniques limités à ce qui est indispensable pour comprendre et répondre (route, champs, codes d'erreur). Pas de stacktrace, de liste d'enums complète, de preuve de QA ni d'explication d'implémentation.
+- Impact sur le travail mentionné uniquement s'il est concret : « ça bloque l'intégration du formulaire » plutôt que « point critique » sans preuve.
+- Ton naturel entre collègues, tutoiement ou vouvoiement selon le destinataire, formulation amicale sans accusation.
 - Un lien de contexte peut être ajouté s'il est fourni et réellement utile.
-- Ne jamais divulguer token, identifiant secret, mot de passe, credentials, données privées ou données clients.
-- **Ne pas envoyer le message automatiquement**, ni mentionner des collègues sans indication explicite. L'utilisateur le copie-colle.
-- Si une information indispensable manque, formuler une question ouverte dans le message si cela reste utile ; demander une clarification à l'utilisateur seulement si aucun message exact ne peut raisonnablement être rédigé.
 
-## Adaptation du format
+## Passe de compression (avant restitution, silencieuse)
 
-**Un besoin unique :**
+- Peut-on supprimer cette phrase sans perdre une information utile ?
+- Le destinataire sait-il immédiatement ce qui lui est demandé ?
+- La route et le payload nécessaires sont-ils présents ?
+- Peut-on raccourcir encore sans perdre en clarté ?
+- Le message ressemble-t-il à un échange naturel entre développeurs plutôt qu'à un rapport technique ?
 
-> Hello 👋 **[Fonctionnalité]** : [fait observé] sur `[endpoint]`. **Il me faudrait [besoin frontend]**. Vous pouvez me confirmer si c'est prévu / possible ? Merci !
+**Règle finale : toute phrase qui n'aide pas directement à comprendre le problème ou à y répondre disparaît.**
 
-**Plusieurs sujets indépendants :**
+## Livrable
 
-> Hello 👋 **[Fonctionnalité] (en [environnement])**, j'ai quelques points à voir avec vous :
->
-> - **[Sujet]** : [fait]. [besoin ou question].
-> - **[Sujet]** : [fait]. [besoin ou question].
->
-> [Impact concret si utile.] Merci !
-
-Ne jamais laisser les placeholders dans la réponse finale. Ne pas ajouter artificiellement un environnement ou une liste s'ils ne sont pas utiles. Livrer le message en texte Markdown brut — pas dans un bloc de code.
+Uniquement le message, en Markdown brut (pas dans un bloc de code), sans annonce du skill, sans analyse, sans variantes, sans placeholder. Ne jamais l'envoyer automatiquement ni mentionner des collègues sans indication explicite. Si une information indispensable manque, l'intégrer comme question ouverte dans le message ; demander une clarification à l'utilisateur seulement si aucun message ne peut raisonnablement être rédigé.
 
 ## Exemples de calibration
 
-### A. Pendant le développement : champ manquant
+### A. Développement — champ manquant
 
-**Contexte fourni (fictif) :** Sur l'écran des tâches, la réponse de `GET /tasks/{id}` contient `status` mais pas `progress`. Le front doit afficher la progression. Le besoin de ce champ n'a pas encore été validé avec le backend.
-
-**Message attendu :**
-
-Hello 👋 **Détail des tâches** : `GET /tasks/{id}` retourne bien `status`, mais **pas de valeur `progress`** — on en aurait besoin pour afficher l'avancement côté front. Vous pensez pouvoir l'exposer, ou il existe déjà un autre champ/endpoint prévu ? Merci !
-
-### B. Pendant le développement : route à confirmer
-
-**Contexte fourni (fictif) :** Le front doit dupliquer un profil. Aucune route de duplication n'a été identifiée dans la documentation disponible ; aucune réponse API n'a été testée.
+**Contexte fourni (fictif) :** la réponse de `GET /tasks/{id}` contient `status` mais pas `progress` ; le front doit afficher l'avancement.
 
 **Message attendu :**
 
-Hello 👋 **Duplication des profils** : je n'ai pas trouvé de route prévue pour cette action dans la doc API. Est-ce qu'un endpoint existe déjà ou faut-il en prévoir un ? Merci !
+> Hello 👋 **Détail des tâches — `GET /tasks/{id}`**
+>
+> La route retourne `status` mais pas `progress`, nécessaire pour afficher l'avancement. **Possible de l'exposer, ou une autre route la fournit déjà ?** Merci !
 
-### C. Pendant la QA : plusieurs blocages confirmés
+### B. Développement — migration VOD v3 : payload rejeté
 
-**Contexte fourni :** QA callbacks VOD préprod : 15 valeurs d'événement testées rejetées en 422 ; `event_list` vide/absent provoque un 500 `vod_connect` ; `GET /secrets` renvoie 404 ; déploiement MR API !304 incertain.
+**Contexte fourni (fictif) :** migration v2 → v3. `PUT /3/vod/{id}` avec le payload ci-dessous renvoie 400 avec le message « Invalid format » en v3, alors que le même passait en v2.
 
 **Message attendu :**
 
-Hello 👋 **Callbacks VOD (préprod)**, j'ai 3 points à vérifier avec vous :
+> Hello 👋 **Migration VOD v3 — `PUT /3/vod/{id}`**
+>
+> ```json
+> { "url": "https://cdn.exemple.com/video.mp4", "format": "mp4" }
+> ```
+>
+> Ce payload passait en v2, il renvoie **400 Invalid format** en v3. **Nouvelle validation attendue ou régression ?** Merci !
 
-- **Événements (422)** : les 15 valeurs testées sont rejetées. Vous pouvez confirmer les valeurs autorisées ?
-- **Création (500)** : erreur `vod_connect` avec `event_list` vide ou absent. À vérifier côté API.
-- **Secrets (404)** : `GET /secrets` est indisponible. La MR API `!304` est-elle déjà déployée en préprod ?
+### C. API — fonctionnalité manquante
 
-Ça bloque la validation complète du parcours. Merci !
+**Contexte fourni (fictif) :** le front doit dupliquer un profil ; aucune route de duplication identifiée dans la doc ; rien n'a été testé.
 
-## Vérification finale silencieuse
+**Message attendu :**
 
-- Le message correspond au **besoin réel** (développement, QA, demande d'évolution ou clarification), sans forcer un cadrage « QA ».
-- Chaque constat est étayé ; aucune hypothèse n'est transformée en certitude.
-- Chaque point contient une action ou une question compréhensible.
-- Le message est court, lisible d'un coup d'œil et **prêt à copier-coller**.
-- Le Markdown employé est rendu par kChat (gras, code inline, listes) et le message reste lisible en texte brut.
-- Aucune explication d'agent n'entoure le message.
+> Hello 👋 **Profils**
+>
+> Je ne trouve pas de route pour dupliquer un profil dans la doc v3. **Une route existe-t-elle déjà, ou est-ce prévu ?** Merci !
+
+### D. QA — plusieurs blocages indépendants
+
+**Contexte fourni (fictif) :** QA callbacks VOD préprod : `POST /3/vod/{id}/callbacks` rejette en 422 les 15 valeurs d'événement testées ; `event_list` vide ou absent provoque un 500 `vod_connect` ; `GET /3/vod/secrets` renvoie 404, MR API !304 possiblement non déployée. Les trois constats bloquent la validation du parcours.
+
+**Message attendu :**
+
+> Hello 👋 **Callbacks VOD (préprod)** — 3 points qui bloquent la validation :
+>
+> **1. Valeurs d'événement — `POST /3/vod/{id}/callbacks`**
+>
+> Les 15 valeurs testées renvoient **422**. **Quelles valeurs sont autorisées ?**
+>
+> **2. Création — 500 `vod_connect`**
+>
+> L'erreur survient quand `event_list` est vide ou absent. **Vous pouvez regarder ?**
+>
+> **3. `GET /3/vod/secrets` — 404**
+>
+> **La MR API !304 est-elle déployée en préprod ?**
+
+### E. Clarification — contrat à reconfirmer
+
+**Contexte fourni (fictif) :** en préprod, les valeurs d'`event_type` listées dans la doc v2 provoquent un 422 en v3 ; le contrat n'a pas été reconfirmé depuis la migration.
+
+**Message attendu :**
+
+> Hello 👋 **Webhooks VOD (v3)**
+>
+> Les valeurs `event_type` de la doc v2 renvoient **422** en préprod. **Quelles sont les valeurs autorisées en v3 ?** Merci !

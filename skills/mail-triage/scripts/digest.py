@@ -12,6 +12,7 @@ les messages sensibles (`never` / sujet masqué) ne donnent lieu à AUCUNE lectu
 from __future__ import annotations
 
 import base64
+import os
 import quopri
 import re
 import uuid
@@ -693,13 +694,43 @@ def _attach_one(entry: dict, pv: dict | None) -> None:
         entry["preview_unavailable"] = True
 
 
+_AI_TAG_LABELS = {"info": "info", "action_probable": "action probable", "uncertain": "incertain"}
+
+
+def enrich_ai_summaries(built: dict, cfg: dict, env_getter=None) -> dict:
+    """V4.2 (opt-in digest.ai.enabled, ARCHITECTURE §10.3) : résumés IA des
+    conversations portant un aperçu V4.1 validé. Gate off ou config
+    incomplète → built INCHANGÉ, AUCUN appel (fail-closed). Échec par
+    conversation → mention « Analyse indisponible » ; le rendu reste V4.1
+    pur (fallback intégral — la couche IA ne dégrade jamais le digest).
+    Aucun journal : jamais de prompt, d'extrait ni de secret imprimé (§10.4)."""
+    import ai_summary as ai_mod
+
+    getter = env_getter or os.environ.get
+    resolved, reason = ai_mod.resolve_config(cfg.get("digest") or {}, getter)
+    if resolved is None:
+        return {"status": reason or "disabled"}
+    token = getter(resolved["token_env"]) or ""
+    client = ai_mod.AIClient(resolved["base_url"], resolved["model"], token)
+    return ai_mod.enrich_ai(built, client)
+
+
 def _preview_lines(entry: dict) -> list[str]:
-    """Ligne(s) d'aperçu sous une conversation / un item (rendu kChat)."""
+    """Ligne(s) d'aperçu + analyse IA (V4.2) sous une conversation / un item.
+    Libellés du contrat §10.3 : « Analyse IA · <tag> » — jamais « Action
+    requise », jamais transformation en action (aucun déplacement déclenché)."""
+    lines: list[str] = []
     if entry.get("preview"):
-        return [f"> _{entry['preview']}_"]
-    if entry.get("preview_unavailable"):
-        return ["> _(aperçu indisponible)_"]
-    return []
+        lines.append(f"> _{entry['preview']}_")
+    elif entry.get("preview_unavailable"):
+        lines.append("> _(aperçu indisponible)_")
+    ai = entry.get("ai")
+    if isinstance(ai, dict) and isinstance(ai.get("summary"), str):
+        label = _AI_TAG_LABELS.get(ai.get("tag"), "incertain")
+        lines.append(f"> _Analyse IA · {label} : {ai['summary']}_")
+    elif entry.get("ai_unavailable"):
+        lines.append("> _(Analyse indisponible)_")
+    return lines
 
 
 def assign_refs(built: dict, state) -> None:

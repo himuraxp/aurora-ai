@@ -443,7 +443,7 @@ frameworks/
 ├── nestjs.md       # Architecture modulaire NestJS
 ├── astro.md        # Sites statiques Astro, SEO, i18n
 ├── wordpress.md    # Thèmes & plugins WordPress
-└── php.md          # API backend Laravel 12 (Infomaniak)
+└── php.md          # API backend PHP / Laravel
 ```
 
 Le nom du fichier sera le nom du framework. Relancez `npm run update` (ou `./scripts/install.sh`) pour le déployer.
@@ -581,7 +581,7 @@ aurora-ai/
 │   ├── nestjs.md              Conventions NestJS
 │   ├── astro.md               Conventions Astro
 │   ├── wordpress.md           Thèmes & plugins WordPress
-│   └── php.md                 API backend Laravel 12 (Infomaniak)
+│   └── php.md                 API backend PHP / Laravel
 │
 ├── templates/                 Ce que chaque projet reçoit
 │   ├── AGENTS.md              Template racine pour chaque projet

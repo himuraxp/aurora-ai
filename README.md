@@ -583,7 +583,7 @@ aurora-ai/
 │   ├── nestjs.md              NestJS conventions
 │   ├── astro.md               Astro conventions
 │   ├── wordpress.md           WordPress themes & plugins
-│   └── php.md                 Laravel 12 / PHP 8.4-8.5 backend conventions
+│   └── php.md                 PHP / Laravel backend API conventions
 │
 ├── templates/                 What every project receives
 │   ├── AGENTS.md              Root template for every project

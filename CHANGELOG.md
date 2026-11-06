@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.0](https://github.com/himuraxp/aurora-ai/compare/v1.7.0...v1.8.0) (2026-11-06)
+
+
+### Features
+
+* add WordPress example and Laravel 12 PHP framework ([9c93191](https://github.com/himuraxp/aurora-ai/commit/9c931911ef4f5bdf08546ed46f9297b1fd0c11ba))
+* add WordPress example and Laravel 12 PHP framework ([b706af7](https://github.com/himuraxp/aurora-ai/commit/b706af78b9809e9f0965fe8a321a9e1c200e28c0))
+
 ## [1.7.0](https://github.com/himuraxp/aurora-ai/compare/v1.6.0...v1.7.0) (2026-11-06)
 
 

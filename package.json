@@ -18,6 +18,7 @@
     "sync": "bash scripts/sync-project.sh",
     "health-check": "bash scripts/health-check.sh",
     "test:product-authority": "node scripts/test-product-authority.mjs",
+    "test:antislop-hook": "node scripts/test-antislop-hook.mjs",
     "mcp-lock": "python3 scripts/setup-mcp-lock.py",
     "permissions": "bash scripts/permissions-matrix.sh",
     "validate-memory": "bash scripts/validate-memory.sh"

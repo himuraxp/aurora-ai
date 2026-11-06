@@ -61,7 +61,7 @@ Handbook:
 - update documentation activités
 - restructuration projets
 
-site-admin3-material:
+example-project-material:
 - Fix: composants material design
 ```
 
@@ -103,7 +103,7 @@ SCOPE="$PROJECT_NAME"
 **Exemple** :
 - Projet avec `name: "Manager"` → Section "Manager" dans le résumé
 - Projet avec `name: "Handbook"` → Section "Handbook" dans le résumé
-- Projet avec `name: "site-admin3-material"` → Section "site-admin3-material" dans le résumé
+- Projet avec `name: "example-project-material"` → Section "example-project-material" dans le résumé
 
 **Résultat** : Chaque projet apparaît dans le résumé avec son nom exact GitLab, sans transformation.
 
@@ -348,7 +348,7 @@ scope2:
 
 **Entrée (commits bruts avec messages)**:
 ```
-Manager (proj 4902):
+example-project (proj 1001):
 - feat: add media converter encoding configuration panel
 - feat: implement source validation for converter inputs
 - feat: create dashboard for media converter management

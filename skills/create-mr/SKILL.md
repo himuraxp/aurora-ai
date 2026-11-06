@@ -149,7 +149,7 @@ revoked » + glab retombe sur un token OAuth révoqué du glab-cli
 ```bash
 source "${SCRIPTS_DIR}/ensure_glab_token.sh" || exit 1
 # Si l'origin du repo courant n'est pas l'hôte GitLab visé, hôte explicite :
-#   source "${SCRIPTS_DIR}/ensure_glab_token.sh" gitlab.infomaniak.ch || exit 1
+#   source "${SCRIPTS_DIR}/ensure_glab_token.sh" gitlab.example.com || exit 1
 ```
 
 ### 1. Vérifier le workspace

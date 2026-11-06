@@ -328,9 +328,13 @@ fi
 # Préparer les timestamps
 START_DATETIME=$(date +"%Y-%m-%d %H:%M:%S")
 
-# IMPORTANT : payload aligné sur le formulaire internal.infomaniak.com
+# IMPORTANT : payload aligné sur le formulaire internal.example.com
 # - ended_at reste null à la création : c'est autoclose + estimated_time (min) qui terminent l'événement
-# - Pour poser une date de fin explicite après création : PUT /2/events/private/{id} avec {"ended_at": "Y-m-d H:i:s"}
+# - Pour poser une date de fin explicite après création : PUT $API_ENDPOINT/{id} avec {"ended_at": "Y-m-d H:i:s"}
+# Pattern « private config, public engine » : l'endpoint réel et les valeurs
+# de payload (business_units, groups, deploy_slug) vivent dans la config
+# privée locale ~/.config/opencode/.env (placeholders INFOMANIAK_EVENTS_*) —
+# jamais codés en dur dans ce repo. Le script ci-dessous est l'engine générique.
 PAYLOAD=$(jq -n \
   --arg started_at "$START_DATETIME" \
   --arg title "$CHANGELOG_TITLE" \
@@ -345,8 +349,8 @@ PAYLOAD=$(jq -n \
     visibility: "internal",
     estimated_time: 5,
     autoclose: true,
-    business_units: ["media"],
-    groups: ["dev-central", "unix-central"],
+    business_units: ["unit"],
+    groups: ["team-a"],
     disable_notify: false,
     confidentiality_impact: false,
     integrity_impact: false,
@@ -356,11 +360,12 @@ PAYLOAD=$(jq -n \
     business_score: 2,
     intervention_score: 2,
     global_score: 4,
-    deploy_slug: "default_team",
+    deploy_slug: "team-a",
     is_cyberattack: false
   }')
 
-API_ENDPOINT="https://api.infomaniak.com/2/events/private"
+# Endpoint réel : config privée locale, jamais codé en dur (fail-closed).
+API_ENDPOINT="${INFOMANIAK_EVENTS_ENDPOINT:?INFOMANIAK_EVENTS_ENDPOINT manquante — la définir dans ~/.config/opencode/.env (endpoint réel de l'API événements, placeholder INFOMANIAK_EVENTS_*)}"
 
 echo "📤 Envoi de la requête à l'API Infomaniak..."
 
@@ -404,6 +409,7 @@ Le skill est invoqué quand l'utilisateur demande :
 - Avoir `jq` installé pour le parsing JSON
 - Avoir `curl` installé pour les appels API
 - **Variable d'environnement** : `BEARER_EVENT` doit être définie avec le token API Infomaniak (sinon sera demandé interactivement)
+- **Variable d'environnement** : `INFOMANIAK_EVENTS_ENDPOINT` (endpoint réel de l'API événements) — config privée locale `~/.config/opencode/.env`, jamais codée en dur dans le repo
 
 ## Notes
 
@@ -414,8 +420,8 @@ Le skill est invoqué quand l'utilisateur demande :
 - Affiche les commits avec leur hash court et lien vers GitLab
 - Groupe automatiquement en Features/Bug Fixes/Other
 - **Nouvelle fonctionnalité** : Après génération, le changelog est affiché pour validation avant création automatique de l'événement Infomaniak
-- L'événement est créé avec les paramètres : type=maintenance, business_units=["media"], event_type=internal, visibility=internal, groups=["dev-central","unix-central"], deploy_slug=default_team
-- **Fin d'événement** : `ended_at` reste `null` à la création ; `autoclose: true` + `estimated_time: 5` (minutes) terminent l'événement automatiquement. Payload aligné sur le formulaire internal.infomaniak.com
-- **Date de fin explicite** (optionnel) : après création, `PUT /2/events/private/{id}` avec `{"ended_at": "Y-m-d H:i:s"}` (format obligatoire `Y-m-d H:i:s`, PATCH n'existe pas). La durée est auto-calculée par l'API et le status passe à `terminated` une fois la date passée
+- L'événement est créé avec les paramètres : type=maintenance, business_units=["unit"], event_type=internal, visibility=internal, groups=["team-a"], deploy_slug=team-a (valeurs réelles : config privée locale, voir Prérequis)
+- **Fin d'événement** : `ended_at` reste `null` à la création ; `autoclose: true` + `estimated_time: 5` (minutes) terminent l'événement automatiquement. Payload aligné sur le formulaire internal.example.com
+- **Date de fin explicite** (optionnel) : après création, `PUT $API_ENDPOINT/{id}` avec `{"ended_at": "Y-m-d H:i:s"}` (format obligatoire `Y-m-d H:i:s`, PATCH n'existe pas). La durée est auto-calculée par l'API et le status passe à `terminated` une fois la date passée
 - Si la variable `BEARER_EVENT` n'est pas définie, le token sera demandé interactivement
 - **Amélioration des merge commits** : Pour les commits "Merge branch..." (fait via merge local manuel), le skill tente automatiquement de récupérer le titre de la MR associée via l'API GitLab et l'affiche à la place du message de merge technique

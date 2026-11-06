@@ -10,8 +10,8 @@ Responsabilités (SKILL.md — new-worktree) :
 
 Usage :
   new_worktree.py --type feat --context podcast --desc "Dynamic form and config management"
-  new_worktree.py --type feat --context trello-YFmwdlI9
-  new_worktree.py --type fix --context rm-1566515 --desc "Fix infinite playlist loading"
+  new_worktree.py --type feat --context trello-EX12345
+  new_worktree.py --type fix --context rm-1234 --desc "Fix infinite playlist loading"
   new_worktree.py --branch "feat/podcast--dynamic-form-and-config-management"
   new_worktree.py --type feat --context podcast --dry-run
   new_worktree.py --list

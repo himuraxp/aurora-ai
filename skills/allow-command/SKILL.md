@@ -182,14 +182,14 @@ $ git push origin feat/add-astro-framework
 ```
 △Permission required
 #Shell command
-$ PROJECT_ENCODED="infomaniak%2Fsite-admin3-material"
-$ HEAD_SHA="eff1ba556683e72ea09848ecceb18e4e31b15aa0"
+$ PROJECT_ENCODED="acme-group%2Fexample-project"
+$ HEAD_SHA="abc123def456"
 $ FILES=(
-  "apps/manager/src/app/modules/products/.../android-integration.component.ts"
-  "apps/manager/src/app/modules/products/.../laptop-integration.component.html"
+  "apps/example/src/app/modules/products/.../android-integration.component.ts"
+  "apps/example/src/app/modules/products/.../laptop-integration.component.html"
 )
 $ curl -s --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-    "https://gitlab.infomaniak.com/api/v4/projects/$PROJECT_ENCODED/repository/files/$file_path/raw?ref=$HEAD_SHA"
+    "https://gitlab.example.com/api/v4/projects/$PROJECT_ENCODED/repository/files/$file_path/raw?ref=$HEAD_SHA"
 ```
 
 **Action:**

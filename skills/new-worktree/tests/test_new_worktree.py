@@ -143,18 +143,18 @@ class TestNaming(unittest.TestCase):
 
     def test_scenario_trello_id(self):
         nwt = self.import_script()
-        self.assertEqual(nwt.compose_branch("feat", "trello-YFmwdlI9", None), "feat/trello-YFmwdlI9")
+        self.assertEqual(nwt.compose_branch("feat", "trello-EX12345", None), "feat/trello-EX12345")
 
     def test_scenario_rm_id(self):
         nwt = self.import_script()
-        self.assertEqual(nwt.compose_branch("fix", "rm-1566515", None), "fix/rm-1566515")
+        self.assertEqual(nwt.compose_branch("fix", "rm-1234", None), "fix/rm-1234")
 
     def test_scenario_rm_with_fr_desc(self):
         nwt = self.import_script()
         desc = self.agent_desc("Corriger le chargement infini des playlists")
         self.assertEqual(
-            nwt.compose_branch("fix", "rm-1566515", desc),
-            "fix/rm-1566515--fix-infinite-playlist-loading",
+            nwt.compose_branch("fix", "rm-1234", desc),
+            "fix/rm-1234--fix-infinite-playlist-loading",
         )
 
     def test_scenario_english_not_retranslated(self):
@@ -172,8 +172,8 @@ class TestNaming(unittest.TestCase):
 
     def test_slugify_preserves_id_case(self):
         nwt = self.import_script()
-        self.assertEqual(nwt.slugify("trello-YFmwdlI9", lowercase=False), "trello-YFmwdlI9")
-        self.assertEqual(nwt.slugify("rm-1566515", lowercase=False), "rm-1566515")
+        self.assertEqual(nwt.slugify("trello-EX12345", lowercase=False), "trello-EX12345")
+        self.assertEqual(nwt.slugify("rm-1234", lowercase=False), "rm-1234")
 
     def test_long_branch_truncated_with_digest(self):
         nwt = self.import_script()

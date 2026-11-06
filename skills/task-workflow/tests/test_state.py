@@ -1055,30 +1055,30 @@ class TestCanonicalTaskKey(unittest.TestCase):
     def test_trello_url_forms_share_one_key(self):
         # T-01: 3 URL forms of the same card must normalize to one identity.
         forms = [
-            "https://trello.com/c/M5JkpDlj",
-            "https://trello.com/c/M5JkpDlj/ordre-de-la-selection",
-            "https://trello.com/c/M5JkpDlj/518-ordre-de-la-selection",
+            "https://trello.com/c/AbCdEf12",
+            "https://trello.com/c/AbCdEf12/ordre-de-la-selection",
+            "https://trello.com/c/AbCdEf12/518-ordre-de-la-selection",
         ]
         keys = {tw_state.canonical_task_key(url) for url in forms}
-        self.assertEqual(keys, {"trello:M5JkpDlj"})
+        self.assertEqual(keys, {"trello:AbCdEf12"})
 
     def test_gitlab_issue_and_work_item_share_one_key(self):
         self.assertEqual(tw_state.canonical_task_key(
-            "https://gitlab.infomaniak.ch/infomaniak/media/site-manager/-/issues/13"),
+            "https://gitlab.example.com/acme-group/example-project/-/issues/13"),
             tw_state.canonical_task_key(
-            "https://gitlab.infomaniak.ch/infomaniak/media/site-manager/-/work_items/13"))
+            "https://gitlab.example.com/acme-group/example-project/-/work_items/13"))
 
     def test_unknown_source_falls_back_to_raw_url(self):
         url = "https://linear.app/proj/issue/ABC-1"
         self.assertEqual(tw_state.canonical_task_key(url), url)
 
     def test_normalized_id_same_for_all_url_forms(self):
-        repo = "/dev/site-manager"
+        repo = "/dev/example-project"
         ids = {tw_state.new_workflow_id(url, repo) for url in (
-            "https://trello.com/c/M5JkpDlj",
-            "https://trello.com/c/M5JkpDlj/518-ordre-de-la-selection")}
+            "https://trello.com/c/AbCdEf12",
+            "https://trello.com/c/AbCdEf12/518-ordre-de-la-selection")}
         self.assertEqual(len(ids), 1)
-        self.assertTrue(list(ids)[0].startswith("tw-site-manager--"))
+        self.assertTrue(list(ids)[0].startswith("tw-example-project--"))
 
 
 class TestResolveState(unittest.TestCase):
@@ -1097,36 +1097,36 @@ class TestResolveState(unittest.TestCase):
         return path
 
     def test_exact_hit_by_normalized_id(self):
-        path = self._state("tw-site-manager--98e87142", "https://trello.com/c/M5JkpDlj")
+        path = self._state("tw-example-project--614d3e1d", "https://trello.com/c/AbCdEf12")
         self.assertEqual(tw_state.resolve_state(
-            "https://trello.com/c/M5JkpDlj/518-ordre-de-la-selection",
-            "/dev/site-manager", directory=self.tmp.name), path)
+            "https://trello.com/c/AbCdEf12/518-ordre-de-la-selection",
+            "/dev/example-project", directory=self.tmp.name), path)
 
     def test_legacy_lookup_through_taskurls(self):
         # Legacy id (hash of the raw URL) stays resolvable from any URL form.
-        path = self._state("tw-site-manager--98e87142", "https://trello.com/c/M5JkpDlj")
+        path = self._state("tw-example-project--614d3e1d", "https://trello.com/c/AbCdEf12")
         self.assertEqual(tw_state.resolve_state(
-            "https://trello.com/c/M5JkpDlj/ordre-de-la-selection",
-            "/dev/site-manager", directory=self.tmp.name), path)
+            "https://trello.com/c/AbCdEf12/ordre-de-la-selection",
+            "/dev/example-project", directory=self.tmp.name), path)
 
     def test_ambiguous_matches_raise(self):
-        self._state("tw-site-manager--aaaaaaaa", "https://trello.com/c/M5JkpDlj")
-        self._state("tw-site-manager--bbbbbbbb", "https://trello.com/c/M5JkpDlj/518-x")
+        self._state("tw-example-project--aaaaaaaa", "https://trello.com/c/AbCdEf12")
+        self._state("tw-example-project--bbbbbbbb", "https://trello.com/c/AbCdEf12/518-x")
         with self.assertRaises(ValueError):
-            tw_state.resolve_state("https://trello.com/c/M5JkpDlj",
-                                   "/dev/site-manager", directory=self.tmp.name)
+            tw_state.resolve_state("https://trello.com/c/AbCdEf12",
+                                   "/dev/example-project", directory=self.tmp.name)
 
     def test_no_match_returns_none(self):
         self.assertIsNone(tw_state.resolve_state(
-            "https://trello.com/c/nothing", "/dev/site-manager", directory=self.tmp.name))
+            "https://trello.com/c/nothing", "/dev/example-project", directory=self.tmp.name))
 
     def test_exact_hit_with_foreign_taskurls_not_resolved(self):
         # A renamed/copied state file whose taskUrls describe another task is
         # never silently resolved — only the legacy scan (with ambiguity
         # detection) decides.
-        self._state("tw-site-manager--98e87142", "https://trello.com/c/OTHERCARD")
+        self._state("tw-example-project--614d3e1d", "https://trello.com/c/OTHERCARD")
         self.assertIsNone(tw_state.resolve_state(
-            "https://trello.com/c/M5JkpDlj", "/dev/site-manager", directory=self.tmp.name))
+            "https://trello.com/c/AbCdEf12", "/dev/example-project", directory=self.tmp.name))
 
 
 class TestJournalNeverBlocksTransition(unittest.TestCase):
@@ -1385,14 +1385,14 @@ class TestSignatureFormat(unittest.TestCase):
 
 class TestValidateAll(unittest.TestCase):
     def test_placeholder_state_detected(self):
-        # T-05: hand-written states like tw-site-manager--a1b2c3d4 must surface.
+        # T-05: hand-written states like tw-example-project--a1b2c3d4 must surface.
         tmp = tempfile.TemporaryDirectory()
         try:
             placeholder = {
-                "schemaVersion": 1, "workflowId": "tw-site-manager--a1b2c3d4",
+                "schemaVersion": 1, "workflowId": "tw-example-project--a1b2c3d4",
                 "codeSignature": "pending",
             }
-            path = os.path.join(tmp.name, "tw-site-manager--a1b2c3d4.json")
+            path = os.path.join(tmp.name, "tw-example-project--a1b2c3d4.json")
             with open(path, "w", encoding="utf-8") as handle:
                 json.dump(placeholder, handle)
             script = os.path.join(os.path.dirname(__file__), "..", "tw_state.py")

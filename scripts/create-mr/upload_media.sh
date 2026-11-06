@@ -62,7 +62,7 @@ trap 'rm -f "$BODY_FILE" "$BODY_FILE.err"' EXIT
 
 # Upload each file. `glab api` has NO gh-style `-F file=@...` multipart flag
 # (gh CLI syntax; glab --field/--raw-field produce JSON-encoded fields). The
-# validated path (glab 1.86, proven in site-manager MR !604) builds the
+# validated path (glab 1.86, proven in example-project MR !604) builds the
 # multipart body with build_multipart.py and sends it via `glab api --input`.
 for file_path in "$@"; do
   if [ ! -f "$file_path" ]; then

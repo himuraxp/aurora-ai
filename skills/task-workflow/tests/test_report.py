@@ -22,13 +22,13 @@ def rich_state(**overrides):
     """A !570-shaped state: 7 phases done, QA skipped, 1 HUMAN decision, MR open."""
     state = {
         "schemaVersion": 1,
-        "workflowId": "tw-site-manager--98e87142",
+        "workflowId": "tw-example-project--614d3e1d",
         "taskUrls": [{"source": "trello",
-                      "url": "https://trello.com/c/M5JkpDlj/518-ordre-de-la-selection"}],
-        "repository": "/dev/split-manager-media/site-manager",
+                      "url": "https://trello.com/c/AbCdEf12/518-ordre-de-la-selection"}],
+        "repository": "/dev/example-project",
         "baseBranch": "develop",
         "baseCommit": "be8572c",
-        "featureBranch": "fix/trello-M5JkpDlj--reorder-profile-options",
+        "featureBranch": "fix/trello-AbCdEf12--reorder-profile-options",
         "worktreePath": "/nowhere",
         "currentPhase": 9,
         "phaseStatuses": {
@@ -123,7 +123,7 @@ class TestOperational(unittest.TestCase):
         self.assertNotIn("blockers", out)
 
     def test_no_recorded_checks_says_so_never_fakes_pass(self):
-        # Real-world 055b9041: empty testResults must read as unrecorded,
+        # Real-world deadbeef: empty testResults must read as unrecorded,
         # never as a bare "bloqueurs : 0" that looks like all checks passed.
         state = rich_state(testResults=[], qaResults=[], reviewResults=[])
         out = tw_report.render_operational(state, [], CONTEXT)
@@ -276,7 +276,7 @@ class TestAuthSkipProcessDeviation(unittest.TestCase):
         return state
 
     def _write_journal(self, tmp, summaries):
-        artifacts = os.path.join(tmp, "tw-site-manager--98e87142")
+        artifacts = os.path.join(tmp, "tw-example-project--614d3e1d")
         os.makedirs(artifacts, exist_ok=True)
         with open(os.path.join(artifacts, "events.jsonl"), "w", encoding="utf-8") as handle:
             for seq, summary in enumerate(summaries, start=1):
@@ -286,7 +286,7 @@ class TestAuthSkipProcessDeviation(unittest.TestCase):
 
     def test_auth_skip_without_traced_attempt_is_flagged(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path = os.path.join(tmp, "tw-site-manager--98e87142.json")
+            path = os.path.join(tmp, "tw-example-project--614d3e1d.json")
             with open(path, "w", encoding="utf-8") as handle:
                 json.dump(self._auth_skipped_state(), handle)
             self._write_journal(tmp, ["yarn test: 121 passed"])
@@ -296,7 +296,7 @@ class TestAuthSkipProcessDeviation(unittest.TestCase):
 
     def test_auth_skip_with_recorded_attempt_not_flagged(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path = os.path.join(tmp, "tw-site-manager--98e87142.json")
+            path = os.path.join(tmp, "tw-example-project--614d3e1d.json")
             with open(path, "w", encoding="utf-8") as handle:
                 json.dump(self._auth_skipped_state(), handle)
             self._write_journal(tmp, ["browser-debug : navigation vers la page cible"])
@@ -336,7 +336,7 @@ class TestSkipReasonFallback(unittest.TestCase):
 class TestCli(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.path = os.path.join(self.tmp.name, "tw-site-manager--98e87142.json")
+        self.path = os.path.join(self.tmp.name, "tw-example-project--614d3e1d.json")
         with open(self.path, "w", encoding="utf-8") as handle:
             json.dump(rich_state(worktreePath=self.tmp.name), handle)
 
@@ -353,7 +353,7 @@ class TestCli(unittest.TestCase):
         first = self._run(self.path)
         self.assertEqual(first.returncode, 0)
         self.assertIn("MR !570 prête", first.stdout)
-        report = os.path.join(self.tmp.name, "tw-site-manager--98e87142", "report-operational.md")
+        report = os.path.join(self.tmp.name, "tw-example-project--614d3e1d", "report-operational.md")
         content_first = open(report, encoding="utf-8").read()
         second = self._run(self.path)
         self.assertEqual(second.returncode, 0)
@@ -364,7 +364,7 @@ class TestCli(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertIn("written:", result.stdout)
         self.assertNotIn("## Phase 4", result.stdout)  # never printed in full
-        report = os.path.join(self.tmp.name, "tw-site-manager--98e87142", "report-detailed.md")
+        report = os.path.join(self.tmp.name, "tw-example-project--614d3e1d", "report-detailed.md")
         self.assertIn("## Phase 4", open(report, encoding="utf-8").read())
 
     def test_meetup_refused_with_ready_architecture(self):

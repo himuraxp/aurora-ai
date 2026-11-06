@@ -26,7 +26,7 @@ from sync_issues import (  # noqa: E402
 REGISTRY = {
     "version": 1,
     "projects": [
-        {"alias": "site-manager", "displayName": "Manager (média)", "gitlabPath": "acme-group/media/site-manager", "projectId": 2001, "validated": True, "role": ""},
+        {"alias": "example-project", "displayName": "Example Project", "gitlabPath": "acme-group/example-project", "projectId": 2001, "validated": True, "role": ""},
         {"alias": "admin-app", "displayName": "Admin App", "gitlabPath": "acme-group/admin-app", "projectId": 2002, "validated": True, "role": ""},
         {"alias": "manager-element", "displayName": "Manager Element (design system)", "gitlabPath": "acme-group/front/design-system", "projectId": 2003, "validated": True, "role": ""},
         {"alias": "manager-page", "displayName": "Manager Page", "gitlabPath": "acme-group/front/page-builder", "projectId": 2004, "validated": True, "role": ""},
@@ -73,7 +73,7 @@ Issue technique sans maquette.
 
 class TestProjectResolution(unittest.TestCase):
     def test_alias_connu(self):
-        self.assertEqual(resolve("site-manager", REGISTRY)["projectId"], 2001)
+        self.assertEqual(resolve("example-project", REGISTRY)["projectId"], 2001)
 
     def test_project_path_connu(self):
         self.assertEqual(resolve("acme-group/admin-app", REGISTRY)["projectId"], 2002)
@@ -209,8 +209,8 @@ X.
 
 class TestSyncSafety(unittest.TestCase):
     def test_wrong_project_detecte(self):
-        self.assertTrue(detect_wrong_project("acme-group/media/site-manager", "acme-group/admin-app"))
-        self.assertFalse(detect_wrong_project("acme-group/media/site-manager", "acme-group/media/site-manager"))
+        self.assertTrue(detect_wrong_project("acme-group/example-project", "acme-group/admin-app"))
+        self.assertFalse(detect_wrong_project("acme-group/example-project", "acme-group/example-project"))
 
     def test_update_si_diff_uniquement(self):
         criteria = ["Critère 1"]

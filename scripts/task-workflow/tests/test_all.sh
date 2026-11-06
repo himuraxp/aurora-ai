@@ -106,9 +106,9 @@ if printf '%s' "$config" | grep -q 'request = "POST"'; then
   exit 0
 fi
 case "${CURL_STUB_GET:-clean}" in
-  with-mr)       printf '[{"id":"111122223333444455556666","data":{"text":"🔗 Merge request liée : https://gitlab.infomaniak.ch/g/p/-/merge_requests/602"}}]' > "$out_file"; printf '200' ;;
-  # longer-mr: MR 6030 already commented — a MR 603 lookup must NOT see "already"
-  longer-mr)     printf '[{"id":"111122223333444455556666","data":{"text":"🔗 Merge request liée : https://gitlab.infomaniak.ch/g/p/-/merge_requests/6030"}}]' > "$out_file"; printf '200' ;;
+  with-mr)       printf '[{"id":"111122223333444455556666","data":{"text":"🔗 Merge request liée : https://gitlab.example.com/acme-group/example-project/-/merge_requests/1234"}}]' > "$out_file"; printf '200' ;;
+  # longer-mr: MR 12350 already commented — a MR 1235 lookup must NOT see "already"
+  longer-mr)     printf '[{"id":"111122223333444455556666","data":{"text":"🔗 Merge request liée : https://gitlab.example.com/acme-group/example-project/-/merge_requests/12350"}}]' > "$out_file"; printf '200' ;;
   clean)         printf '[{"id":"111122223333444455556666","data":{"text":"ancien commentaire sans MR"}}]' > "$out_file"; printf '200' ;;
   http500)       printf '{"error":"boom"}' > "$out_file"; printf '500' ;;
   network-error) exit 7 ;;
@@ -198,12 +198,12 @@ echo "── dry-run ──"
 new_case
 set +e
 out="$(run_script "$CASE_DIR" --card-url "https://trello.com/c/abc12345/projet-xyz" \
-  --mr-url "https://gitlab.infomaniak.ch/g/p/-/merge_requests/602" \
+  --mr-url "https://gitlab.example.com/acme-group/example-project/-/merge_requests/1234" \
   --mr-title "feat: select multi-extension" --branch "feat/trello-w2v1zNEG" --dry-run)"; code=$?
 set -e
 assert_eq "dry-run → exit 0" "0" "$code"
 assert_eq "outcome dry-run" "dry-run" "$(JSON_OUTCOME "$out")"
-assert_contains "dry-run shows the MR url" "https://gitlab.infomaniak.ch/g/p/-/merge_requests/602" "$out"
+assert_contains "dry-run shows the MR url" "https://gitlab.example.com/acme-group/example-project/-/merge_requests/1234" "$out"
 assert_contains "dry-run shows the title" "feat: select multi-extension" "$out"
 assert_not_contains "dry-run does not show the review-humanity footer" "jamais de merge automatique" "$out"
 assert_eq "dry-run makes no network call" "" "$(cat "$CASE_DIR/curl-argv.log")"
@@ -214,7 +214,7 @@ new_case
 set +e
 out="$(CURL_STUB_GET=with-mr run_script "$CASE_DIR" \
   --card-url "https://trello.com/c/abc12345" \
-  --mr-url "https://gitlab.infomaniak.ch/g/p/-/merge_requests/602")"; code=$?
+  --mr-url "https://gitlab.example.com/acme-group/example-project/-/merge_requests/1234")"; code=$?
 set -e
 assert_eq "MR already in comments → already (exit 0)" "0" "$code"
 assert_eq "outcome already" "already" "$(JSON_OUTCOME "$out")"
@@ -224,7 +224,7 @@ new_case
 set +e
 out="$(CURL_STUB_GET=clean CURL_STUB_POST=ok run_script "$CASE_DIR" \
   --card-url "https://trello.com/c/abc12345" \
-  --mr-url "https://gitlab.infomaniak.ch/g/p/-/merge_requests/603" \
+  --mr-url "https://gitlab.example.com/acme-group/example-project/-/merge_requests/1235" \
   --branch "feat/trello-w2v1zNEG")"; code=$?
 set -e
 assert_eq "clean card → posted (exit 0)" "0" "$code"
@@ -233,7 +233,7 @@ assert_contains "posted carries the comment id" '"commentId":"68f0a1b2c3d4e5f6a7
 assert_not_contains "commentId is the ACTION id, not memberCreator.id" "99ff88ee77dd66cc55bb44aa" "$out"
 assert_eq "clean card = two calls (GET then POST)" "2" "$(grep -c 'ARGV' "$CASE_DIR/curl-argv.log")"
 config_log="$(cat "$CASE_DIR/curl-config.log")"
-assert_contains "POST body carries the MR url" "merge_requests/603" "$config_log"
+assert_contains "POST body carries the MR url" "merge_requests/1235" "$config_log"
 assert_contains "POST body carries the branch" "feat/trello-w2v1zNEG" "$config_log"
 assert_contains "POST targets the right card (shortLink, /c/ prefix stripped)" "cards/abc12345/actions/comments" "$config_log"
 # Route fidelity (review F-01): the dedupe GET must hit the real route
@@ -243,12 +243,12 @@ assert_contains "GET pins the dedupe window (limit=1000)" "limit=1000" "$config_
 get_lines="$(grep 'url = ' "$CASE_DIR/curl-config.log" | head -1)"
 assert_not_contains "GET never calls the unrouted /actions/comments" "actions/comments" "$get_lines"
 
-# Boundary match (review F-02): MR 6030 already commented must not satisfy MR 603
+# Boundary match (review F-02): MR 12350 already commented must not satisfy MR 1235
 new_case
 set +e
 out="$(CURL_STUB_GET=longer-mr CURL_STUB_POST=ok run_script "$CASE_DIR" \
   --card-url "https://trello.com/c/abc12345" \
-  --mr-url "https://gitlab.infomaniak.ch/g/p/-/merge_requests/603")"; code=$?
+  --mr-url "https://gitlab.example.com/acme-group/example-project/-/merge_requests/1235")"; code=$?
 set -e
 assert_eq "longer MR number is not a false already → posted (exit 0)" "0" "$code"
 assert_eq "outcome posted (not already)" "posted" "$(JSON_OUTCOME "$out")"

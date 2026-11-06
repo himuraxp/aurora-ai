@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.9.0](https://github.com/himuraxp/aurora-ai/compare/v1.8.0...v1.9.0) (2026-11-06)
+
+
+### Features
+
+* **security:** add OPSEC metadata gate across prose channels ([a0e4d81](https://github.com/himuraxp/aurora-ai/commit/a0e4d814e51966244a2b32ce2cae85d261845858))
+* **security:** add OPSEC metadata gate across prose channels ([418a1af](https://github.com/himuraxp/aurora-ai/commit/418a1af1e52d8f3910ba070518edc6323e082b19))
+
+
+### Bug Fixes
+
+* **mail-triage:** restore digest --confirm-only for composite morning flow ([826492a](https://github.com/himuraxp/aurora-ai/commit/826492a1ee56e2b86efc429c4a8e14005bc5de9d))
+
 ## [1.8.0](https://github.com/himuraxp/aurora-ai/compare/v1.7.0...v1.8.0) (2026-11-06)
 
 

@@ -117,6 +117,12 @@ the tip in this wave; **no open item** remains at the tip after it:
     `BEARER_EVENT=` added (one-line comment pointing to
     `skills/deployment-changelog`) — the engine consumes these variables and
     the example must document them without ever carrying real values.
+  - **(i) OPSEC gate installed**: `scripts/hooks/opsec-gate.sh` (patterns for
+    internal hosts, private package names, internal project paths and naming
+    conventions) wired as `pre-commit` + `commit-msg` hooks and enforced
+    server-side by `.github/workflows/opsec-scan.yml` — tree, commit
+    messages and PR description scanned. Reception suite
+    `scripts/test-opsec-gate.mjs` wired into `health-check`.
 - **F-02 reopening criterion triggered**: the pre-wave tip documented a
   private events endpoint — the "sensitive component / unauthenticated
   endpoint" reopening criterion from F-02 above applies; reassessment with

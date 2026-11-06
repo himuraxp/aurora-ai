@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# commit-msg — Git hook entry point (executed by git via core.hooksPath=scripts/hooks).
+# The filename MUST be exactly "commit-msg" for git to invoke it.
+set -euo pipefail
+DIR="$(cd "$(dirname "$0")" && pwd)"
+exec "$DIR/commit-msg-opsec.sh" "$@"

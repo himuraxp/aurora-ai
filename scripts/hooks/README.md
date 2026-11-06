@@ -57,6 +57,49 @@ If a detection is a false positive, commit with `--no-verify`:
 git commit --no-verify
 ```
 
+## pre-commit-opsec.sh + commit-msg-opsec.sh (OPSEC metadata gate)
+
+OPSEC gate that detects **internal infrastructure identifiers** in
+documentation, examples, fixtures and commit messages — the channel gitleaks
+cannot see (gitleaks only matches credentials). Born from the 2026-11-06
+leak wave, where internal identifiers reached the public repository through
+prose and a PR body (see `docs/SECURITY-ACCEPTANCE.md`). The literal
+patterns live in `opsec-gate.sh` (`PATTERNS[]`); this doc names the classes:
+
+- the internal GitLab host (including a host-alias variant)
+- the internal staff portal host
+- private composer package names under the organization vendor
+- internal project paths (organization namespace + group + project segments)
+- internal route-file naming (per-audience route files, including the
+  unauthenticated one)
+- internal project codenames
+
+**Ignored files** (contain identifiers by nature or by recorded decision):
+- `opsec-gate.sh`, `test-opsec-gate.mjs`, `opsec-scan.yml` (this gate's own sources)
+- `docs/SECURITY-ACCEPTANCE.md` (quotes historical identifiers in decisions)
+- `test-pre-commit-patterns.sh` (shared with the secret-scanner fixtures)
+
+**Wiring:**
+- `pre-commit` (dispatcher) chains `pre-commit-secrets.sh` then `pre-commit-opsec.sh`
+- `commit-msg` scans the commit message via `commit-msg-opsec.sh`
+- `.github/workflows/opsec-scan.yml` enforces all three channels server-side:
+  tracked tree, every commit message on the PR/push, and the PR description
+
+**Modes** (`scripts/hooks/opsec-gate.sh`): `--staged` (pre-commit),
+`--message FILE` (commit-msg), `--files FILE...` (tree scan), `--stdin`
+(free text). Exit 1 on any match; no degraded mode (plain bash + grep).
+
+**Validation:** `scripts/test-opsec-gate.mjs` (reception suite: per-pattern
+detection, skip list, all four modes, permanent false-positive guard on the
+tracked tree) — executed by `scripts/health-check.sh` and wired as
+`npm run test:opsec-gate`. The suite assembles pattern samples at runtime;
+documentation and fixtures never carry the literal patterns outside the
+skipped gate sources.
+
+**False positives:** a pattern that matches legitimate public content must
+be tuned, not silenced. Intentional matches go through a documented decision
+in `docs/SECURITY-ACCEPTANCE.md` before any `--no-verify`.
+
 ## Adding a hook
 
 1. Create a `<hook-name>.sh` file in this folder

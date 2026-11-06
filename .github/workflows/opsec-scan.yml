@@ -1,0 +1,58 @@
+# opsec-scan — server-side enforcement of the OPSEC metadata gate.
+#
+# The local hooks (scripts/hooks/pre-commit-opsec.sh, commit-msg-opsec.sh)
+# are bypassable (--no-verify, hooksPath not installed). This workflow is the
+# layer that does NOT depend on local configuration. It covers what gitleaks
+# cannot see: internal identifiers in prose. Three channels scanned:
+#   1. the full tree (working tree at HEAD),
+#   2. every commit message on the PR/push,
+#   3. the PR description.
+# Channels 2 and 3 are direct lessons from the 2026-11-06 leak wave, where
+# the code was cleaned but the commit message and PR body carried the
+# identifiers (see docs/SECURITY-ACCEPTANCE.md).
+# Minimal permissions: contents: read only.
+
+name: opsec-scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  opsec:
+    name: OPSEC metadata gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2, pinned by SHA
+        with:
+          fetch-depth: 0
+
+      - name: Scan working tree
+        run: git ls-files -z | xargs -0 bash scripts/hooks/opsec-gate.sh --files
+
+      - name: Scan commit messages (pull request)
+        if: github.event_name == 'pull_request'
+        run: git log --format=%B ${{ github.event.pull_request.base.sha }}..HEAD | bash scripts/hooks/opsec-gate.sh --stdin
+
+      - name: Scan commit messages (push)
+        if: github.event_name == 'push'
+        run: |
+          before="${{ github.event.before }}"
+          if [ "${before}" != "0000000000000000000000000000000000000000" ] && git cat-file -e "${before}" 2>/dev/null; then
+            git log --format=%B "${before}..HEAD" | bash scripts/hooks/opsec-gate.sh --stdin
+          else
+            git log --format=%B -1 | bash scripts/hooks/opsec-gate.sh --stdin
+          fi
+
+      - name: Scan PR description
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr-body.txt"
+          bash scripts/hooks/opsec-gate.sh --message "$RUNNER_TEMP/pr-body.txt"

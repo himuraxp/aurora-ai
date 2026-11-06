@@ -674,6 +674,18 @@ if [[ -f "$ROOT_DIR/scripts/test-antislop-hook.mjs" ]]; then
   fi
 fi
 
+# OPSEC-gate reception suite — identifier-pattern invariants the static greps
+# cannot cover (per-pattern detection, skip list, staged/message/stdin modes,
+# permanent false-positive guard on the tracked tree). Pure bash + node, no
+# version constraint.
+if [[ -f "$ROOT_DIR/scripts/test-opsec-gate.mjs" ]]; then
+  if node "$ROOT_DIR/scripts/test-opsec-gate.mjs" >/dev/null 2>&1; then
+    ok "opsec-gate reception suite passed (identifier patterns + modes + FP guard)"
+  else
+    fail "opsec-gate reception suite FAILED — OPSEC gate regression"
+  fi
+fi
+
 # ─── 11. Task-workflow skill (orchestrateur Trello/GitLab) ──────────────────
 
 if [[ -f "$ROOT_DIR/skills/task-workflow/SKILL.md" ]]; then

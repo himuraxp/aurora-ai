@@ -188,5 +188,60 @@ class SecretGuardTestCase(CliBaseTestCase):
         self.assertEqual(payload["error"], "secret")
 
 
+class DigestConfirmOnlyTestCase(CliBaseTestCase):
+    """digest --confirm-only (chemin du wrapper matinal) : usage, flux IMAP
+    simulé, idempotence via la garde min_interval. Aucune publication."""
+
+    def test_confirm_only_and_send_mutually_exclusive(self) -> None:
+        self.write_config(base_config())
+        code, payload = run_cli(["--config-dir", str(self.dir), "digest",
+                                 "--confirm-only", "--send"])
+        self.assertEqual(code, 2)
+        self.assertEqual(payload["error"], "bad_usage")
+
+    def _run_confirm_only(self) -> tuple[int, dict]:
+        from datetime import datetime, timedelta, timezone
+
+        os.environ["MAIL_TRIAGE_IMAP_LOGIN"] = "test@example.com"
+        os.environ["MAIL_TRIAGE_IMAP_PASSWORD"] = "test-password"
+        # Message récent (fenêtre glissante 18-20 h) et non lu → « new ».
+        recent = (datetime.now(timezone.utc) - timedelta(minutes=30)).isoformat()
+        with mock.patch.object(triage, "_connect_imap", return_value=mock.MagicMock()), \
+             mock.patch.object(triage, "_uidvalidity", return_value=12345), \
+             mock.patch.object(triage, "_fetch_recent",
+                               return_value=[{"uid": 42, "from": "a@news.example.com",
+                                              "subject": "Nouveautés",
+                                              "internaldate": recent, "seen": False}]):
+            return run_cli(["--config-dir", str(self.dir), "digest", "--confirm-only"])
+
+    def test_confirm_only_consumes_window_without_publishing(self) -> None:
+        self.write_config(base_config())
+        code, payload = self._run_confirm_only()
+        self.assertEqual(code, 0)
+        self.assertTrue(payload["confirm_only"])
+        self.assertEqual(payload["status"], "sent")
+        self.assertEqual(payload["new_count"], 1)
+        state = state_mod.State(self.dir / "state.sqlite")
+        last = state.last_confirmed_digest()
+        self.assertIsNotNone(last)
+        self.assertEqual(last["id"], payload["digest_id"])
+        self.assertTrue(last["resolved_at"])
+        # Confirmé SANS publication : état sent, jamais de post_id kChat.
+        import sqlite3
+
+        row = sqlite3.connect(state.path).execute(
+            "SELECT state, post_id FROM digests WHERE id=?", (payload["digest_id"],)
+        ).fetchone()
+        self.assertEqual(row, ("sent", None))
+
+    def test_confirm_only_is_idempotent_via_min_interval(self) -> None:
+        self.write_config(base_config())
+        code, payload = self._run_confirm_only()
+        self.assertEqual(code, 0)
+        code, payload = self._run_confirm_only()
+        self.assertEqual(code, 0)
+        self.assertEqual(payload.get("skipped"), "already_confirmed")
+
+
 if __name__ == "__main__":
     unittest.main()

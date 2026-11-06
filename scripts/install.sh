@@ -301,7 +301,7 @@ install_hooks() {
   if git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     chmod +x "$ROOT_DIR/scripts/hooks/"*.sh 2>/dev/null || true
     git -C "$ROOT_DIR" config core.hooksPath scripts/hooks
-    echo "  hooks:   core.hooksPath=scripts/hooks (pre-commit secret scan enabled)"
+    echo "  hooks:   core.hooksPath=scripts/hooks (pre-commit secret + OPSEC gates enabled)"
   else
     echo "skip (not a git repo): $ROOT_DIR"
   fi

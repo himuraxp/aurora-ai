@@ -787,6 +787,8 @@ def _recipient_id(cfg: dict, client: kchat_mod.KChatClient) -> str:
 def cmd_digest(cfg: dict, args) -> int:
     if not cfg.get("digest", {}).get("enabled", False):
         return _err("digest_disabled", "digest.enabled=false dans config.json", exit_code=2)
+    if args.confirm_only and args.send:
+        return _err("bad_usage", "--confirm-only et --send sont mutuellement exclusifs", exit_code=2)
     if args.send and (not cfg["writes"]["enabled"] or not cfg["writes"]["digest_enabled"]):
         # Kill switch vérifié AVANT toute connexion IMAP (invariant 9).
         return _err("writes_disabled", "kill switch (writes.enabled/digest_enabled=false) — aucune publication")
@@ -822,7 +824,7 @@ def cmd_digest(cfg: dict, args) -> int:
     digest_mod.assign_refs(built, state)
     markdown = digest_mod.render_markdown(built)
 
-    if not args.send:
+    if not args.send and not args.confirm_only:
         return _out({
             "command": "digest",
             "digest_id": digest_id,
@@ -835,6 +837,48 @@ def cmd_digest(cfg: dict, args) -> int:
             "moved_counts": built["moved_counts"],
             "markdown": markdown,
             "notice": "sortie lisible (inspection volontaire) — ne pas journaliser",
+        })
+
+    if args.confirm_only:
+        # Chemin du wrapper matinal (option A) : le digest est déjà embarqué
+        # dans le DM composite — la fenêtre glissante est consommée SANS
+        # publication (état "sent" sans post_id, marque digestés posé ; les
+        # références courtes accompagnent la publication du digest proprement
+        # dit et ne sont donc pas enregistrées ici). Garde min_interval
+        # identique au --send (même verrou, re-vérifiée dans le lock) : deux
+        # runs chevauchés ne consomment qu'une seule fois.
+        min_interval = int(cfg.get("digest", {}).get("min_interval_hours", 20))
+        lock_path = config_dir_path / "locks" / "digest.lock"
+        config_mod.ensure_private_dir(lock_path.parent)
+        with state_mod.FileLock(lock_path):
+            last = state.last_confirmed_digest()
+            if last and last.get("resolved_at") and not args.force:
+                last_dt = datetime.fromisoformat(last["resolved_at"])
+                if now - last_dt < timedelta(hours=min_interval):
+                    return _out({"command": "digest", "digest_id": digest_id,
+                                 "confirm_only": True, "skipped": "already_confirmed",
+                                 "last_confirmed_at": last["resolved_at"],
+                                 "message": (f"dernier digest confirmé il y a moins de {min_interval} h "
+                                             "— fenêtre déjà consommée")})
+            state.create_digest(digest_id, built["window_start"], built["window_end"], marker,
+                                _now_iso(), uidvalidity=uidvalidity, markdown=markdown,
+                                msg_uids=",".join(str(m["uid"]) for m in built["new"]))
+            state.set_digest_state(digest_id, "sent", resolved_at=_now_iso())
+            for msg in built["new"]:
+                state.mark_digest_msg(cfg["source"]["mailbox"], uidvalidity, msg["uid"],
+                                      msg.get("internaldate"), digest_id)
+        audit(config_dir_path, {
+            "event": "digest_confirm_only", "digest_id": digest_id,
+            "new": len(built["new"]), "always_inbox": len(built["always_inbox"]),
+        })
+        return _out({
+            "command": "digest",
+            "digest_id": digest_id,
+            "confirm_only": True,
+            "status": "sent",
+            "window": {"start": built["window_start"], "end": built["window_end"]},
+            "new_count": len(built["new"]),
+            "always_inbox_count": len(built["always_inbox"]),
         })
 
     min_interval = int(cfg.get("digest", {}).get("min_interval_hours", 20))
@@ -958,6 +1002,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_dig = sub.add_parser("digest", help="résumé kChat du matin")
     p_dig.add_argument("--send", action="store_true")
+    p_dig.add_argument("--confirm-only", action="store_true",
+                       help="consomme la fenêtre du digest SANS publier (wrapper matinal)")
     p_dig.add_argument("--force", action="store_true")
 
     p_lis = sub.add_parser("listen", help="canal interactif MP kChat (J2 : lecture seule)")

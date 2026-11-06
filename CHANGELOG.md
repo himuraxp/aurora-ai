@@ -1,5 +1,42 @@
 # Changelog
 
+## [1.7.0](https://github.com/himuraxp/aurora-ai/compare/v1.6.0...v1.7.0) (2026-11-06)
+
+
+### Features
+
+* Add clean-worktrees skill and update documentation indexes ([5aaef12](https://github.com/himuraxp/aurora-ai/commit/5aaef12694b499a0fb5837c0d5258fdceef1a467))
+* **aurora-memory:** Expand memory surface to 18 tools with lesson lifecycle ([fae3f2d](https://github.com/himuraxp/aurora-ai/commit/fae3f2d2849e876149db9b82459e48c3060e7ec5))
+* **config:** add Infomaniak official calendar MCP (locked locally via setup-mcp-lock) ([6fa7196](https://github.com/himuraxp/aurora-ai/commit/6fa7196ad30aa9f2fb3e0aa1a0b49ce73a243a82))
+* **config:** add Infomaniak official calendar MCP (locked locally) ([5c65f24](https://github.com/himuraxp/aurora-ai/commit/5c65f24710283241adf27087fa5ef0dee4b072f9))
+* **config:** Sync model catalog with Infomaniak live API ([f239086](https://github.com/himuraxp/aurora-ai/commit/f239086d6b4ab27682f65617168cde2201a4f19f))
+* **frameworks:** add WordPress framework with stack detection and pre-MR review wiring ([dc43ccd](https://github.com/himuraxp/aurora-ai/commit/dc43ccd8cca7ed51a9d1c51c6ed6875a0d350f87))
+* **frameworks:** add WordPress framework, detection, review wiring ([01e2264](https://github.com/himuraxp/aurora-ai/commit/01e2264e4a032973137f2e0c507a999cdd98fa7e))
+* **kchat-dev-brief:** Deliver in fenced code block with 4+ backticks ([59d6df6](https://github.com/himuraxp/aurora-ai/commit/59d6df6a2a9c9e5771541fcdf3c5165758f7417e))
+* **kchat-dev-brief:** rework skill for minimal-reading chat messages ([dfdbd52](https://github.com/himuraxp/aurora-ai/commit/dfdbd528fe433f8115fb4d06eaaf15e15d9be1e4))
+* **mail-triage:** add autonomous IMAP triage engine and kChat digest ([9877fe3](https://github.com/himuraxp/aurora-ai/commit/9877fe33c42a64ad82f0a67f6722bf7b47ade96e))
+* **mail-triage:** add optional AI summaries to daily digest (V4.2) ([b35ab65](https://github.com/himuraxp/aurora-ai/commit/b35ab65eb09d7ba3bd672b9d0fe7be0e8eac203b))
+* **mail-triage:** add optional AI summaries to daily digest (V4.2) ([1d1885d](https://github.com/himuraxp/aurora-ai/commit/1d1885dc67970a48fac16c80810f456013fce00c))
+* **mcp:** Distribute aurora-memory server as self-contained bundle ([d3121be](https://github.com/himuraxp/aurora-ai/commit/d3121bea9e4f7edaca4a687af2060edb8c9037b9))
+* **plugins:** Add antislop-hook plugin for AI-slop comment enforcement ([0bd3838](https://github.com/himuraxp/aurora-ai/commit/0bd3838bfb7457d175695dc584304296bba38c55))
+* **plugins:** Add antislop-hook plugin for AI-slop comment enforcement ([8a513e5](https://github.com/himuraxp/aurora-ai/commit/8a513e5823fbfa05544a4a24a862232b0f39a523))
+* **project-context-health:** Add preflight validator complementing session-finalize ([1b14d67](https://github.com/himuraxp/aurora-ai/commit/1b14d670241ea2d41518993f1b311f11971c927d))
+* **project-context-health:** Add preflight validator complementing session-finalize ([3e12e61](https://github.com/himuraxp/aurora-ai/commit/3e12e61b2363f9cb5a890dc9b75e7b1c68b24896))
+* **session-finalize:** Add deterministic session closure certificate validator ([69207bd](https://github.com/himuraxp/aurora-ai/commit/69207bd8e94747b207997f287001564f7d44e74c))
+* **session-finalize:** deterministic session closure certificate validator ([31a6cc4](https://github.com/himuraxp/aurora-ai/commit/31a6cc42810c2921ffaf02a8552918a85354f7ff))
+* **skills:** Add kchat-dev-brief skill for preparing kChat messages ([95ba33a](https://github.com/himuraxp/aurora-ai/commit/95ba33a2716e84df260eb4c8e3cd9dac9f5f893d))
+
+
+### Bug Fixes
+
+* **calendar:** Read CALENDAR_TOKEN from .env via shell wrapper ([6305f34](https://github.com/himuraxp/aurora-ai/commit/6305f34d0010ddd4ccda20336e25904e3a09d4e9))
+* **config:** point spark and fixer at catalogue-valid models, refresh docs ([9eb688d](https://github.com/himuraxp/aurora-ai/commit/9eb688d379313659e98cd39f9b6e6fdaf8f21bdb))
+* **config:** point spark and fixer at catalogue-valid models, refresh docs ([f95bae6](https://github.com/himuraxp/aurora-ai/commit/f95bae6fee82d8f055c9f187c02835d6f3c9a50e))
+* **create-mr:** Resolve GitLab host from private env config before origin remote fallback ([f1e3d12](https://github.com/himuraxp/aurora-ai/commit/f1e3d127369f3694a572d2de22cb32a5989d7fff))
+* **create-mr:** Resolve GitLab host from private env config before origin remote fallback ([8e8dac2](https://github.com/himuraxp/aurora-ai/commit/8e8dac22dcd9012aae0366e1e54f6335fe18f3f3))
+* **mail-triage:** require kchat.base_url in private config — no default instance URL ([3b93025](https://github.com/himuraxp/aurora-ai/commit/3b9302522bc2ef65d9df3bd5877f12ce34d64e46))
+* **task-workflow:** Remove approval footer from Trello comment ([07b2801](https://github.com/himuraxp/aurora-ai/commit/07b2801f67c2771eb5595dc8832cab7033dcde41))
+
 ## [1.6.0](https://github.com/himuraxp/aurora-ai/compare/v1.5.0...v1.6.0) (2026-10-26)
 
 

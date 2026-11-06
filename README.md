@@ -30,7 +30,7 @@ AI agents (OpenCode, Cursor, Claude...) don't know which standard to follow unle
 - **Execution graph core (new in v1.4.0)** — stdlib Python package `skills/graph_core/`: transition engine, transactional journal, fenced scheduler — spec-first (RFC), 84 tests, running as a shadow pilot; full docs in [docs/graph-engineering/](docs/graph-engineering/)
 - **Persistent project memory** — 7 `docs/ai/` documents auto-read at session start: agents keep context across sessions
 - **13-model catalogue (16 declared) with automatic fallback chains** — 80k → 256k context, cost-based agent assignment
-- **Consistent across machines** — same setup and behavior everywhere, with ready-to-use examples (Angular, Node.js API, monorepo)
+- **Consistent across machines** — same setup and behavior everywhere, with ready-to-use examples (Angular, Node.js API, WordPress, monorepo)
 
 → [Quick Start](#quick-start) — operational in a few minutes.
 
@@ -470,6 +470,7 @@ The `AGENTS.md` template is intentionally generic. Add the useful stack conventi
 - `frameworks/nestjs.md`
 - `frameworks/astro.md`
 - `frameworks/wordpress.md`
+- `frameworks/php.md`
 
 ---
 
@@ -483,7 +484,7 @@ The `AGENTS.md` template is intentionally generic. Add the useful stack conventi
 | [Angular 20](docs/angular-20.md) | Detailed Angular 20+ rules |
 | [Code review](docs/code-review.md) | Code review guide |
 | [Testing](docs/testing.md) | Testing guide |
-| [Examples](examples/) | Ready-to-use projects: Angular app, Node API, monorepo |
+| [Examples](examples/) | Ready-to-use projects: Angular app, Node API, WordPress, monorepo |
 
 ---
 
@@ -581,7 +582,8 @@ aurora-ai/
 │   ├── nodejs.md              Node.js API conventions
 │   ├── nestjs.md              NestJS conventions
 │   ├── astro.md               Astro conventions
-│   └── wordpress.md           WordPress themes & plugins
+│   ├── wordpress.md           WordPress themes & plugins
+│   └── php.md                 Laravel 12 / PHP 8.4-8.5 backend conventions
 │
 ├── templates/                 What every project receives
 │   ├── AGENTS.md              Root template for every project
@@ -597,6 +599,7 @@ aurora-ai/
 ├── examples/                  Ready-to-use examples
 │   ├── angular-app/           Complete Angular 20+ project (AGENTS.md + docs/ai/)
 │   ├── node-api/              Node.js API project (AGENTS.md + README)
+│   ├── wordpress-app/         WordPress project (AGENTS.md + README)
 │   └── monorepo/              Multi-package monorepo (AGENTS.md + README)
 │
 ├── mcp/                       Local MCP servers
@@ -700,7 +703,7 @@ The agent receives and applies in this order (from most general to most specific
 
 1. Global **Standards** `~/.config/opencode/standards/` (workflow, memory-session-flow, memory-auto-update, memory-checklist, verification, communication, escalation, commits, review-before-done, audit, exploration-limits, error-correction, anti-patterns, artifact-authoring, delegation-failure, agent-output, product-authority).
 2. Global **Agents** `~/.config/opencode/agents/` (aurora, aurora-heavy, reviewer, tester, security, cybersec, architect, spark, vision, atlas, crawler, sage, scribe, pulse, echo, beacon, designer, mobile, product-owner) + oh-my-opencode-slim plugin agents (explorer, fixer, librarian, oracle).
-3. Global **Frameworks** `~/.config/opencode/frameworks/` (angular-20, nodejs, nestjs, astro, wordpress).
+3. Global **Frameworks** `~/.config/opencode/frameworks/` (angular-20, nodejs, nestjs, astro, wordpress, php).
 4. Company standards (if configured).
 5. Project-local **`AGENTS.md`**.
 6. Explicit instructions of the current task.

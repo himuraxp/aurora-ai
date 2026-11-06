@@ -64,6 +64,26 @@ Advisory anti-slop comment gate — deterministic enforcement of the `antislop-c
 
 **Reception suite:** `scripts/test-antislop-hook.mjs` (`npm run test:antislop-hook`, wired into `scripts/health-check.sh`).
 
+### aurora-memory.ts
+
+Personal-memory bridge — the **only** access path to the aurora-core memory service (the MCP itself is declared `enabled: false`). Exposes the single `aurora_memory` tool; executes only for the orchestrator (`ToolContext.agent` gate — any other agent gets a hard refusal, even under prompt injection). Capability agents receive memory context injected in their delegation brief and return structured observations (`memory_observations`).
+
+**Dependency:** the memory server bundle (aurora-core `services/aurora-memory/dist/index.mjs`, override with `AURORA_MEMORY_SERVER`).
+
+**Source of truth:** `AGENTS.md` → MCP Servers → aurora-memory (integration invariants), aurora-core ADR-019/020/021.
+
+### infomaniak-bridge.ts
+
+Orchestrator-only write bridge for the Infomaniak API (pattern ADR-021: broad reads, writes behind an explicit orchestrator decision). The global `infomaniak` MCP is **read-only by default** (Security Gate S-02) — mutating methods are refused at the HTTP client level; this plugin exposes `infomaniak_api_call` (POST/PUT/PATCH/DELETE) so capability agents route Infomaniak write needs through aurora. GET is refused (read-only MCP tools). Destructive intent is confirmed with the user before delete/bulk operations.
+
+**Source of truth:** `AGENTS.md` → MCP Servers → infomaniak + Security Gate S-02.
+
+### product-authority.ts
+
+Product-authority controller — the delegated product-owner protocol. Three orchestrator-only tools: `authorizeProductDecision` (fail-closed authorization, blind re-classification before approval), `verifyAuthorization` (re-verified at every consumption point), `productAuthorityPolicy` (show / set / revoke / defer / reconcile). Backed by the private registry `~/.config/opencode/aurora-product-authority.json` (never lives in repos).
+
+**Source of truth:** `standards/product-authority.md` + `skills/product-authority/SKILL.md`.
+
 ## Adding a plugin
 
 1. Create a `<plugin-name>.ts` file in this folder

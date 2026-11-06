@@ -6,7 +6,7 @@ Writes the body to --out and prints ONLY the generated boundary to stdout.
 Why this script exists: `glab api` has no gh-style `-F file=@...` multipart flag
 (that is GitHub CLI syntax — glab's --field/--raw-field produce JSON-encoded
 fields, not multipart). The validated upload path (glab 1.86, proven 3/3 in
-site-manager MR !604) is:
+example-project MR !604) is:
 
     build_multipart.py --file capture.png --out body.multipart   # prints boundary
     glab api --method POST \

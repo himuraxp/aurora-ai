@@ -13,7 +13,7 @@ ou les agents spécialisés.
 
 ```text
 /task-workflow https://trello.com/c/xxxxxxxx
-/task-workflow https://gitlab.infomaniak.ch/group/project/-/issues/123
+/task-workflow https://gitlab.example.com/group/project/-/issues/123
 /task-workflow resume <workflowId>
 ```
 

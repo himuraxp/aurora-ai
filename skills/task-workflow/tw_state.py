@@ -122,7 +122,7 @@ def resolve_state(task_url: str, repository: str, directory: Optional[str] = Non
 
     1. exact: canonical dir holds <new_workflow_id>.json;
     2. legacy: scan states whose taskUrls normalize to the same task key
-       (pre-normalization ids like tw-site-manager--98e87142 stay resolvable);
+       (pre-normalization ids like tw-example-project--614d3e1d stay resolvable);
     3. multiple matches → ValueError (duplicate states for one task, human
        decision required); none → None.
     """

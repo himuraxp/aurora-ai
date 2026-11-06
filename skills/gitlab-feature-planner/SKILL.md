@@ -76,16 +76,17 @@ Une issue séparée pour un **composant** est créée UNIQUEMENT si au moins une
 
 La résolution d'un projet GitLab ne doit JAMAIS être devinée. Passer par le **registry** : `skills/gitlab-feature-planner/` + `resolve-project.py`.
 
-**Distinguer** : nom humain (« Site Manager », « Admin ») ≠ `gitlabPath` (`media/site-manager`) ≠ `projectId` (1001). Seul le couple path validé ↔ ID numérique est fiable.
+**Distinguer** : nom humain (« Example Project », « Admin ») ≠ `gitlabPath` (`acme-group/example-project`) ≠ `projectId` (1001). Seul le couple path validé ↔ ID numérique est fiable.
 
-**Registry en deux variantes** (repo public = template, installation = données réelles) :
+**Registry — pattern private-config / public-engine** (repo public = template placeholder, config privée = données réelles, cf. mail-triage et deployment-changelog) :
 
 | Fichier | Versionné ? | Contenu |
 |---|---|---|
-| `projects-registry.example.json` | ✅ versionné | Template avec données d'exemple (`example-group/...`, IDs fictifs) |
-| `projects-registry.json` | ❌ git-ignoré | Tes projets RÉELS validés (namespaces, IDs) — **jamais commité** |
+| `~/.config/opencode/gitlab-feature-planner-registry.private.json` | ❌ hors repo | Tes projets RÉELS validés (namespaces, IDs) — **jamais versionné** |
+| `projects-registry.json` | ✅ versionné | Template placeholder (`acme-group/...`, IDs fictifs) |
+| `projects-registry.example.json` | ✅ versionné | Template avec données d'exemple (identique au template ci-dessus) |
 
-Le loader (`load_registry`) cherche dans l'ordre : registry local du repo → registry installé (`~/.config/opencode/skills/gitlab-feature-planner/`) → template example. `--record` écrit toujours dans le registry local, jamais dans le template (les namespaces/IDs internes ne doivent pas fuiter dans le repo public).
+Le loader (`load_registry`) cherche dans l'ordre : **registre privé** (`~/.config/opencode/gitlab-feature-planner-registry.private.json`) → registry du repo → registry installé (`~/.config/opencode/skills/gitlab-feature-planner/`) → template example. `--record` écrit toujours dans le registre privé, jamais dans un fichier du repo public (les namespaces/IDs réels ne doivent pas fuiter dans le repo). Pour démarrer : copier `projects-registry.example.json` vers le chemin privé, puis le remplir via `--record`.
 
 Stratégie, dans l'ordre :
 
@@ -129,7 +130,7 @@ Intégration univers Podcasts (fonctionnelle)
 └── Admin4          → issue « Menu Univers, bloc et tab Podcasts »  (code Admin4)
 ```
 
-Ne pas mettre une issue dans `site-manager` si toutes ses MR seront faites dans `admin4`. Les issues jumelles se référent mutuellement (relation `relates_to` + mention dans les Notes). Chaque issue de l'IssueSpec porte un champ `project` = clé du registry.
+Ne pas mettre une issue dans `example-project` si toutes ses MR seront faites dans `example-material`. Les issues jumelles se référent mutuellement (relation `relates_to` + mention dans les Notes). Chaque issue de l'IssueSpec porte un champ `project` = clé du registry.
 
 ## Pipeline
 

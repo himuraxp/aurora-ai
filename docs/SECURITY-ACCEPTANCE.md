@@ -59,6 +59,73 @@ acceptances and the publication policy. It is the reference for every
   examples use `gitlab.example.com`, direct AI model endpoints kept in live
   config only.
 
+## OPSEC wave 2026-11-06 (class-2 regressions, audit-driven)
+
+A security audit detected a new class-2 wave at the tip and re-opened
+**F-02 / F-03 / F-07** (same classes as 2026-10-09). Everything was fixed at
+the tip in this wave; **no open item** remains at the tip after it:
+
+- **PHP standard** (`frameworks/php`) cited internal artifacts — private
+  registry packages, auth mechanisms, route patterns, CI templates, version
+  matrix — replaced by a generic standard at the tip (PR #81); the PR body
+  itself was edited to drop the internal references.
+- **Class-2 regressions fixed the same day**:
+  - `skills/allow-command`: internal project, source paths, full commit SHA
+    → neutral placeholders (`acme-group/example-project`, `apps/example/...`,
+    `abc123def456`, `gitlab.example.com`).
+  - `skills/deployment-changelog`: internal portal, payload taxonomy and
+    hard-coded events endpoint → neutral values + private local config
+    (`INFOMANIAK_EVENTS_*` in `~/.config/opencode/.env`, fail-closed at
+    runtime); the engine (Bearer headers, pagination, calls) is kept.
+  - Internal GitLab host in doc examples and test fixtures
+    (`task-workflow`, `create-mr`, `mr-review`, `allow-command`,
+    `scripts/task-workflow/tests`) → `gitlab.example.com`.
+  - Test fixtures: task-workflow (project path, Trello shortLink, MR numbers
+    → 1234/1235/12350), new-worktree tracker ids (`rm-1234`,
+    `trello-EX12345`), user/project paths → placeholders.
+- **Residual findings, pass 2 (same day)**:
+  - **(f) feature-planner registry — private-config / public-engine**: the
+    tracked `projects-registry.example.json` carried real project names as
+    aliases at the tip; the full live registry (real host, namespaces, ids)
+    existed only on disk in the untracked, git-ignored
+    `projects-registry.json` (git-ignored since `8cba184` — never tracked at
+    the tip, but present in git history `cc39a6e`..`8cba184`: history-rewrite
+    item, out of scope, same class as `v1.8.0`/`68d4c04`). The live data now
+    lives only in `~/.config/opencode/gitlab-feature-planner-registry.private.json`
+    (outside any repo; re-backed-up 2026-11-06). `resolve_project.py` reads
+    the private registry first and `--record` always writes to it — a repo
+    file can never receive real namespaces/ids again. Both in-repo registries
+    are placeholder templates sharing one vocabulary
+    (`gitlab.example.com`, `acme-group/*`, ids 1001-1004, `validated:false`);
+    the pattern is documented in `skills/gitlab-feature-planner/SKILL.md`.
+  - **(g) `docs/ai/` sanitized (STATUS / CHANGELOG / BUFFER / INDEX / PLAN /
+    WARNINGS)**: internal GitLab host → `gitlab.example.com`, real Trello card
+    ids / terminal handles / workflow hashes / project ids → placeholders,
+    credential metadata removed with a pointer back to this file (GitLab PAT
+    scopes/expirations/fingerprints/numeric ids; Trello token sha256
+    fingerprints). Scope extended beyond the original 3 files to
+    every class-2 project identifier in the session memory (same leak class,
+    mechanical replacements). `docs/ai/` is git-ignored and untracked since
+    `c4aeddc` (local-only, not shipped at the tip); older versions with real
+    values exist in git history in the tracked window (`4989736`..`c4aeddc`):
+    history-rewrite item, out of scope. The files are rewritten at the end of
+    every session, so real values can re-enter the local copies at any time
+    (erosion by session) — re-sanitized in this pass.
+    `WARNINGS.md:301` (heavy PAT metadata) remains out of scope, flagged in
+    the Fixer report.
+  - **(h) `config/.env.example` completed**: `INFOMANIAK_EVENTS_ENDPOINT=` and
+    `BEARER_EVENT=` added (one-line comment pointing to
+    `skills/deployment-changelog`) — the engine consumes these variables and
+    the example must document them without ever carrying real values.
+- **F-02 reopening criterion triggered**: the pre-wave tip documented a
+  private events endpoint — the "sensitive component / unauthenticated
+  endpoint" reopening criterion from F-02 above applies; reassessment with
+  the infrastructure security owner is required.
+- **History rewrite deferred** (decision coordinated out-of-repo): the
+  release wave's commit message and tag `v1.8.0` still reference internal
+  metadata and remain reachable in history; option B (no history rewrite)
+  stands on the same benefit/risk ratio as F-02.
+
 ## Defense in depth
 
 Local hook + gitleaks are necessary but **not sufficient** (local config can be

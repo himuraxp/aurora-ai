@@ -2,36 +2,36 @@
   "version": 1,
   "updated": "2026-09-18",
   "gitlabHost": "gitlab.example.com",
-  "note": "TEMPLATE versionné (repo public) — données d'exemple uniquement. Pour ton installation : copie ce fichier vers projects-registry.json (git-ignoré, jamais commité) et remplis les projets RÉELS validés via `resolve_project.py --record`. Une entrée n'est ajoutée qu'après découverte + validation réelle (voir SKILL.md — Project resolution). Ne jamais inventer un projectId : le valider via `resolve-project.py --validate`.",
+  "note": "TEMPLATE versionné (repo public) — données d'exemple uniquement. Pour ton installation : copie ce fichier vers ~/.config/opencode/gitlab-feature-planner-registry.private.json (config privée, hors repo — le loader le lit en priorité) et remplis les projets RÉELS validés via `resolve_project.py --record`. Une entrée n'est ajoutée qu'après découverte + validation réelle (voir SKILL.md — Project resolution). Ne jamais inventer un projectId : le valider via `resolve-project.py --validate`.",
   "projects": [
     {
-      "alias": "site-manager",
-      "displayName": "Site Manager (example)",
-      "gitlabPath": "example-group/media/site-manager",
+      "alias": "example-project",
+      "displayName": "Example Project (example)",
+      "gitlabPath": "acme-group/example-project",
       "projectId": 1001,
       "validated": false,
       "role": "Défaut pour les pages du module (à remplacer par tes valeurs réelles)"
     },
     {
-      "alias": "design-system",
-      "displayName": "Design System (example)",
-      "gitlabPath": "example-group/front/design-system",
+      "alias": "example-element",
+      "displayName": "Example Element (design system, example)",
+      "gitlabPath": "acme-group/example-elements",
       "projectId": 1002,
       "validated": false,
       "role": "Design system (composants partagés)"
     },
     {
-      "alias": "admin-app",
-      "displayName": "Admin App (example)",
-      "gitlabPath": "example-group/admin-app",
+      "alias": "example-material",
+      "displayName": "Example Material (example)",
+      "gitlabPath": "acme-group/example-project-material",
       "projectId": 1003,
       "validated": false,
-      "role": "Application d'administration"
+      "role": "Pages d'administration"
     },
     {
-      "alias": "player-app",
+      "alias": "example-player",
       "displayName": "Player App (example)",
-      "gitlabPath": "example-group/media/player",
+      "gitlabPath": "acme-group/example-player",
       "projectId": 1004,
       "validated": false,
       "role": "Application player (pages publiques, embed)"

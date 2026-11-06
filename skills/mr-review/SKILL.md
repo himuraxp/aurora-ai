@@ -30,7 +30,7 @@ depends on it:
 
 ```bash
 source "${HOME}/.config/opencode/scripts/create-mr/ensure_glab_token.sh" \
-  gitlab.infomaniak.ch || exit 1
+  gitlab.example.com || exit 1
 glab api user
 ```
 

@@ -1,6 +1,6 @@
 ---
 name: new-worktree
-description: Create a Git branch and its worktree in one step from a simple intent like "feat podcast Gestion des formulaires et config dynamique", "feat trello-YFmwdlI9" or "fix rm-1566515". Translates the description to English, composes the branch name (<type>/<context>--<description>), detects the base branch automatically (no hardcoding), reuses existing branch/worktree instead of duplicating, creates the worktree under <repo>.worktrees/ and returns its absolute path ready to open in Orca. Never destructive. Trigger on "new-worktree", "worktree", "nouveau worktree", "créer une branche", "branche + worktree", "create branch and worktree", "environnement isolé", "isolate work in a worktree".
+description: Create a Git branch and its worktree in one step from a simple intent like "feat podcast Gestion des formulaires et config dynamique", "feat trello-EX12345" or "fix rm-1234". Translates the description to English, composes the branch name (<type>/<context>--<description>), detects the base branch automatically (no hardcoding), reuses existing branch/worktree instead of duplicating, creates the worktree under <repo>.worktrees/ and returns its absolute path ready to open in Orca. Never destructive. Trigger on "new-worktree", "worktree", "nouveau worktree", "créer une branche", "branche + worktree", "create branch and worktree", "environnement isolé", "isolate work in a worktree".
 ---
 
 # New Worktree — branche + worktree en une intention
@@ -22,9 +22,9 @@ OpenCode, jamais copié dans les dépôts. Le script détermine tout lui-même
 
 ```text
 <skill> new-worktree feat podcast Gestion des formulaires et config dynamique
-<skill> new-worktree feat trello-YFmwdlI9
-<skill> new-worktree fix rm-1566515
-<skill> new-worktree fix rm-1566515 Corriger le chargement infini des playlists
+<skill> new-worktree feat trello-EX12345
+<skill> new-worktree fix rm-1234
+<skill> new-worktree fix rm-1234 Corriger le chargement infini des playlists
 ```
 
 Format : `<type> <contexte> [description]` — c'est tout. L'agent fait le reste.
@@ -36,7 +36,7 @@ Format : `<type> <contexte> [description]` — c'est tout. L'agent fait le reste
 | Token | Rôle | Exemples |
 |-------|------|----------|
 | 1er token | type de branche | `feat`, `fix`, `refactor`, `chore`, `docs`, `test`... |
-| 2e token | contexte principal ou identifiant — **conservé tel quel** (casse incluse) | `podcast`, `trello-YFmwdlI9`, `rm-1566515` |
+| 2e token | contexte principal ou identifiant — **conservé tel quel** (casse incluse) | `podcast`, `trello-EX12345`, `rm-1234` |
 | reste | description fonctionnelle — à traduire en anglais | `Gestion des formulaires et config dynamique` |
 
 Si l'utilisateur fournit directement un nom de branche complet (contient `/`),
@@ -75,10 +75,10 @@ python3 "<skill_dir>/new_worktree.py" --type feat --context podcast \
   --desc "dynamic form and config management"
 
 # identifiant seul (pas de description -> pas de « -- »)
-python3 "<skill_dir>/new_worktree.py" --type feat --context trello-YFmwdlI9
+python3 "<skill_dir>/new_worktree.py" --type feat --context trello-EX12345
 
 # identifiant + description
-python3 "<skill_dir>/new_worktree.py" --type fix --context rm-1566515 \
+python3 "<skill_dir>/new_worktree.py" --type fix --context rm-1234 \
   --desc "fix infinite playlist loading"
 
 # nom de branche complet (passthrough)
@@ -99,7 +99,7 @@ Le script produit un bloc compact — l'afficher tel quel à l'utilisateur :
 ```text
 Branch: feat/podcast--dynamic-form-and-config-management
 Base: develop
-Worktree: /Users/yohannlarbi/dev/podcast-player.worktrees/feat-podcast--dynamic-form-and-config-management
+Worktree: /Users/example/dev/example-project.worktrees/feat-podcast--dynamic-form-and-config-management
 Status: created
 ```
 
@@ -119,7 +119,7 @@ Suggérer ensuite : *« Ouvre ce chemin dans Orca (nouveau panneau de terminal).
 ```
 
 - séparateur type/contexte : `/` — séparateur contexte/description : `--`
-- identifiants (`trello-YFmwdlI9`, `rm-1566515`) : **casse préservée**, jamais reformattés
+- identifiants (`trello-EX12345`, `rm-1234`) : **casse préservée**, jamais reformattés
 - description : kebab-case lowercase, sans accents/apostrophes/ponctuation
 - le script slugifie tout ce qui est non-alphanumérique (le `/` d'un contexte
   multi-mots devient `-`, jamais une arborescence involontaire)
@@ -134,7 +134,7 @@ Ordre de détection (chaque candidat est **validé** avant d'être retenu) :
 3. `git ls-remote --symref <remote> HEAD` (réseau, universel GitLab/GitHub)
 4. `glab repo view --output json` → `default_branch` (GitLab, même logique que `create-mr`)
 5. fallback local dans cet ordre : `develop` → `main` → `master` (convention
-   Infomaniak : `develop` = branche d'intégration, cf. `check_workspace.sh`)
+   organisation : `develop` = branche d'intégration)
 6. en dernier recours : HEAD courant
 
 Cela évite de créer une branche depuis une feature branch qui serait checkout
@@ -148,11 +148,11 @@ références locales).
 <parent-du-repo>/<repo>.worktrees/<branche-avec-/-remplacé-par-->
 ```
 
-Exemple — repo `/Users/yohannlarbi/dev/podcast-player`, branche
-`fix/rm-1566515--fix-infinite-playlist-loading` :
+Exemple — repo `/Users/example/dev/example-project`, branche
+`fix/rm-1234--fix-infinite-playlist-loading` :
 
 ```text
-/Users/yohannlarbi/dev/podcast-player.worktrees/fix-rm-1566515--fix-infinite-playlist-loading
+/Users/example/dev/example-project.worktrees/fix-rm-1234--fix-infinite-playlist-loading
 ```
 
 Pourquoi ce choix :

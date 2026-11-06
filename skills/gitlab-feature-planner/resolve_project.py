@@ -9,12 +9,17 @@ Stratégie (SKILL.md — Project resolution) :
   5. sinon -> NotFound : recherche GitLab contrôlée autorisée, MAIS ambiguïté = STOP
      et confirmation humaine ; projet validé -> mémoriser via --record.
 
-Le registry existe en deux variantes — repo public = template, local = réel :
-  1. <script_dir>/projects-registry.json            (repo source, git-ignoré)
-  2. ~/.config/opencode/skills/gitlab-feature-planner/projects-registry.json (installation)
-  3. <script_dir>/projects-registry.example.json    (template versionné, données d'exemple)
+Le registry existe en trois variantes — repo public = template placeholder,
+config privée = données réelles (pattern private-config / public-engine,
+cf. mail-triage et deployment-changelog) :
+  1. ~/.config/opencode/gitlab-feature-planner-registry.private.json (config privée, hors repo — données réelles)
+  2. <script_dir>/projects-registry.json            (repo public — template placeholder, versionné)
+  3. ~/.config/opencode/skills/gitlab-feature-planner/projects-registry.json (installation)
+  4. <script_dir>/projects-registry.example.json    (template versionné, données d'exemple)
 
-`--record` refuse d'écrire dans le template : il crée/remplit le registry local.
+Le loader lit le registre privé en priorité. `--record` écrit toujours dans le
+registre privé, jamais dans un fichier du repo public (les namespaces/IDs
+réels ne doivent pas fuiter dans le repo).
 
 Usage :
   resolve-project.py --list
@@ -45,11 +50,17 @@ TEMPLATE_FILENAME = "projects-registry.example.json"
 INSTALLED_REGISTRY = os.path.expanduser(
     os.path.join("~", ".config", "opencode", "skills", "gitlab-feature-planner", REGISTRY_FILENAME)
 )
+# Registre privé (données réelles) — hors de tout repo, première priorité.
+PRIVATE_REGISTRY = os.path.expanduser(
+    os.path.join("~", ".config", "opencode", "gitlab-feature-planner-registry.private.json")
+)
 
 
 def registry_candidates():
-    """Emplacements du registry réel, par priorité (le template example en dernier recours)."""
+    """Emplacements du registry, par priorité : config privée (données réelles) en
+    tête, template example en dernier recours."""
     return [
+        PRIVATE_REGISTRY,
         os.path.join(SCRIPT_DIR, REGISTRY_FILENAME),
         INSTALLED_REGISTRY,
         os.path.join(SCRIPT_DIR, TEMPLATE_FILENAME),
@@ -137,13 +148,10 @@ def validate_live(reg):
     return errors
 
 
-def record(reg, alias, gitlab_path, project_id, display, source_path=None):
-    """Écrit DANS LE REGISTRY LOCAL (jamais le template versionné) : le repo public
-    ne doit pas recevoir de données réelles (namespaces, IDs)."""
-    local = os.path.join(SCRIPT_DIR, REGISTRY_FILENAME)
-    target = source_path or local
-    if TEMPLATE_FILENAME in os.path.basename(target):
-        target = local
+def record(reg, alias, gitlab_path, project_id, display):
+    """Écrit DANS LE REGISTRE PRIVÉ (hors repo) : les données réelles (namespaces,
+    IDs) ne vont jamais dans un fichier versionné du repo public."""
+    target = PRIVATE_REGISTRY
     for p in reg["projects"]:
         if p["alias"] == alias:
             sys.exit(
@@ -204,7 +212,7 @@ def main():
     if args.record:
         if not (args.path and args.project_id):
             sys.exit("--record exige --path et --id")
-        record(reg, args.record, args.path, args.project_id, args.display, source_path=source)
+        record(reg, args.record, args.path, args.project_id, args.display)
         return
     ap.print_help()
 

@@ -653,6 +653,27 @@ if [[ -f "$ROOT_DIR/scripts/test-chatgpt-autocowork.mjs" ]]; then
   fi
 fi
 
+# Antislop-hook reception suite — comment-classification invariants the static
+# greps cannot cover (slop categories, false-positive guards on the antislop-code
+# "preserve" list, extraction state machine, path allowlist, warning rendering).
+if [[ -f "$ROOT_DIR/scripts/test-antislop-hook.mjs" ]]; then
+  NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
+  AS_FLAGS=""
+  if (( NODE_MAJOR == 22 )); then
+    AS_FLAGS="--experimental-strip-types"
+  fi
+  if (( NODE_MAJOR >= 22 )); then
+    # shellcheck disable=SC2086
+    if node $AS_FLAGS "$ROOT_DIR/scripts/test-antislop-hook.mjs" >/dev/null 2>&1; then
+      ok "antislop-hook reception suite passed (classification + false-positive guards)"
+    else
+      fail "antislop-hook reception suite FAILED — plugin regression"
+    fi
+  else
+    warn "antislop-hook reception suite skipped (node >= 22 required for TS type-stripping)"
+  fi
+fi
+
 # ─── 11. Task-workflow skill (orchestrateur Trello/GitLab) ──────────────────
 
 if [[ -f "$ROOT_DIR/skills/task-workflow/SKILL.md" ]]; then

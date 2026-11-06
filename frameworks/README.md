@@ -12,6 +12,7 @@ Per-stack rules and conventions. Each file defines the patterns, structures and 
 | NestJS | `nestjs.md` | `nest-cli.json` |
 | Astro | `astro.md` | `astro.config.*` |
 | WordPress | `wordpress.md` | `wp-config.php`, `wp-content/`, `style.css` with `Theme Name:`, or root PHP with `Plugin Name:` |
+| PHP / Laravel | `php.md` | `composer.json` (checked after WordPress; a Composer-distributed WP plugin whose header is not in a root `*.php` also lands here) |
 | Node.js | `nodejs.md` | `package.json` (fallback) |
 
 ## Automatic detection

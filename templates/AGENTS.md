@@ -106,6 +106,7 @@ Examples:
 - NestJS: apply `frameworks/nestjs.md`.
 - Astro: apply `frameworks/astro.md`.
 - WordPress: apply `frameworks/wordpress.md`.
+- PHP / Laravel: apply `frameworks/php.md`.
 
 ## Expected workflow
 

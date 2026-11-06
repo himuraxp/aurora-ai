@@ -49,6 +49,8 @@ detect_stack() {
     framework_ref="frameworks/wordpress.md"
   elif grep -qs "Plugin Name:" "$PROJECT_DIR"/*.php 2>/dev/null; then
     framework_ref="frameworks/wordpress.md"
+  elif [[ -f "$PROJECT_DIR/composer.json" ]]; then
+    framework_ref="frameworks/php.md"
   elif [[ -f "$PROJECT_DIR/package.json" ]]; then
     framework_ref="frameworks/nodejs.md"
   fi

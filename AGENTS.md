@@ -10,7 +10,7 @@ This repo separates responsibilities into 5 layers:
 config/      OpenCode configuration (opencode.json, plugins, .env.example — no secrets)
 agents/      Specialized personalities (aurora, aurora-heavy, reviewer, tester, security, cybersec, architect, spark, vision, atlas, crawler, sage, scribe, pulse, echo, beacon, designer, mobile, product-owner) + Council seats (council-architect, council-guardian, council-skeptic, council-synthesizer) + read-only meeting mirrors (meeting-designer, meeting-mobile, meeting-tester)
 standards/   Universal behaviors (workflow, communication, verification, memory, review, audit, anti-patterns, agent-output...)
-frameworks/  Per-stack technical rules (angular-20, nodejs, nestjs, astro, wordpress)
+frameworks/  Per-stack technical rules (angular-20, nodejs, nestjs, astro, wordpress, php)
 skills/      Reusable skills (accessibility, ai-cowork, allow-command, antislop, antislop-code, antislop-copywriting, antislop-ui, clean-worktrees, clonedeps, code-review, codemap, commit, council, create-mr, deepwork, deployment-changelog, design-qa, domain-language, figma-ds-sync, gitlab-ci, gitlab-feature-planner, gitlab-issues, gitlab-summary, goals, image-transparent-background, kchat-dev-brief, laravel-cruddy-by-design, loop-engineering, mail-triage, meeting, mr-review, mr-review-feedback, new-worktree, oh-my-opencode-slim, pre-mr-review, product-authority, project-context-health, radio-tag-genres, readme, reflect, release-smoke-test, review-gap-analyzer, session-finalize, simplify, task-workflow, translate-doc, user-stories, verification-planning, worktrees) + graph_core/ (Python execution-graph core — stdlib, frozen: evolutions via RFC, see docs/graph-engineering/)
 ```
 
@@ -22,7 +22,7 @@ Plus 6 support folders:
 scripts/     Installation and maintenance (setup.sh, install.sh, configure-models.sh, init-project.sh, sync-project.sh, health-check.sh, permissions-matrix.sh, validate-memory.sh, create-mr/, hooks/, lib/)
 templates/   Files injected into projects (AGENTS.md, docs/ai/*)
 docs/        User guides (workflow, customization, angular-20, code-review, testing, architecture) + graph-engineering/ (execution graph project: RFC, ADR, QA report)
-examples/    Ready-to-use examples (angular-app, node-api, monorepo)
+examples/    Ready-to-use examples (angular-app, node-api, wordpress-app, monorepo)
 mcp/         Local MCP servers (infomaniak, angular-elements, aurora-memory — distribution copy of the private aurora-core server, synced via scripts/sync-memory-server.sh; onboarding: scripts/setup-memory.sh — ADR-025)
 tools/       Repo infrastructure CLIs (figma-ds — Infomaniak Figma design system sync, procedure in skills/figma-ds-sync/)
 ```

@@ -194,7 +194,6 @@ The configuration includes eight MCP servers in `opencode.json` (seven active �
 |------------|------|-------------|
 | `chrome-devtools` | Browsing, screenshots, Lighthouse audits, Chrome debugging (isolated headless browser) | Auto-installed via `npx` on first launch |
 | `browser-debug` | Connects to a browser in debug mode (`http://127.0.0.1:9222`) — used by the `ai-cowork` skill (Aurora ↔ ChatGPT) | Auto-installed via `npx`; requires a browser started in debug mode (see below) |
-| `calendar` | kSuite calendars (kCalendar) — events, agendas; used by the `daily-brief` skill | Local `@infomaniak/mcp-server-calendar`, reads `CALENDAR_TOKEN` from `.env` |
 | `ios-simulator` | iOS simulator interaction (tap, swipe, screenshots, UI tree) | Optional — requires `idb-companion` + `fb-idb` |
 | `context7` | Up-to-date library and framework documentation | Auto-installed via `npx` |
 | `infomaniak` | Infomaniak API — radio, VOD, newsletter, DNS, events, AI. **Read-only by default** (write gate): mutations go through the orchestrator-only `infomaniak_api_call` bridge | Local (see `mcp/infomaniak/README.md`) |
@@ -641,7 +640,6 @@ aurora-ai/
 │   ├── kchat-dev-brief/        Draft a short kChat dev/QA message (copy-paste, no auto-send)
 │   ├── laravel-cruddy-by-design/  Strict RESTful Laravel controllers/routes (max 7 methods)
 │   ├── loop-engineering/      Grill + Monitor runtime for engineering loops
-│   ├── mail-triage/           IMAP triage engine + kChat digest (private config, public engine)
 │   ├── meeting/               Cross-functional pre-implementation gate (READY/CONDITIONAL/BLOCKED)
 │   ├── mr-review/             MR review with inline comments
 │   ├── mr-review-feedback/    Apply MR review feedback

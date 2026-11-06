@@ -11,7 +11,7 @@ config/      OpenCode configuration (opencode.json, plugins, .env.example — no
 agents/      Specialized personalities (aurora, aurora-heavy, reviewer, tester, security, cybersec, architect, spark, vision, atlas, crawler, sage, scribe, pulse, echo, beacon, designer, mobile, product-owner) + Council seats (council-architect, council-guardian, council-skeptic, council-synthesizer) + read-only meeting mirrors (meeting-designer, meeting-mobile, meeting-tester)
 standards/   Universal behaviors (workflow, communication, verification, memory, review, audit, anti-patterns, agent-output...)
 frameworks/  Per-stack technical rules (angular-20, nodejs, nestjs, astro, wordpress, php)
-skills/      Reusable skills (accessibility, ai-cowork, allow-command, antislop, antislop-code, antislop-copywriting, antislop-ui, clean-worktrees, clonedeps, code-review, codemap, commit, council, create-mr, deepwork, deployment-changelog, design-qa, domain-language, figma-ds-sync, gitlab-ci, gitlab-feature-planner, gitlab-issues, gitlab-summary, goals, image-transparent-background, kchat-dev-brief, laravel-cruddy-by-design, loop-engineering, mail-triage, meeting, mr-review, mr-review-feedback, new-worktree, oh-my-opencode-slim, pre-mr-review, product-authority, project-context-health, radio-tag-genres, readme, reflect, release-smoke-test, review-gap-analyzer, session-finalize, simplify, task-workflow, translate-doc, user-stories, verification-planning, worktrees) + graph_core/ (Python execution-graph core — stdlib, frozen: evolutions via RFC, see docs/graph-engineering/)
+skills/      Reusable skills (accessibility, ai-cowork, allow-command, antislop, antislop-code, antislop-copywriting, antislop-ui, clean-worktrees, clonedeps, code-review, codemap, commit, council, create-mr, deepwork, deployment-changelog, design-qa, domain-language, figma-ds-sync, gitlab-ci, gitlab-feature-planner, gitlab-issues, gitlab-summary, goals, image-transparent-background, kchat-dev-brief, laravel-cruddy-by-design, loop-engineering, meeting, mr-review, mr-review-feedback, new-worktree, oh-my-opencode-slim, pre-mr-review, product-authority, project-context-health, radio-tag-genres, readme, reflect, release-smoke-test, review-gap-analyzer, session-finalize, simplify, task-workflow, translate-doc, user-stories, verification-planning, worktrees) + graph_core/ (Python execution-graph core — stdlib, frozen: evolutions via RFC, see docs/graph-engineering/)
 ```
 
 The `explorer`, `fixer`, `librarian` and `oracle` agents are provided by the **oh-my-opencode-slim** plugin (defined in `config/oh-my-opencode-slim.json`), not as `agents/*.md` files.
@@ -93,11 +93,10 @@ The same managed block also exports `IDB_UDID` and `IDB_PATH` (ios-simulator MCP
 
 ## MCP Servers
 
-The configuration includes eight MCP servers (seven active — `aurora-memory` is declared but intentionally closed):
+The configuration includes seven MCP servers (six active — `aurora-memory` is declared but intentionally closed):
 
 - **chrome-devtools**: auto-installed via `npx` (no manual action) — isolated headless browser (Designer, audits)
 - **browser-debug**: auto-installed via `npx` — connects to a browser in debug mode (`http://127.0.0.1:9222`); used by the `ai-cowork` skill (Aurora ↔ ChatGPT co-working); requires a browser started with `--remote-debugging-port=9222 --user-data-dir=~/.config/opencode/brave-debug-profile`
-- **calendar**: kSuite calendars (kCalendar) — events, agendas; used by the `daily-brief` skill. Local `@infomaniak/mcp-server-calendar`, reads `CALENDAR_TOKEN` from `~/.config/opencode/.env`
 - **ios-simulator** (macOS): optional — requires `idb-companion` (Homebrew) + `fb-idb` (Python venv). `setup.sh` offers installation.
 - **infomaniak**: MCP server for the Infomaniak API (radio, VOD, newsletter, DNS, events, AI, etc.). **Read-only by default** (Security Gate S-02, 2026-10-07): mutating methods are refused at the HTTP client level (`INFOMANIAK_MCP_ALLOW_WRITES`, invariant tested by `scripts/check-infomaniak-write-gate.mjs` in health-check). Writes go through the **orchestrator-only bridge plugin** (`config/plugins/infomaniak-bridge.ts` → tool `infomaniak_api_call`, pattern ADR-021: broad reads, writes behind an explicit orchestrator decision). Capability agents route Infomaniak write needs through aurora.
 - **angular-elements**: MCP server for the Angular Elements design system (components, API, stories, install info)
@@ -260,7 +259,6 @@ A team specialized in UX/UI, Mobile, Security, Architecture, Testing, Execution,
 | Request | Agent |
 |---------|-------|
 | "Audit the mobile rendering" | Designer + Mobile |
-| "Trie ma boîte mail" — "digest emails du matin" — "tri email kChat" | Aurora (skill `mail-triage` — moteur IMAP autonome, scan/plan/apply, digest kChat, validation humaine obligatoire avant apply) |
 | "Audit this page's UX" | Designer |
 | "Check that it's accessible" | Designer |
 | "Check the auth security" | Security |

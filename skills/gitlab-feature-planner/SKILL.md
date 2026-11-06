@@ -78,7 +78,7 @@ La résolution d'un projet GitLab ne doit JAMAIS être devinée. Passer par le *
 
 **Distinguer** : nom humain (« Example Project », « Admin ») ≠ `gitlabPath` (`acme-group/example-project`) ≠ `projectId` (1001). Seul le couple path validé ↔ ID numérique est fiable.
 
-**Registry — pattern private-config / public-engine** (repo public = template placeholder, config privée = données réelles, cf. mail-triage et deployment-changelog) :
+**Registry — pattern private-config / public-engine** (repo public = template placeholder, config privée = données réelles, cf. deployment-changelog) :
 
 | Fichier | Versionné ? | Contenu |
 |---|---|---|

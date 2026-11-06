@@ -639,7 +639,6 @@ aurora-ai/
 │   ├── kchat-dev-brief/        Rédige un court message kChat dev/QA (copier-coller, jamais d'envoi auto)
 │   ├── laravel-cruddy-by-design/  Contrôleurs/routes Laravel RESTful stricts (max 7 méthodes)
 │   ├── loop-engineering/      Runtime Grill + Monitor pour boucles d'ingénierie
-│   ├── mail-triage/           Moteur de tri IMAP + digest kChat (config privée, moteur public)
 │   ├── meeting/               Porte multi-métiers pré-implémentation (READY/CONDITIONAL/BLOCKED)
 │   ├── mr-review/             Review de MR avec commentaires inline
 │   ├── mr-review-feedback/    Application des retours de review MR

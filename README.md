@@ -25,11 +25,11 @@ AI agents (OpenCode, Cursor, Claude...) don't know which standard to follow unle
 
 **What you get:**
 
-- **19 specialized agents + 4 plugin agents** — engineering roles (reviewer, tester, security, architect, designer...), a Search & Growth team and a delegated product owner
-- **17 universal standards + 47 skills** — adversarial review, verification, commits, plus the 17-skill accessibility suite
+- **26 agent definitions + 4 plugin agents** — 19 core roles (reviewer, tester, security, architect, designer...), 4 Technical Council seats, 3 read-only meeting mirrors, a Search & Growth team and a delegated product owner; plus plugin agents (explorer, fixer, librarian, oracle)
+- **18 universal standards + 49 skills** — adversarial review, verification, commits, plus the 17-skill accessibility suite
 - **Execution graph core (new in v1.4.0)** — stdlib Python package `skills/graph_core/`: transition engine, transactional journal, fenced scheduler — spec-first (RFC), 84 tests, running as a shadow pilot; full docs in [docs/graph-engineering/](docs/graph-engineering/)
 - **Persistent project memory** — 7 `docs/ai/` documents auto-read at session start: agents keep context across sessions
-- **14 models with automatic fallback** — 250k → 1M context, cost-based agent assignment
+- **13-model catalogue (16 declared) with automatic fallback chains** — 80k → 256k context, cost-based agent assignment
 - **Consistent across machines** — same setup and behavior everywhere, with ready-to-use examples (Angular, Node.js API, monorepo)
 
 → [Quick Start](#quick-start) — operational in a few minutes.
@@ -188,12 +188,13 @@ shell rc.
 
 ### MCP Servers
 
-The configuration includes seven MCP servers in `opencode.json` (six active — plus `aurora-memory`, intentionally closed and routed through an orchestrator-only plugin bridge):
+The configuration includes eight MCP servers in `opencode.json` (seven active — plus `aurora-memory`, intentionally closed and routed through an orchestrator-only plugin bridge):
 
 | MCP Server | Role | Installation |
 |------------|------|-------------|
 | `chrome-devtools` | Browsing, screenshots, Lighthouse audits, Chrome debugging (isolated headless browser) | Auto-installed via `npx` on first launch |
 | `browser-debug` | Connects to a browser in debug mode (`http://127.0.0.1:9222`) — used by the `ai-cowork` skill (Aurora ↔ ChatGPT) | Auto-installed via `npx`; requires a browser started in debug mode (see below) |
+| `calendar` | kSuite calendars (kCalendar) — events, agendas; used by the `daily-brief` skill | Local `@infomaniak/mcp-server-calendar`, reads `CALENDAR_TOKEN` from `.env` |
 | `ios-simulator` | iOS simulator interaction (tap, swipe, screenshots, UI tree) | Optional — requires `idb-companion` + `fb-idb` |
 | `context7` | Up-to-date library and framework documentation | Auto-installed via `npx` |
 | `infomaniak` | Infomaniak API — radio, VOD, newsletter, DNS, events, AI. **Read-only by default** (write gate): mutations go through the orchestrator-only `infomaniak_api_call` bridge | Local (see `mcp/infomaniak/README.md`) |
@@ -249,10 +250,12 @@ ios-simulator MCP does not read `.env`):
 ├── oh-my-opencode-slim.json   # Subagent presets
 ├── package.json               # Plugin dependencies
 ├── plugins/
-│   ├── rtk.ts                 # RTK plugin (token savings)
+│   ├── antislop-hook.ts       # Advisory gate — AI-slop comment detection (edit/write)
+│   ├── aurora-memory.ts       # Personal memory bridge (orchestrator-only)
+│   ├── chatgpt-autocowork.ts  # Auto-invokes the ai-cowork loop on ChatGPT links
 │   ├── infomaniak-bridge.ts   # Orchestrator-only write bridge (Infomaniak API)
 │   ├── product-authority.ts   # Product-authority controller (3 tools, fail-closed)
-│   └── aurora-memory.ts       # Personal memory bridge (orchestrator-only)
+│   └── rtk.ts                 # RTK plugin (token savings)
 ├── .env                       # Secrets (never versioned)
 └── .env.example               # Environment variable template
 ```
@@ -350,10 +353,11 @@ To adopt project memory on an existing project that already has `docs/ai/`:
 
 ## Releases & versioning
 
-Semantic versioning is **automated** by [release-please](https://github.com/googleapis/release-please):
+Semantic versioning is **automated** by [release-please](https://github.com/googleapis/release-please), with the loop closed by two companion workflows:
 
-- Conventional Commits drive the next version: `feat:` → minor, `fix:` → patch, `feat!:` / `BREAKING CHANGE:` → major (`docs:`/`chore:` alone → no release).
-- Every merge to `main` updates (or creates) a **Release PR** (bumps `package.json`, writes the semantic `CHANGELOG.md`). Merging that Release PR tags `vX.Y.Z` and publishes a GitHub Release — the human merge is the only publish trigger.
+- Conventional Commits drive the next version: `feat:` → minor, `fix:` → patch, `feat!:` / `BREAKING CHANGE:` → major (`docs:`/`chore:` alone → no release). PR titles are validated against Conventional Commits by the `Semantic PR title` check (calibrated on the repository's real titles).
+- Every merge to `main` updates (or creates) a **Release PR** (bumps `package.json`, writes the semantic `CHANGELOG.md`). That Release PR **auto-merges itself** once the required status checks pass (`release-please-auto-merge.yml`, requires the repo setting *Allow auto-merge*), then tags `vX.Y.Z` and publishes a GitHub Release. To hold a release back, disable auto-merge or close the Release PR — the human gate stays available.
+- Merging feature PRs only therefore ships a release each time a `fix`/`feat` lands; `docs`/`ci`/`chore`-only merges update nothing.
 - `npm run health-check` verifies the declared version stays coherent with the release-please manifest.
 - Pre-semantic historical entries (date-based journal) are archived in [docs/CHANGELOG-dates.md](docs/CHANGELOG-dates.md).
 

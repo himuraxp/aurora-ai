@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.0](https://github.com/himuraxp/aurora-ai/compare/v1.9.0...v1.10.0) (2026-11-08)
+
+
+### Features
+
+* chatgpt-watch skill + daemon (ChatGPT mobile inbox) ([404c0a3](https://github.com/himuraxp/aurora-ai/commit/404c0a3bbd5dd62412f35f7de27e8f5241e89972))
+* **skills:** Add ChatGPT Watch skill for headless Aurora co-working ([0ec16db](https://github.com/himuraxp/aurora-ai/commit/0ec16dbde48b44f90450659de76e36ac56cacebe))
+
 ## [1.9.0](https://github.com/himuraxp/aurora-ai/compare/v1.8.0...v1.9.0) (2026-11-06)
 
 

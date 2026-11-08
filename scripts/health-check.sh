@@ -653,6 +653,17 @@ if [[ -f "$ROOT_DIR/scripts/test-chatgpt-autocowork.mjs" ]]; then
   fi
 fi
 
+# Chatgpt-watch reception suite — arm-token parsing / unseen-selection /
+# state-recovery invariants the static greps cannot cover (pure .mjs — no
+# TS type-stripping needed).
+if [[ -f "$ROOT_DIR/scripts/test-chatgpt-watch.mjs" ]]; then
+  if node "$ROOT_DIR/scripts/test-chatgpt-watch.mjs" >/dev/null 2>&1; then
+    ok "chatgpt-watch reception suite passed (arm-token + unseen selection + state recovery)"
+  else
+    fail "chatgpt-watch reception suite FAILED — watch daemon regression"
+  fi
+fi
+
 # Antislop-hook reception suite — comment-classification invariants the static
 # greps cannot cover (slop categories, false-positive guards on the antislop-code
 # "preserve" list, extraction state machine, path allowlist, warning rendering).

@@ -619,6 +619,7 @@ aurora-ai/
 │   ├── antislop-code/          Code comment hygiene (remove AI-slop comments, keep valuable ones, never touch code)
 │   ├── antislop-copywriting/   Copy & text anti-slop (headlines, CTAs, tone, anti-AI-writing patterns)
 │   ├── antislop-ui/            UI/visual anti-slop (color, layout, components, motion)
+│   ├── chatgpt-watch/         ChatGPT mobile inbox — perpetual conversation polling + headless work sessions (daemon in scripts/)
 │   ├── clean-worktrees/        Cleanup of merged / origin-gone worktrees + branches (plan → user GO → --apply)
 │   ├── clonedeps/             Clone dependency sources to inspect library internals
 │   ├── code-review/           Adversarial code review

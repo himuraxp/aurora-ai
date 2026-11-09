@@ -28,7 +28,7 @@ Les modèles de langage génèrent des commentaires par habitude d'entraînement
 1. **Zéro par défaut.** Le code est présumé auto-explicite : noms, types, structure, tests. Si un lecteur a besoin d'un commentaire pour comprendre une ligne, la réponse est d'abord un meilleur nom, une extraction de fonction, un type plus précis ou un test — jamais un commentaire.
 2. **Un commentaire est une exception à justifier.** La whitelist est fermée : raisonnement mathématique ou intent de logique complexe. Tout le reste est interdit dans le code écrit.
 3. **Le « pourquoi » vit hors du code.** Message de commit, description de PR/MR, documentation projet. L'information est déplacée, jamais détruite — un commentaire supprimé dont le fait migre vers le commit n'a rien perdu.
-4. **Les conventions locales gagnent.** Un projet qui exige des docstrings, des headers de licence ou des marqueurs generated-code garde ses règles — la règle zéro commentaire ne passe jamais devant l'AGENTS.md / les conventions du projet.
+4. **Les conventions locales gagnent.** Un projet qui exige des docstrings, des headers de licence ou des marqueurs generated-code garde ses règles — la règle zéro commentaire ne passe jamais devant l'AGENTS.md / les conventions du projet. Où les repérer : `AGENTS.md` ou `CONTRIBUTING`, la configuration des linters (eslint-plugin-jsdoc, pydocstyle…), la densité de docstrings du module édité — en cas de doute, demander.
 
 ## 3. Le contrat de l'agent
 
@@ -36,7 +36,7 @@ Quand l'agent écrit ou édite du code :
 
 - générer **zéro nouveau commentaire** par défaut ;
 - tout commentaire en dehors des 2 exceptions est **supprimé à la même occasion** (lors de l'édition de la ligne ou du bloc concerné) ;
-- une exception fait **1 ligne, 2 seulement si la seconde porte un fait nouveau** — jamais 3 ;
+- une exception fait **1 ligne, 2 seulement si la seconde porte un fait nouveau** — jamais 3, sauf dérivation mathématique (§4.1) limitée au strict nécessaire ;
 - expliquer le **pourquoi, jamais le quoi** ;
 - **zéro TODO en commentaire** — une TODO est une tâche, elle va au tracker d'issues ;
 - **zéro echo de signature** (JSDoc/docstring qui répète `@param price The price.`) — la documentation de contrat API vit dans la doc projet ;
@@ -48,7 +48,7 @@ Quand l'agent écrit ou édite du code :
 Avant d'écrire un commentaire :
 
 1. **C'est du raisonnement mathématique ou de l'intent de logique complexe ?** Non → ne pas écrire.
-2. **Un nom, un type, une petite extraction, le commit ou la PR porteraient ça ?** Oui → ne pas écrire.
+2. **Un nom, un type, une petite extraction porteraient ça — ou c'est un pourquoi ponctuel pour un commit ou une PR ?** Oui → ne pas écrire. Un fait permanent, lui, vit à côté du code : c'est l'exception §4.2.
 
 Dans le doute → ne pas écrire.
 
@@ -56,7 +56,7 @@ Dans le doute → ne pas écrire.
 
 ### 4.1 Raisonnement mathématique
 
-Dérivation d'une formule, source d'une constante magique, subtleté d'unité ou de précision, borne de complexité — tout ce que la formule cache.
+Dérivation d'une formule, source d'une constante magique, subtilité d'unité ou de précision, borne de complexité — tout ce que la formule cache.
 
 ```ts
 // 0.2126 / 0.7152 / 0.0722 : poids de luminance linéaire Rec. 709 (ITU-R BT.709).
@@ -78,7 +78,7 @@ Invariant non évident, hypothèse d'algorithme, piège comportemental que le co
 | Pourquoi ce changement existe | Message de commit |
 | Contexte métier, décision d'architecture, alternatives rejetées | Description de PR/MR |
 | Décisions durables, contrats | Documentation projet (`docs/`, ADR, `DECISIONS.md`) |
-| Constante, seuil, configuration | Une constante **nommée** dans le code (`STRIPE_RETRY_WINDOW_DAYS = 3`) |
+| Constante, seuil, configuration (sauf source mathématique d'une valeur — cf. §4.1) | Une constante **nommée** dans le code (`STRIPE_RETRY_WINDOW_DAYS = 3`) |
 
 ## 6. Les patterns interdits (jamais écrire, toujours retirer quand touché)
 
@@ -100,10 +100,10 @@ Invariant non évident, hypothèse d'algorithme, piège comportemental que le co
 
 À vérifier sur chaque livraison. Toutes les réponses doivent être **oui** :
 
-- [ ] Zéro nouveau commentaire écrit ?
+- [ ] Zéro nouveau commentaire hors exceptions (§4.1/§4.2) écrit ?
 - [ ] Tout commentaire restant est-il du raisonnement mathématique ou de l'intent de logique complexe ?
 - [ ] Chaque commentaire a-t-il passé le test en deux questions ?
-- [ ] 1 ligne (2 seulement si la seconde porte un fait nouveau), court, naturel ?
+- [ ] 1 ligne (2 max — dérivation mathématique §4.1 : au strict nécessaire), court, naturel ?
 - [ ] Chaque « pourquoi » supprimé a-t-il migré vers un endroit durable (commit, PR, doc) ?
 - [ ] Zéro TODO en commentaire ?
 - [ ] Conventions locales respectées (docstrings exigées, headers de licence, marqueurs generated) ?
@@ -123,11 +123,12 @@ Redémarrer OpenCode. Rien d'autre : le frontmatter du fichier porte les déclen
 
 **Câblage renforcé (optionnel)** : si votre setup orchestre des sous-agents (Fixer, commit…), ajoutez l'attente dans votre AGENTS.md ou le prompt d'orchestrateur pour qu'elle voyage dans les briefs :
 
-> Zéro commentaire par défaut dans le code généré — le code doit se suffire à lui-même (noms, types, structure, tests) ; seuls survivent les commentaires de raisonnement mathématique ou de logique complexe (1-2 lignes max). Le « pourquoi » va dans le message de commit, la description de PR ou la doc — jamais en commentaire de code.
+> Zéro commentaire par défaut dans le code généré — le code doit se suffire à lui-même (noms, types, structure, tests) ; seuls survivent les commentaires de raisonnement mathématique ou de logique complexe (1-2 lignes max ; dérivation mathématique §4.1 : au strict nécessaire). Le « pourquoi » va dans le message de commit, la description de PR ou la doc — jamais en commentaire de code.
 
 ## 9. FAQ rapide
 
 - **« Et la documentation d'API ? »** — Elle vit dans la doc projet (README, docs/, générateur de doc). Un docstring qui répète la signature est interdit ; un docstring exigé par les conventions du projet reste suivi (principe 4).
+- **« Et les tags JSDoc fonctionnels — @deprecated, @throws, @internal ? »** — Ce sont des métadonnées machine consommées par les outils (IDE, linters, générateurs de doc), pas des commentaires au sens du skill : ils restent sur le symbole.
 - **« Un commentaire temporaire pendant le debug ? »** — De même que TODO : jamais commité. Le commentaire de travail se transforme en issue ou disparaît.
 - **« Mon collègue écrit encore du code commenté ? »** — La règle lie le code écrit/édité par l'agent. Pour le style humain, la checklist (§7) sert de convention de revue.
 - **« D'où vient ce système ? »** — Adapté du projet open-source [anti-slop](https://github.com/miqdadbadjuber/anti-slop) (skills "Code Comments"), durci en default-deny par l'opérateur : la version upstream gardait une whitelist large (« Not a Ban ») qui laissait revenir les commentaires ; l'inversion du défaut est la seule posture qui tient.

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.11.0](https://github.com/himuraxp/aurora-ai/compare/v1.10.0...v1.11.0) (2026-11-09)
+
+
+### Features
+
+* **antislop-code:** enforce zero-comment default in generated code ([cf049e1](https://github.com/himuraxp/aurora-ai/commit/cf049e122805cc70a077894c84323e74a8f905c7))
+* **antislop-code:** zero-comment default + standalone distribution guide ([63044ff](https://github.com/himuraxp/aurora-ai/commit/63044ffa47f1a0654a57c1cdbbb80f9e0c9e1382))
+
 ## [1.10.0](https://github.com/himuraxp/aurora-ai/compare/v1.9.0...v1.10.0) (2026-11-08)
 
 

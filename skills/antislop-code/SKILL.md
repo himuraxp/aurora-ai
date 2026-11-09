@@ -27,7 +27,7 @@ The default is **zero comments**. Assume the code is already expressive enough: 
 A comment is an exception, not a decoration. Before writing one, pass the **two-question test**:
 
 1. **Is this mathematical reasoning or complex-logic intent?** If no — do not write the comment.
-2. **Could a name, a type, a small extraction, the commit message, or the PR description carry this instead?** If yes — do not write the comment.
+2. **Could a name, a type, or a small extraction carry this — or is it a one-off rationale for a commit message or PR description?** If yes — do not write it. A permanent fact, by contrast, lives next to the code: that is the complex-logic exception.
 
 Both answers must survive scrutiny before a comment exists. When in doubt, write no comment.
 
@@ -54,7 +54,7 @@ Non-obvious invariants, algorithm assumptions, behavioral traps the code cannot 
 
 Rules for both:
 
-- **One line; two only when the second carries a new fact.** Never three.
+- **One line; two only when the second carries a new fact.** Never three — except mathematical derivation (category 1 above), kept to the strict minimum it genuinely requires.
 - **Why, not what.** The comment explains the reasoning or the trap, never restates the code.
 - **No narration**: no `// Step 1:`, no `// First...`, no per-line commentary.
 - **No TODOs in code.** A TODO is a task — it belongs to the issue tracker, not to a comment.
@@ -67,13 +67,14 @@ A comment is not a dump for context. Under this contract, the reason behind a ch
 - **Commit message** — why the change exists, the constraint behind it, the trade-off chosen.
 - **PR/MR description** — business context, architectural decision, alternatives rejected.
 - **Project docs** (`docs/`, `docs/ai/DECISIONS.md`, README) — durable decisions and contracts.
-- **The code itself** — a named constant `STRIPE_RETRY_WINDOW_DAYS = 3` beats a comment almost every time.
+- **The code itself** — for values a name can fully capture, a named constant `STRIPE_RETRY_WINDOW_DAYS = 3` beats a comment; the constant's mathematical *source* is exception 1 and may legitimately be a comment.
 
 If the "why" cannot go in any of these places, that is a reason to reconsider the change, not to write a comment.
 
 ## Carve-outs (a comment may exist here, despite the default)
 
-- **Project conventions win** (golden rule): if the local `AGENTS.md` or the codebase requires docstrings, license headers, copyright notices, or generated-code markers, follow the project — the zero-comment default never overrides a local convention.
+- **Project conventions win** (golden rule): if the local `AGENTS.md` or the codebase requires docstrings, license headers, copyright notices, or generated-code markers, follow the project — the zero-comment default never overrides a local convention. Where to spot them: the project's `AGENTS.md` or `CONTRIBUTING`, the linter configuration (eslint-plugin-jsdoc, pydocstyle, …), and the docstring density of the module being edited — ask the author when in doubt.
+- **Functional JSDoc tags** (`@deprecated`, `@throws`, `@internal`): these are machine-consumed metadata (IDEs, linters, documentation generators), not comments under this contract — they stay on the symbol.
 - **The two whitelist categories above.** Nothing else.
 
 ## Editing Existing Code
@@ -157,10 +158,10 @@ Each entry: **Tell** (the pattern), **Why** (why it reads as slop), **Fix** (alw
 
 Run alongside the core Delivery Gate when the task touches code. All answers must be **yes**:
 
-- [ ] Did I write **zero** new comments by default? (Zero-Comment Default)
+- [ ] Did I write **zero** new comments outside the two permitted categories? (Zero-Comment Default)
 - [ ] Does every remaining comment pass the whitelist: mathematical reasoning or complex-logic intent only?
-- [ ] Did every comment pass the two-question test (not carried by a name, type, extraction, commit message, or PR description)?
-- [ ] Are surviving comments one line (two only when the second carries a new fact), short, sentence case?
+- [ ] Did every comment pass the two-question test (a one-off rationale is carried by the commit/PR; a permanent fact lives next to the code under the whitelist)?
+- [ ] Are surviving comments one line (two max — mathematical derivation: as long as the derivation genuinely requires), short, sentence case?
 - [ ] Did every removed "why" land somewhere durable (commit message, PR description, project docs) rather than being deleted?
 - [ ] Are there zero TODO comments in written code (tasks live in the tracker)?
 - [ ] Did I respect local conventions (project-required docstrings, license headers, generated markers)?

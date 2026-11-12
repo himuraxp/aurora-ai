@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "tool": {
+    "baseUrl": "https://staging-tool.stg.example.internal",
+    "adapter": "browser-debug",
+    "adapterContract": "v0-ui-contract.md"
+  },
+  "naming": {
+    "resourcePrefix": "staging-",
+    "stripBranchPrefixes": ["feat/", "feature/", "fix/", "bugfix/", "hotfix/"],
+    "maxLength": 24
+  },
+  "repositories": {
+    "example-org/apps/app-front": { "projectKey": "app-front", "group": "Apps" },
+    "example-org/apps/app-api": { "projectKey": "app-api", "group": "Apps" },
+    "example-org/libs/shared-ui": { "projectKey": "shared-ui", "group": "Libs" }
+  },
+  "bundles": {
+    "apps": {
+      "description": "Fictional feature team — extra projects beyond the locked core, policies: source = branch of the resolved source repo, default = catalog default",
+      "projects": {
+        "app-front": { "branchPolicy": "source" },
+        "app-api": { "branchPolicy": "default" },
+        "shared-ui": { "branchPolicy": "default" }
+      }
+    }
+  },
+  "environment": {
+    "defaultDomainPattern": "https://{sub}.staging-{name}.stg.example.internal",
+    "managedKeys": [
+      "APP_URL", "API_URL", "STATIC_URL",
+      "QUEUE_NAME", "CACHE_NAMESPACE",
+      "TRUSTED_ORIGINS", "AUTH_ENDPOINT",
+      "PROXY_URI", "DEBUG_FLAG"
+    ],
+    "fixed": {
+      "TRUSTED_ORIGINS": "10.0.0.0/8,192.168.0.0/16",
+      "AUTH_ENDPOINT": "https://auth.stg.example.internal"
+    },
+    "derived": {
+      "APP_URL": "https://app.staging-{name}.stg.example.internal",
+      "API_URL": "https://api.staging-{name}.stg.example.internal",
+      "STATIC_URL": "https://static.staging-{name}.stg.example.internal",
+      "QUEUE_NAME": "staging-{name}",
+      "CACHE_NAMESPACE": "staging-{name}"
+    },
+    "empty": ["PROXY_URI", "DEBUG_FLAG"]
+  },
+  "access": {
+    "homePattern": "https://app.staging-{name}.stg.example.internal/{homePath}",
+    "auth": "internal SSO — the manager redirects to the staging login (usage: open in an authenticated browser)"
+  },
+  "verification": {
+    "pollIntervalSeconds": 15,
+    "timeoutSeconds": 600,
+    "expectedVariableCount": 9,
+    "referenceStaging": "example-reference"
+  }
+}

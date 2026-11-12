@@ -1,6 +1,6 @@
 ---
 name: mr-review-feedback
-description: Automatically read and apply unresolved MR review comments. Detects GitLab suggestions, applies code changes, and creates commits via the 'commit' skill following Infomaniak conventions.
+description: Automatically read and apply unresolved MR review comments. Detects GitLab suggestions, applies code changes, and creates commits via the 'commit' skill following Infomaniak conventions. After pushing, runs an avoidability gap analysis (review-gap-analyzer) on the applied feedback and, at human GO, can deliver AGENTS.md improvements as a dedicated MR.
 ---
 
 # MR Review Feedback
@@ -183,6 +183,44 @@ echo ""
 echo "✅ Review feedback applied and pushed"
 ```
 
+### Step 7: Gap analysis — could this feedback have been avoided? (conditional, read-only)
+
+After pushing the fixes, run an avoidability analysis on the feedback you just
+handled, following the `review-gap-analyzer` skill as the protocol. Goal:
+determine which reviewer comments are **symptoms of a missing project rule** —
+they would never have been necessary if this project had a better `AGENTS.md`
+(or a versioned mechanical guard).
+
+Trigger: run when at least one reviewer comment was handled in Step 3 (fix)
+or Step 5 (reply or rejection) — continue into this step even when Step 4
+committed nothing (a rejection-only turn still yields a gap report). Skip
+only if this project has no `AGENTS.md`: report "gap analysis skipped: no
+AGENTS.md in this project" and mention to the user that creating one is a
+separate initiative.
+
+Process:
+
+1. Load `~/.config/opencode/skills/review-gap-analyzer/SKILL.md` and follow
+   its process (programmatic mode) with:
+   - **Feedback source**: the reviewer comments handled above (author = the
+     reviewer, file, line, text) — never the replies we posted in Step 5.
+   - **AGENTS.md reference**: this project's `AGENTS.md`.
+   - **Target repo for improvements**: this repository.
+2. Produce the gap report in the analyzer's format. Comments whose pattern was
+   already covered by an explicit AGENTS.md rule are process issues, not gaps.
+
+Delivery gate:
+
+- Gaps targeting versionable files of this repo (`AGENTS.md`, versioned
+  project guards) are delivered as a **separate branch and a dedicated MR** —
+  never mixed into the review-feedback commit of Step 4. Follow the analyzer's
+  delivery protocol (its Étape 8).
+- **Never create the branch or the MR without an explicit human GO.**
+- **Anti-recursion**: never run this gap analysis on an MR created by the
+  analyzer's delivery protocol (its dedicated improvement branch, e.g.
+  `chore/agents-md-review-gaps`) or on an MR that edits this project's
+  `AGENTS.md`.
+
 ## Limitations
 
 **✅ Handled:** Code suggestions, lint/format auto-fix, import ordering, thread replies via discussions API  
@@ -219,4 +257,7 @@ Invoking commit skill...
 ✅ Replied to thread 6cc883fc
 ✅ Replied to thread 70a56b88
 ✅ Review feedback applied and pushed
+
+Step 7 — gap analysis: 1 avoidable gap found (AGENTS.md missing rule on X)
+→ report shown; dedicated AGENTS.md MR awaits human GO.
 ```

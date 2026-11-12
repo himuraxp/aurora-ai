@@ -1,6 +1,6 @@
 ---
 name: review-gap-analyzer
-description: Analyser les retours de revue (MR comments, bot feedback) pour déterminer si chaque commentaire aurait pu être évité par une meilleure règle dans AGENTS.md ou un meilleur grep dans le skill pre-mr-review. Propose des améliorations concrètes et évite les false positives.
+description: Analyser les retours de revue (MR comments, bot feedback) pour déterminer si chaque commentaire aurait pu être évité par une meilleure règle dans AGENTS.md ou un meilleur grep dans le skill pre-mr-review. Propose des améliorations concrètes, évite les false positives, et peut les livrer dans une MR dédiée (au GO humain). Invocable depuis mr-review et mr-review-feedback.
 ---
 
 # Skill: Review Gap Analyzer
@@ -10,6 +10,8 @@ Analyser les retours de revue de code (commentaires de MR, feedback de bot autom
 ## Quand utiliser ce skill
 
 Quand l'utilisateur fournit des retours de revue (commentaires de MR GitLab, feedback de Dev Bot, retours de Joe, etc.) et demande si on aurait pu les éviter avec de meilleures règles ou détections.
+
+Deux modes d'invocation : **interactif** (l'utilisateur colle les retours — processus ci-dessous) et **programmatique** (invoqué par `mr-review` ou `mr-review-feedback` — cf. section Invocation programmatique).
 
 ## Prérequis
 
@@ -34,6 +36,8 @@ cat ~/.config/opencode/skills/pre-mr-review/SKILL.md
 ```
 
 Extraire :
+
+> _En mode programmatique : l'`AGENTS.md` de référence est celui précisé par le skill appelant (projet de la MR reviewée ou projet courant), pas nécessairement celui du working directory courant._
 - Toutes les **Lessons** d'AGENTS.md (numérotées)
 - Toutes les **Critical Rules** d'AGENTS.md (numérotées)
 - Toutes les **sections conventionnelles** d'AGENTS.md (§1, §2, §10, §12, etc.)
@@ -81,6 +85,7 @@ Vérifier si le pattern signalé est couvert par une règle existante d'AGENTS.m
 - Y a-t-il une **Lesson** qui couvre ce pattern ?
 - Y a-t-il une **Critical Rule** qui couvre ce pattern ?
 - Y a-t-il une **section conventionnelle** (§1, §2, §10, §12, etc.) qui couvre ce pattern ?
+- Y a-t-il une **garde versionnée du projet** (config lint versionnée, hook) qui couvre ce pattern ?
 - La règle est-elle **explicite** ou **ambiguë** sur ce cas précis ?
 
 #### 3.2. Couverture skill pre-mr-review
@@ -110,7 +115,7 @@ Pour chaque commentaire, attribuer un verdict :
 |---------|---------|--------|
 | **Évitable** | Couvert par AGENTS.md mais pas détecté par le skill → **Gap skill** | Proposer un grep |
 | **Évitable** | Non couvert par AGENTS.md mais pattern grep-able → **Gap AGENTS.md** | Proposer une lesson + rule |
-| **Évitable** | Couvert par AGENTS.md et détecté par le skill → **Process issue** | Lint/pre-review non exécuté |
+| **Évitable** | Couvert par AGENTS.md ou par une garde versionnée du projet (config lint, hook) et détectable par le skill → **Process issue** | Garde non exécutée / couverture à documenter |
 | **Non évitable** | Pattern sémantique, UX, ou non grep-able | Aucune action |
 
 ### Étape 4: Dédupliquer les patterns
@@ -186,6 +191,44 @@ Produire le rapport au format suivant :
 [Pour les patterns non grep-ables, expliquer pourquoi]
 ```
 
+### Étape 8: Livraison des améliorations (GO humain obligatoire)
+
+Les propositions concrètes de l'Étape 5 sont livrables sous forme de **MR
+dédiée dans le repo cible** — jamais mélangées au commit de fix de la revue,
+jamais automatiquement.
+
+**Portée de la MR (règle de versionnabilité)** — ne va dans la MR que ce qui
+est versionné dans le repo cible :
+
+- ✅ `AGENTS.md` du projet (lessons, critical rules, sections conventionnelles)
+- ✅ gardes versionnées du projet (hooks, configs, checklists documentées)
+- ❌ greps pour le skill **global** `pre-mr-review`
+  (`~/.config/opencode/skills/`, hors du repo projet) — proposés séparément
+  (installation locale de l'agent), jamais dans la MR projet ; exception : le
+  repo cible versionne lui-même ses skills/gardes de review
+
+**Procédure (après GO explicite)** :
+
+```bash
+# 1. Garde : le working tree du repo cible doit être propre
+#    (git status --porcelain vide) — sinon proposer stash/cleanup au GO,
+#    jamais transporter des changements non commités dans la MR dédiée
+# 2. Branche dédiée, depuis la branche par défaut du repo cible
+git switch -c chore/agents-md-review-gaps <default-branch>
+
+# 3. Appliquer les améliorations versionnables de l'Étape 5
+#    (minimal : une règle = un bloc, exemples ❌/✅ inclus)
+
+# 4. Commit (convention du repo cible)
+#    docs(agents-md): add rules from review gap analysis
+
+# 5. Push + MR dédiée
+#    Corps = rapport de gaps + liens vers les commentaires d'origine + liste des fichiers modifiés
+```
+
+**Anti-récursion** : la MR d'amélioration ne déclenche jamais d'analyse de
+gaps sur elle-même.
+
 ## Règles d'analyse
 
 ### Patterns grep-ables connus (déjà couverts)
@@ -233,6 +276,21 @@ Ne pas proposer un grep si :
 2. **Le pattern nécessite du contexte cross-file** — constante non utilisée dans un autre fichier
 3. **Le pattern nécessite de comprendre l'intention** — nom de variable trompeur, message incohérent
 4. **Le ratio signal/bruit est < 50%** — plus de la moitié des matches sont des false positives
+
+## Invocation programmatique (depuis mr-review / mr-review-feedback)
+
+Ce skill peut être invoqué par d'autres skills de review, sans collage manuel
+des retours dans le prompt. Dans ce mode :
+
+- **Entrée** : la liste des commentaires de revue déjà collectés par le skill
+  appelant (auteur, fichier, ligne, texte).
+- **AGENTS.md de référence** : celui du projet cible précisé par l'appelant —
+  projet de la MR reviewée pour `mr-review`, projet courant pour
+  `mr-review-feedback`.
+- **Repo cible des améliorations** : précisé par l'appelant (cf. Étape 8).
+- **Livraison** : toujours au GO humain, via l'Étape 8.
+- Le processus d'analyse reste identique (verdicts, déduplication, false
+  positives, rapport).
 
 ## Commandes d'utilisation
 

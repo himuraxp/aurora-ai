@@ -877,6 +877,53 @@ else
   fail "skills/mr-split/SKILL.md missing"
 fi
 
+# ─── Skill create-staging (UI-driven staging provisioning) ───────────────────
+# Provisionnement piloté UI : config privée hors repo (zéro donnée interne
+# versionnée), réconciliation des variables pré-remplies par diff (jamais une
+# saisie aveugle), digest SHA-256 canonicalisé comme gate pré-submit + preuve
+# de persistance, JAMAIS de press_key Enter (Enter = submit), un seul Update
+# par transaction, attach tardif des branches jumelles, URLs d'accès au
+# rapport final. Compilateur pure self-testé (config.example.json fictif).
+if [[ -f "$ROOT_DIR/skills/create-staging/SKILL.md" ]]; then
+  grep -q '^name: create-staging' "$ROOT_DIR/skills/create-staging/SKILL.md" \
+    && ok "create-staging skill present (frontmatter)" \
+    || fail "create-staging frontmatter name missing or renamed"
+  ruby -ryaml -e "YAML.safe_load(File.read('$ROOT_DIR/skills/create-staging/SKILL.md').split(/^---\n/)[1], permitted_classes: [], aliases: false)" \
+    && ok "create-staging skill frontmatter valid YAML" \
+    || fail "create-staging skill frontmatter invalid YAML"
+  grep -q 'JAMAIS de press_key Enter' "$ROOT_DIR/skills/create-staging/SKILL.md" \
+    && grep -q 'Un seul clic Update par transaction' "$ROOT_DIR/skills/create-staging/SKILL.md" \
+    && grep -q 'Zéro donnée interne dans le repo public' "$ROOT_DIR/skills/create-staging/SKILL.md" \
+    && ok "create-staging invariants documented (no-Enter, single-Update transaction, public/private boundary)" \
+    || fail "create-staging must document the no-Enter rule, the single-Update transaction and the public/private boundary"
+  grep -q 'digest SHA-256' "$ROOT_DIR/skills/create-staging/SKILL.md" \
+    && grep -q 'réconciliation par diff' "$ROOT_DIR/skills/create-staging/SKILL.md" \
+    && grep -q 'URLs d.*accès' "$ROOT_DIR/skills/create-staging/SKILL.md" \
+    && grep -q 'attach tardif' "$ROOT_DIR/skills/create-staging/SKILL.md" \
+    && ok "create-staging patterns documented (digest gate, diff reconciliation, access URLs in report, late branch attach)" \
+    || fail "create-staging must document the digest gate, diff reconciliation, access URLs in the final report and the late branch attach"
+  [[ -f "$ROOT_DIR/skills/create-staging/config.schema.json" ]] && [[ -f "$ROOT_DIR/skills/create-staging/config.example.json" ]] \
+    && ok "create-staging schema + fictional example present" \
+    || fail "create-staging requires config.schema.json and the fictional config.example.json"
+  python3 -c "import json; json.load(open('$ROOT_DIR/skills/create-staging/config.schema.json')); json.load(open('$ROOT_DIR/skills/create-staging/config.example.json'))" \
+    && ok "create-staging schema + example valid JSON" \
+    || fail "create-staging schema or example invalid JSON"
+  python3 "$ROOT_DIR/skills/create-staging/compile_variables.py" --self-test >/dev/null 2>&1 \
+    && ok "create-staging compiler self-test passed" \
+    || fail "create-staging compiler self-test failed"
+  # OPSEC: délégation à la gate OPSEC (opsec-gate.sh porte les patterns —
+  # jamais de données internes écrites en dur dans ce validator)
+  bash "$ROOT_DIR/scripts/hooks/opsec-gate.sh" --files \
+    "$ROOT_DIR/skills/create-staging/SKILL.md" \
+    "$ROOT_DIR/skills/create-staging/config.schema.json" \
+    "$ROOT_DIR/skills/create-staging/config.example.json" \
+    "$ROOT_DIR/skills/create-staging/compile_variables.py" >/dev/null 2>&1 \
+    && ok "create-staging OPSEC clean (opsec-gate scan)" \
+    || fail "create-staging files trigger the OPSEC gate — move internal references to the private config"
+else
+  fail "skills/create-staging/SKILL.md missing"
+fi
+
 # Software Fundamentals lot 1: verification-planning links to the
 # implementation contract (own existence block — fails loudly if the skill
 # disappears, never silently skipped).

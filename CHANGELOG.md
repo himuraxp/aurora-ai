@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.1](https://github.com/himuraxp/aurora-ai/compare/v1.14.0...v1.14.1) (2026-11-12)
+
+
+### Reverts
+
+* **skills:** remove personal-only ChatGPT Watch feature ([7497a01](https://github.com/himuraxp/aurora-ai/commit/7497a01ec932707bd61740006b8b5b20d30ec962))
+
 ## [1.14.0](https://github.com/himuraxp/aurora-ai/compare/v1.13.0...v1.14.0) (2026-11-12)
 
 

@@ -1,6 +1,6 @@
 ---
 name: mr-review
-description: Review a GitLab MR and post inline conventional comments on code lines. Use when the user gives a GitLab MR URL or asks to review an MR. Analyzes the diff, delegates to Oracle for adversarial review, and posts structured inline comments using Conventional Comments format (issue:, suggestion:, nitpick:, question:, thought:, praise:).
+description: Review a GitLab MR and post inline conventional comments on code lines. Use when the user gives a GitLab MR URL or asks to review an MR. Analyzes the diff, delegates to Oracle for adversarial review, and posts structured inline comments using Conventional Comments format (issue:, suggestion:, nitpick:, question:, thought:, praise:). After posting, runs an avoidability gap analysis (review-gap-analyzer) on the posted comments and, at human GO, can deliver AGENTS.md improvements as a dedicated MR.
 ---
 
 # MR Review — Inline Conventional Comments
@@ -224,6 +224,51 @@ Display a summary table:
 | 1 | issue: | path/to/file.ts | 42 |
 | 2 | suggestion: | path/to/other.ts | 15 |
 ```
+
+### Step 9: Gap analysis — could these comments have been avoided? (conditional, read-only)
+
+After posting the review, run an avoidability analysis on the comments you just
+posted, following the `review-gap-analyzer` skill as the protocol. Goal:
+determine which posted comments are **symptoms of a missing project rule** —
+they would never have been necessary if the reviewed project had a better
+`AGENTS.md` (or a versioned mechanical guard).
+
+Trigger: run automatically after every review that posted at least one
+non-`praise:` comment. Skip only if the target project has no `AGENTS.md`
+(nothing to diff against) — then report "gap analysis skipped: no AGENTS.md in
+target project".
+
+Process:
+
+1. Load `~/.config/opencode/skills/review-gap-analyzer/SKILL.md` and follow
+   its process (programmatic mode) with:
+   - **Feedback source**: the comments posted in Step 6 with prefix `issue:`,
+     `suggestion:` or `nitpick:` (author, file, line, text). Findings removed
+     by the AP1–AP5 filters never enter the analysis — a filtered finding
+     cannot reveal a project gap. `question:`, `thought:` and `praise:`
+     comments are excluded (no established defect, no dedicated protocol
+     category).
+   - **AGENTS.md reference**: the reviewed project's `AGENTS.md` loaded in
+     Step 3 (its tooling-enforcement detection applies — lint-enforced
+     patterns are classified by the analyzer's coverage matrix, not by this
+     step).
+   - **Target repo for improvements**: the reviewed project.
+2. Produce the gap report in the analyzer's format and display it after the
+   summary table of Step 8.
+
+Delivery gate:
+
+- Improvements targeting files versionable in the **reviewed project**
+  (`AGENTS.md`, versioned project guards) can be delivered as a **separate
+  branch and a dedicated MR in that project** — never mixed into the reviewed
+  MR. Follow the analyzer's delivery protocol (its Étape 8).
+- Global `pre-mr-review` greps are never part of that MR (analyzer's delivery
+  rule).
+- **Never create the branch or the MR without an explicit human GO.**
+- **Anti-recursion**: never run this gap analysis on an MR created by the
+  analyzer's delivery protocol (its dedicated improvement branch, e.g.
+  `chore/agents-md-review-gaps`) or on an MR that edits the project's
+  `AGENTS.md`.
 
 ## Conventional Comments Format
 

@@ -1,5 +1,5 @@
 ---
-name: antislop-code
+name: no-slop-comments
 description: "Zero-comment default for AI coding agents: code must be self-explanatory — no comments in written code, the only exceptions being mathematical reasoning and complex logic. Also detects and strips AI-slop comments when editing existing code. Use when writing or editing code, comments, JSDoc, docstrings, or TODOs."
 allowed-tools: Read Write Edit Glob Grep
 ---
@@ -7,10 +7,10 @@ allowed-tools: Read Write Edit Glob Grep
 Fichier autonome et portable — aucune dépendance au projet Aurora.
 Double usage : (1) ce document explique le concept, (2) ce MÊME fichier est le skill.
 Installation (1 étape) : copier ce fichier tel quel dans
-  ~/.config/opencode/skills/antislop-code/SKILL.md
+  ~/.config/opencode/skills/no-slop-comments/SKILL.md
 puis redémarrer OpenCode. C'est tout.
 -->
-# antislop-code — zéro commentaire par défaut
+# no-slop-comments — zéro commentaire par défaut
 
 > Système portable d'hygiène des commentaires de code pour agents de codage IA (OpenCode, Claude Code, Cursor, Copilot Workspace…). Le code écrit par un agent ne doit contenir **aucun commentaire**, sauf deux exceptions fermées : le raisonnement mathématique et l'intent de logique complexe.
 
@@ -115,8 +115,8 @@ Invariant non évident, hypothèse d'algorithme, piège comportemental que le co
 **1 étape :**
 
 ```bash
-mkdir -p ~/.config/opencode/skills/antislop-code
-cp antislop-code-zero-comment.md ~/.config/opencode/skills/antislop-code/SKILL.md
+mkdir -p ~/.config/opencode/skills/no-slop-comments
+cp no-slop-comments-zero-comment.md ~/.config/opencode/skills/no-slop-comments/SKILL.md
 ```
 
 Redémarrer OpenCode. Rien d'autre : le frontmatter du fichier porte les déclencheurs — OpenCode charge le skill automatiquement quand une tâche écrit ou édite du code, des commentaires, de la JSDoc, des docstrings ou des TODOs (matching sémantique sur la description).

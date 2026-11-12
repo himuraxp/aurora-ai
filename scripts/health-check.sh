@@ -665,7 +665,7 @@ if [[ -f "$ROOT_DIR/scripts/test-chatgpt-watch.mjs" ]]; then
 fi
 
 # Antislop-hook reception suite — comment-classification invariants the static
-# greps cannot cover (slop categories, false-positive guards on the antislop-code
+# greps cannot cover (slop categories, false-positive guards on the no-slop-comments
 # "preserve" list, extraction state machine, path allowlist, warning rendering).
 if [[ -f "$ROOT_DIR/scripts/test-antislop-hook.mjs" ]]; then
   NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"

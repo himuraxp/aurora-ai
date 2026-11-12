@@ -47,20 +47,20 @@ Auto-invokes the `ai-cowork` skill when the user sends a ChatGPT conversation li
 
 ### antislop-hook.ts
 
-Advisory anti-slop comment gate — deterministic enforcement of the `antislop-code` skill across ALL agents (orchestrator + sub-agents), since skills are opt-in and never load themselves.
+Advisory anti-slop comment gate — deterministic enforcement of the `no-slop-comments` skill across ALL agents (orchestrator + sub-agents), since skills are opt-in and never load themselves.
 
 **How it works:**
 1. Hooks `execute.before` on the `write` tool to snapshot the existing file content (keyed by callID, evicted FIFO)
 2. Hooks `execute.after` on `edit`/`write` — computes the ADDED lines only (multiset line diff; pre-existing comments are never re-flagged)
 3. Extracts comments per language surface (`//`+`/* */` for C-like, `#` for hash langs, `--` for SQL/Lua; extension allowlist; docs/data formats skipped) with quote-parity heuristics for trailing comments
-4. Classifies each comment against the antislop-code categories: decorative separator, workflow narration, empty label, vague placeholder, decorative emoji, end marker, shouting label, over-formal wording, signature echo
+4. Classifies each comment against the no-slop-comments categories: decorative separator, workflow narration, empty label, vague placeholder, decorative emoji, end marker, shouting label, over-formal wording, signature echo
 5. Appends an `[antislop-hook]` advisory block (capped at 4 findings) to the tool result — the writing agent sees it and self-corrects
 
 **Semantics:** advisory only (never blocks, never rewrites files), diff-aware, fail-open, silent when clean. High-precision rules: the skill's "preserve" list (workarounds, constraints, specific TODOs, PEM markers, eslint directives) must pass — guarded by the reception suite's false-positive tests.
 
 **Dependency:** none.
 
-**Semantic source of truth:** `skills/antislop-code/SKILL.md` (vendored anti-slop rules) + `agents/aurora.md` (« Antislop (sorties IA) »).
+**Semantic source of truth:** `skills/no-slop-comments/SKILL.md` (vendored anti-slop rules) + `agents/aurora.md` (« Antislop (sorties IA) »).
 
 **Reception suite:** `scripts/test-antislop-hook.mjs` (`npm run test:antislop-hook`, wired into `scripts/health-check.sh`).
 

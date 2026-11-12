@@ -5,7 +5,7 @@
  *
  * Covers: slop classification per category (banner, narration, empty label,
  * vague TODO, emoji, end marker, caps, stiff wording, signature echo),
- * FALSE-POSITIVE guards (the antislop-code "preserve" list: workarounds,
+ * FALSE-POSITIVE guards (the no-slop-comments "preserve" list: workarounds,
  * constraints, specific TODOs, PEM markers, eslint directives),
  * comment extraction (block state, JSDoc stars, quote parity, shebang),
  * multiset line diff, path allowlist, warning rendering (cap + marker).
@@ -26,7 +26,7 @@ import {
   scanToolCall,
 } from "../config/plugins/antislop-hook.ts"
 
-// 1. Classification: slop detected (per antislop-code category)
+// 1. Classification: slop detected (per no-slop-comments category)
 
 assert.equal(classifyComment("Step 1: Validate input"), "workflow narration")
 assert.equal(classifyComment("step 2) process request"), "workflow narration")

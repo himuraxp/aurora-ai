@@ -26,7 +26,7 @@ AI agents (OpenCode, Cursor, Claude...) don't know which standard to follow unle
 **What you get:**
 
 - **26 agent definitions + 4 plugin agents** — 19 core roles (reviewer, tester, security, architect, designer...), 4 Technical Council seats, 3 read-only meeting mirrors, a Search & Growth team and a delegated product owner; plus plugin agents (explorer, fixer, librarian, oracle)
-- **18 universal standards + 49 skills** — adversarial review, verification, commits, plus the 17-skill accessibility suite
+- **18 universal standards + 50 skills** — adversarial review, verification, commits, plus the 17-skill accessibility suite
 - **Execution graph core (new in v1.4.0)** — stdlib Python package `skills/graph_core/`: transition engine, transactional journal, fenced scheduler — spec-first (RFC), 84 tests, running as a shadow pilot; full docs in [docs/graph-engineering/](docs/graph-engineering/)
 - **Persistent project memory** — 7 `docs/ai/` documents auto-read at session start: agents keep context across sessions
 - **13-model catalogue (16 declared) with automatic fallback chains** — 80k → 256k context, cost-based agent assignment
@@ -644,6 +644,7 @@ aurora-ai/
 │   ├── meeting/               Cross-functional pre-implementation gate (READY/CONDITIONAL/BLOCKED)
 │   ├── mr-review/             MR review with inline comments
 │   ├── mr-review-feedback/    Apply MR review feedback
+│   ├── mr-split/              Split a heavy task into reviewable MR batches (batch plan, integration last)
 │   ├── new-worktree/          Branch + worktree from a single intent (never destructive)
 │   ├── oh-my-opencode-slim/   Configuration and tuning of the oh-my-opencode-slim plugin
 │   ├── pre-mr-review/         Pre-MR quality review

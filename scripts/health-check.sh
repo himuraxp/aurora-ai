@@ -846,6 +846,37 @@ if [[ -f "$ROOT_DIR/skills/task-workflow/tw_state.py" ]]; then
     || fail "tw_state.py must validate the risk/contract/increment additive fields"
 fi
 
+# ─── Skill mr-split (multi-MR batch planning) ────────────────────────────────
+# Découpage d'une tâche lourde en lots de MRs : unité fonctionnelle (jamais
+# fichiers), composant partagé en premier, lot final = intégration visible,
+# publication au fil de l'eau (jamais toutes les MRs d'un coup), zéro
+# création sans GO humain. Intégration task-workflow Phase 3 documentée.
+if [[ -f "$ROOT_DIR/skills/mr-split/SKILL.md" ]]; then
+  grep -q '^name: mr-split' "$ROOT_DIR/skills/mr-split/SKILL.md" \
+    && ok "mr-split skill present" \
+    || fail "mr-split skill frontmatter invalid (name: mr-split missing)"
+  ruby -ryaml -e "YAML.safe_load(File.read('$ROOT_DIR/skills/mr-split/SKILL.md').split(/^---\n/)[1], permitted_classes: [], aliases: false)" \
+    && ok "mr-split skill frontmatter valid YAML" \
+    || fail "mr-split skill frontmatter invalid YAML"
+  grep -q 'R4 — Le lot FINAL' "$ROOT_DIR/skills/mr-split/SKILL.md" \
+    && grep -q 'JAMAIS toutes les MRs ouvertes en fin de course' "$ROOT_DIR/skills/mr-split/SKILL.md" \
+    && grep -q 'GO humain explicite' "$ROOT_DIR/skills/mr-split/SKILL.md" \
+    && ok "mr-split invariants documented (integration batch last, incremental publication, human GO)" \
+    || fail "mr-split must document the integration-last batch, the incremental publication rhythm and the human GO gate"
+  grep -q 'issue de tracking' "$ROOT_DIR/skills/mr-split/SKILL.md" \
+    && grep -q 'non-closant' "$ROOT_DIR/skills/mr-split/SKILL.md" \
+    && grep -q 'jamais.*Closes.*lots 1..N-1' "$ROOT_DIR/skills/mr-split/SKILL.md" \
+    && grep -q 'non-closant' "$ROOT_DIR/skills/task-workflow/SKILL.md" \
+    && ok "mr-split tracking-issue contract documented (create-if-missing, non-closing MR links, close on final batch only)" \
+    || fail "mr-split must document the tracking issue (create if missing), the non-closing MR links and the close-on-final-batch-only rule"
+  grep -q 'mr-split' "$ROOT_DIR/skills/task-workflow/SKILL.md" \
+    && grep -q 'Évaluation multi-lots' "$ROOT_DIR/skills/task-workflow/SKILL.md" \
+    && ok "task-workflow Phase 3 references mr-split (conditional multi-batch evaluation)" \
+    || fail "task-workflow Phase 3 must document the conditional multi-batch evaluation (mr-split)"
+else
+  fail "skills/mr-split/SKILL.md missing"
+fi
+
 # Software Fundamentals lot 1: verification-planning links to the
 # implementation contract (own existence block — fails loudly if the skill
 # disappears, never silently skipped).

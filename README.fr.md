@@ -26,7 +26,7 @@ Les agents IA (OpenCode, Cursor, Claude...) ne savent pas quel standard utiliser
 **Ce que vous obtenez :**
 
 - **19 agents spécialisés + 4 agents plugin** — rôles ingénierie (reviewer, tester, security, architect, designer...), équipe Search & Growth et product owner délégué
-- **17 standards universels + 47 skills** — review adversariale, vérification, commits, et la suite accessibilité de 17 sous-skills
+- **17 standards universels + 50 skills** — review adversariale, vérification, commits, et la suite accessibilité de 17 sous-skills
 - **Noyau d'exécution en graphe (nouveau en v1.4.0)** — paquet Python stdlib `skills/graph_core/` : moteur de transitions, journal transactionnel, scheduler clôturé — piloté par RFC, 84 tests, en pilote shadow ; doc complète dans [docs/graph-engineering/](docs/graph-engineering/)
 - **Mémoire projet persistante** — 7 documents `docs/ai/` lus automatiquement en début de session : les agents gardent le contexte entre les sessions
 - **14 modèles avec fallback automatique** — contexte 250k → 1M, assignation des agents par coût
@@ -642,6 +642,7 @@ aurora-ai/
 │   ├── meeting/               Porte multi-métiers pré-implémentation (READY/CONDITIONAL/BLOCKED)
 │   ├── mr-review/             Review de MR avec commentaires inline
 │   ├── mr-review-feedback/    Application des retours de review MR
+│   ├── mr-split/              Découpe une tâche lourde en lots de MRs reviewables (plan de lots, intégration en dernier)
 │   ├── new-worktree/          Branche + worktree en une intention (jamais destructif)
 │   ├── oh-my-opencode-slim/   Configuration et tuning du plugin oh-my-opencode-slim
 │   ├── pre-mr-review/         Revue qualité pré-MR

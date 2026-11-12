@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.13.0](https://github.com/himuraxp/aurora-ai/compare/v1.12.0...v1.13.0) (2026-11-12)
+
+
+### Features
+
+* **skills:** add create-staging skill for UI-driven staging provisioning from branch/MR ([a8c672e](https://github.com/himuraxp/aurora-ai/commit/a8c672ec96a5c40d8706cee9deda1eb5dcd369cf))
+* **skills:** add create-staging skill for UI-driven staging provisioning from branch/MR ([4033ac9](https://github.com/himuraxp/aurora-ai/commit/4033ac903a38e9d216238f0cc65c21eea1f76f2c))
+
 ## [1.12.0](https://github.com/himuraxp/aurora-ai/compare/v1.11.0...v1.12.0) (2026-11-12)
 
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.12.0](https://github.com/himuraxp/aurora-ai/compare/v1.11.0...v1.12.0) (2026-11-12)
+
+
+### Features
+
+* **skills:** add mr-split skill to split heavy tasks into reviewable MR batches ([359198f](https://github.com/himuraxp/aurora-ai/commit/359198ff17443f370a73a6955480878d56954b22))
+* **skills:** add mr-split skill to split heavy tasks into reviewable MR batches ([2b9ce05](https://github.com/himuraxp/aurora-ai/commit/2b9ce0508b1111b6e20e0df85f7361977e3dde59))
+
 ## [1.11.0](https://github.com/himuraxp/aurora-ai/compare/v1.10.0...v1.11.0) (2026-11-09)
 
 

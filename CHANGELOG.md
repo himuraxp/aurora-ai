@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.14.0](https://github.com/himuraxp/aurora-ai/compare/v1.13.0...v1.14.0) (2026-11-12)
+
+
+### Features
+
+* **skills:** wire review gap analysis into mr-review and mr-review-feedback ([8c003ff](https://github.com/himuraxp/aurora-ai/commit/8c003ff47c93b976d6e3d8d3c4d0971a5b8ecc36))
+* **skills:** wire review gap analysis into mr-review and mr-review-feedback ([59dae32](https://github.com/himuraxp/aurora-ai/commit/59dae32c8b2f9ac779f53de3120567cfd2d665d2))
+
 ## [1.13.0](https://github.com/himuraxp/aurora-ai/compare/v1.12.0...v1.13.0) (2026-11-12)
 
 

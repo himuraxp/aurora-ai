@@ -62,7 +62,7 @@
       "fixer": {
         "model": "infomaniak/Qwen/Qwen3.8-27B-FP8",
         "variant": "low",
-        "skills": ["antislop", "antislop-code"],
+        "skills": ["antislop", "no-slop-comments"],
         "mcps": []
       }
     }

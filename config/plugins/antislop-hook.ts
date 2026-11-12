@@ -2,7 +2,7 @@ import { readFileSync, statSync } from "node:fs"
 
 // antislop-hook OpenCode plugin — advisory gate against AI-slop comments.
 //
-// The `antislop-code` skill (skills/antislop-code/SKILL.md) documents the
+// The `no-slop-comments` skill (skills/no-slop-comments/SKILL.md) documents the
 // comment-hygiene rules, but skills are opt-in: an agent that never loads the
 // skill writes with its defaults. This plugin adds deterministic enforcement
 // on top of the rule (same layering as chatgpt-autocowork): every edit/write
@@ -185,7 +185,7 @@ export function commentTextsFrom(lines: string[], kind: MarkerKind): string[] {
   return out.map(normalizeCommentText).filter((t) => t.length > 0)
 }
 
-// Classification (from skills/antislop-code/SKILL.md)
+// Classification (from skills/no-slop-comments/SKILL.md)
 
 const EMOJI =
   /[\u2705\u274C\u26A1\u26A0\u{1F680}\u{1F512}\u{1F4DD}\u{1F3AF}\u{1F4AF}]/u
@@ -333,7 +333,7 @@ export function buildWarning(findings: SlopFinding[], filePath: string): string 
   const plural = findings.length > 1 ? "s" : ""
   return (
     `\n\n[antislop-hook] ${findings.length} slop comment${plural} detected in ${filePath}` +
-    ` (advisory — antislop-code rules):\n` +
+    ` (advisory — no-slop-comments rules):\n` +
     bullets.join("\n") +
     `\nOnly comments that explain why/constraints earn their place; remove or rewrite the rest.`
   )

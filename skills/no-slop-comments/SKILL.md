@@ -1,5 +1,5 @@
 ---
-name: antislop-code
+name: no-slop-comments
 description: "Zero-comment default for AI coding agents: code must be self-explanatory — no comments in written code, the only exceptions being mathematical reasoning and complex logic. Also detects and strips AI-slop comments when editing existing code. Use when writing or editing code, comments, JSDoc, docstrings, or TODOs. Load with the core."
 allowed-tools: Read Write Edit Glob Grep
 ---
@@ -14,7 +14,7 @@ allowed-tools: Read Write Edit Glob Grep
        complex logic. Fix lines of the upstream pattern sections hardened to
        "remove". This override is the operator's standing directive — never
        revert it during a resync. -->
-# antislop-code
+# no-slop-comments
 
 > Anti Slop: Rules for AI Coding Agents. Code Comments skill — zero-comment default.
 

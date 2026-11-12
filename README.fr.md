@@ -615,7 +615,7 @@ aurora-ai/
 │   ├── ai-cowork/             Co-working Aurora ↔ ChatGPT (boucle de review autonome via browser-debug)
 │   ├── allow-command/         Pré-approuver des commandes shell dans opencode.json
 │   ├── antislop/               Filtre anti-slop IA (38 règles, 3 tiers, Delivery Gate — vendu depuis miqdadbadjuber/anti-slop v3.2.21)
-│   ├── antislop-code/          Hygiène des commentaires de code (supprime le slop IA, préserve les porteurs, ne touche jamais au code)
+│   ├── no-slop-comments/       Zéro commentaire par défaut dans le code généré (exceptions : math, logique complexe)
 │   ├── antislop-copywriting/   Anti-slop copy & texte (titres, CTAs, ton, patterns d'écriture IA)
 │   ├── antislop-ui/            Anti-slop UI/visuel (couleur, layout, composants, motion)
 │   ├── clean-worktrees/       Nettoyage des worktrees + branches mergées ou absentes d'origin (plan → GO → --apply)

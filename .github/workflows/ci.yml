@@ -1,0 +1,46 @@
+# CI — Health check on PR and push to main
+# Validates JSON, agent frontmatter, models, memory structure, script syntax, and MCP TypeScript compilation.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  health-check:
+    name: Health Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate JSON files
+        run: |
+          echo "--- JSON files ---"
+          for f in config/opencode.json config/oh-my-opencode-slim.json; do
+            if [[ -f "$f" ]]; then
+              jq empty "$f" 2>/dev/null && echo "  OK   $f" || { echo "  FAIL $f"; exit 1; }
+            fi
+          done
+
+      - name: Validate bash syntax
+        run: |
+          echo "--- Bash scripts ---"
+          for f in scripts/*.sh scripts/hooks/*.sh scripts/create-mr/*.sh; do
+            [[ -e "$f" ]] || continue
+            bash -n "$f" 2>/dev/null && echo "  OK   $f" || { echo "  FAIL $f"; exit 1; }
+          done
+
+      - name: Run health-check.sh
+        run: bash scripts/health-check.sh --quiet
+
+      - name: Run validate-memory.sh
+        run: bash scripts/validate-memory.sh .
+
+      - name: Run permissions-matrix.sh
+        run: bash scripts/permissions-matrix.sh --output /dev/null

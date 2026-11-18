@@ -1,0 +1,41 @@
+{
+  "name": "@aurora/aurora-memory",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MCP aurora-memory — mémoire personnelle (KG PostgreSQL + pgvector), Phase 1 Aurora OS",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "aurora-memory": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint src/ tests/",
+    "test": "vitest run",
+    "start": "tsx src/index.ts",
+    "build:mcp": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.mjs --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",
+    "db:migrate": "tsx src/scripts/migrate.ts",
+    "embeddings:backfill": "tsx src/scripts/backfill-embeddings.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "pg": "^8.16.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.28.0",
+    "@types/node": "^22.15.0",
+    "@types/pg": "^8.15.0",
+    "@vitest/coverage-v8": "^3.1.0",
+    "dotenv": "^16.5.0",
+    "esbuild": "^0.25.0",
+    "eslint": "^9.28.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0",
+    "typescript-eslint": "^8.33.0",
+    "vitest": "^3.1.0"
+  }
+}

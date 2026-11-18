@@ -1,0 +1,85 @@
+{
+  "graphId": "mr-analysis-himuraxp/aurora-ai-49",
+  "metrics": {
+    "durationsSeconds": {
+      "analyze-diff": 0.001,
+      "build-report": 0.001,
+      "check-conventions": 0.529,
+      "fetch-diff": 1.781,
+      "post-comment": 0.001
+    },
+    "effects": {
+      "phases": [
+        "prepared",
+        "dispatched",
+        "confirmed"
+      ],
+      "realEffectEmissions": 0,
+      "records": 3,
+      "simulatedDispatches": 1
+    },
+    "humanInterventions": 0,
+    "journalProblems": [],
+    "journalRecords": 13,
+    "mode": "shadow-run/sandbox",
+    "nodes": {
+      "blocked": 0,
+      "completed": 5,
+      "failed": 0,
+      "scheduled": 5,
+      "successRate": 1.0,
+      "total": 5
+    },
+    "perNode": {
+      "analyze-diff": {
+        "attempts": 1,
+        "completedAt": "2026-10-24T10:37:13.121+00:00",
+        "effects": 0,
+        "scheduled": true,
+        "startedAt": "2026-10-24T10:37:13.120+00:00",
+        "status": "completed",
+        "transitions": 2
+      },
+      "build-report": {
+        "attempts": 1,
+        "completedAt": "2026-10-24T10:37:13.653+00:00",
+        "effects": 0,
+        "scheduled": true,
+        "startedAt": "2026-10-24T10:37:13.652+00:00",
+        "status": "completed",
+        "transitions": 2
+      },
+      "check-conventions": {
+        "attempts": 1,
+        "completedAt": "2026-10-24T10:37:13.651+00:00",
+        "effects": 0,
+        "scheduled": true,
+        "startedAt": "2026-10-24T10:37:13.122+00:00",
+        "status": "completed",
+        "transitions": 2
+      },
+      "fetch-diff": {
+        "attempts": 1,
+        "completedAt": "2026-10-24T10:37:13.118+00:00",
+        "effects": 0,
+        "scheduled": true,
+        "startedAt": "2026-10-24T10:37:11.337+00:00",
+        "status": "completed",
+        "transitions": 2
+      },
+      "post-comment": {
+        "attempts": 1,
+        "completedAt": "2026-10-24T10:37:13.655+00:00",
+        "effects": 3,
+        "scheduled": true,
+        "startedAt": "2026-10-24T10:37:13.654+00:00",
+        "status": "completed",
+        "transitions": 2
+      }
+    },
+    "retries": 0,
+    "wallClockSeconds": 2.318
+  },
+  "output": [],
+  "runId": "run-afd054416dfb"
+}

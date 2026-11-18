@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/himuraxp/aurora-ai/main/skills/create-staging/config.schema.json",
+  "title": "create-staging private config",
+  "description": "Schema of the PRIVATE staging-tool configuration (~/.config/opencode/staging/config.json, mode 0600). Contains internal data by design — never commit a real config; extend this schema and the fictional example together.",
+  "type": "object",
+  "required": ["schemaVersion", "tool", "naming", "repositories", "bundles", "environment", "verification"],
+  "additionalProperties": true,
+  "properties": {
+    "schemaVersion": { "type": "integer", "minimum": 1 },
+    "tool": {
+      "type": "object",
+      "required": ["baseUrl", "adapter"],
+      "additionalProperties": true,
+      "properties": {
+        "baseUrl": { "type": "string", "format": "uri", "description": "Base URL of the web staging tool." },
+        "adapter": { "type": "string", "enum": ["browser-debug"], "description": "UI pilot adapter. Any API adapter is out of scope of v1." },
+        "adapterContract": { "type": "string", "description": "Path or reference to the documented UI contract (private artifact)." }
+      }
+    },
+    "naming": {
+      "type": "object",
+      "required": ["resourcePrefix", "stripBranchPrefixes", "maxLength"],
+      "additionalProperties": true,
+      "properties": {
+        "resourcePrefix": { "type": "string", "description": "Infra prefix added to the tool display name when absent (prefixing is idempotent: display 'foo' -> resource 'prefix-foo', display 'prefix-foo' -> resource 'prefix-foo')." },
+        "stripBranchPrefixes": { "type": "array", "items": { "type": "string" }, "description": "Branch prefixes stripped before slugging (feat/, fix/...)." },
+        "maxLength": { "type": "integer", "minimum": 1, "description": "Max length of the tool Name field. The COMPILER truncates on a dash boundary — the field itself truncates silently." }
+      }
+    },
+    "repositories": {
+      "type": "object",
+      "description": "Mapping 'git remote path' -> { projectKey, group }. projectKey = key of the project in the tool catalog.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["projectKey"],
+        "additionalProperties": true,
+        "properties": {
+          "projectKey": { "type": "string" },
+          "group": { "type": "string" }
+        }
+      }
+    },
+    "bundles": {
+      "type": "object",
+      "description": "Named feature bundles: which extra projects a staging needs beyond the locked core, and their branch policy (source = branch of the resolved source repo when the twin task exists, default = catalog default).",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["projects"],
+        "additionalProperties": true,
+        "properties": {
+          "description": { "type": "string" },
+          "projects": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "required": ["branchPolicy"],
+              "additionalProperties": true,
+              "properties": {
+                "branchPolicy": { "type": "string", "enum": ["source", "default"] }
+              }
+            }
+          }
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "required": ["managedKeys", "fixed", "derived", "empty"],
+      "additionalProperties": true,
+      "properties": {
+        "defaultDomainPattern": { "type": "string", "description": "URL template with {sub} and {name} placeholders." },
+        "managedKeys": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" }, "description": "Exact set of variables the skill owns. fixed + derived + empty must partition managedKeys." },
+        "fixed": { "type": "object", "additionalProperties": { "type": "string" } },
+        "derived": { "type": "object", "additionalProperties": { "type": "string", "description": "Value template with {name} (tool display name) placeholder." } },
+        "empty": { "type": "array", "items": { "type": "string" }, "description": "Keys persisted with an empty value." }
+      }
+    },
+    "access": {
+      "type": "object",
+      "description": "Access URLs reported in the FINAL summary (operator consumes these). {customerId} is a usage parameter, never a provisioning input.",
+      "additionalProperties": true,
+      "properties": {
+        "homePattern": { "type": "string", "description": "Manager/home URL template with {name} and {customerId} placeholders." },
+        "auth": { "type": "string" }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "required": ["pollIntervalSeconds", "timeoutSeconds", "expectedVariableCount"],
+      "additionalProperties": true,
+      "properties": {
+        "pollIntervalSeconds": { "type": "integer", "minimum": 5 },
+        "timeoutSeconds": { "type": "integer", "minimum": 60 },
+        "expectedVariableCount": { "type": "integer", "minimum": 1, "description": "Managed keys count the compiled plan must match exactly (pre-submit digest gate)." },
+        "referenceStaging": { "type": "string", "description": "Optional display name of a known-good staging used as an HTTP pattern reference." }
+      }
+    }
+  }
+}

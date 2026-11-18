@@ -1,0 +1,162 @@
+{
+  "$comment": "Versioned role policy for Aurora model configuration. Describes FUNCTIONAL needs (roles, requirements, preferred model families) — never specific user deployments. scripts/configure-models.sh resolves these roles against models verified with the user's API keys and generates the live OpenCode config only; this repository is never modified by the generator. Families are case-insensitive substrings matched against model IDs. See docs and ADR notes in the ChatGPT cowork thread (tours 11-12).",
+  "schemaVersion": 1,
+  "defaultRole": "expert",
+  "roles": {
+    "expert": {
+      "description": "Main orchestrator (default model) and analysis/review agents: complex reasoning, code review, security, architecture.",
+      "requires": {
+        "chat": true,
+        "minContext": 200000
+      },
+      "preferredFamilies": [
+        "claude-opus",
+        "claude-sonnet",
+        "gpt-5",
+        "gpt-4.1",
+        "o3",
+        "gemini-3-pro",
+        "gemini-2.5-pro",
+        "qwen3.5-397",
+        "kimi-k2",
+        "glm-5",
+        "qwen3.8"
+      ],
+      "fallbackFamilies": [
+        "kimi-k2",
+        "qwen3.8"
+      ]
+    },
+    "multimodal": {
+      "description": "Vision/design agents needing multimodal input and large context: designer, vision, aurora-heavy.",
+      "requires": {
+        "chat": true,
+        "minContext": 128000
+      },
+      "preferredFamilies": [
+        "qwen3.5-397",
+        "gemini-3-pro",
+        "gemini-2.5-pro",
+        "gpt-5",
+        "gpt-4o",
+        "claude-sonnet",
+        "claude-opus"
+      ],
+      "fallbackFamilies": [
+        "kimi-k2",
+        "qwen3.8"
+      ]
+    },
+    "intermediate": {
+      "description": "SEO content and growth agents: scribe, pulse, echo.",
+      "requires": {
+        "chat": true,
+        "minContext": 100000
+      },
+      "preferredFamilies": [
+        "mistral-small",
+        "qwen3.8",
+        "gpt-4o-mini",
+        "gpt-5-mini",
+        "claude-haiku",
+        "gemini-flash",
+        "ministral"
+      ],
+      "fallbackFamilies": [
+        "kimi-k2",
+        "qwen3.8"
+      ]
+    },
+    "cli": {
+      "description": "Light CLI skill wrappers: spark (commits, GitLab CLI skills). Reliability-first (2026-10-08): 5/8 task failures on mistral24b (fabricated results, skipped execution, wrong tool path, mojibake) showed it too weak for faithful multi-step tool execution — kimi-k2 promoted, cost impact negligible at commit-task token volumes. mistral24b dropped from all family lists 2026-10-29: no longer in the private catalog (the opencode.json config alias still resolves it to Mistral-Small-4-119B-2603).",
+      "requires": {
+        "chat": true,
+        "minContext": 100000
+      },
+      "preferredFamilies": [
+        "kimi-k2",
+        "mistral-small",
+        "qwen3.8",
+        "ministral",
+        "gpt-4o-mini",
+        "gpt-5-mini",
+        "gemini-flash",
+        "claude-haiku"
+      ],
+      "fallbackFamilies": [
+        "mistral-small",
+        "qwen3.8"
+      ]
+    }
+  },
+  "optionalRoles": {
+    "embedding": {
+      "description": "Vectorization for the aurora-memory service (not referenced by agents).",
+      "requires": {
+        "type": "embedding"
+      }
+    },
+    "transcription": {
+      "description": "Audio to text (whisper).",
+      "requires": {
+        "type": "stt"
+      }
+    }
+  },
+  "agents": {
+    "architect": "expert",
+    "atlas": "expert",
+    "beacon": "expert",
+    "build": "expert",
+    "crawler": "expert",
+    "cybersec": "expert",
+    "mobile": "expert",
+    "plan": "expert",
+    "reviewer": "expert",
+    "sage": "expert",
+    "security": "expert",
+    "tester": "expert",
+    "aurora-heavy": "multimodal",
+    "designer": "multimodal",
+    "vision": "multimodal",
+    "echo": "intermediate",
+    "pulse": "intermediate",
+    "scribe": "intermediate",
+    "spark": "cli",
+    "council-architect": "expert",
+    "council-skeptic": "cli",
+    "council-guardian": "multimodal",
+    "council-synthesizer": "cli"
+  },
+  "providers": {
+    "openai": {
+      "kind": "builtin",
+      "envKeys": [
+        "OPENAI_API_KEY"
+      ]
+    },
+    "anthropic": {
+      "kind": "builtin",
+      "envKeys": [
+        "ANTHROPIC_API_KEY"
+      ]
+    },
+    "google": {
+      "kind": "builtin",
+      "envKeys": [
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY"
+      ]
+    },
+    "openrouter": {
+      "kind": "builtin",
+      "envKeys": [
+        "OPENROUTER_API_KEY"
+      ]
+    },
+    "ollama": {
+      "kind": "local",
+      "envKeys": []
+    }
+  }
+}

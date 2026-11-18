@@ -1,0 +1,30 @@
+# Infrastructure locale du serveur mémoire — COPIE DE DISTRIBUTION (ADR-025).
+# PostgreSQL + pgvector : la base est la source of truth des données
+# personnelles, PAR UTILISATEUR (mémoire jamais partagée — ADR-003).
+# Port hôte 5433 par défaut (5432 réservé) ; bind loopback uniquement.
+#
+# Remarque : sur une machine qui fait aussi tourner le repo privé aurora-core,
+# ce compose utilise un nom de projet distinct (aurora-memory-dist) pour ne
+# pas toucher au volume du projet upstream ; le port 5433 doit rester libre.
+name: aurora-memory-dist
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: aurora-memory-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aurora}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aurora}
+      POSTGRES_DB: ${POSTGRES_DB:-aurora}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - aurora-memory-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aurora} -d ${POSTGRES_DB:-aurora}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  aurora-memory-postgres-data:

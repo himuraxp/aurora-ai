@@ -1,0 +1,95 @@
+{
+  "graphId": "final-qa-shadow-run",
+  "graphSpecs": [
+    {
+      "command": [
+        "gh",
+        "pr",
+        "view",
+        "52",
+        "--repo",
+        "himuraxp/aurora-ai",
+        "--json",
+        "title,state,mergedAt,additions,deletions,changedFiles"
+      ],
+      "id": "fetch-mr-meta",
+      "kind": "process"
+    },
+    {
+      "command": [
+        "grep",
+        "-rc",
+        "def test_",
+        "skills/graph_core/tests/"
+      ],
+      "id": "count-tests",
+      "kind": "process"
+    },
+    {
+      "deps": [
+        "fetch-mr-meta",
+        "count-tests"
+      ],
+      "id": "summarize",
+      "kind": "analysis"
+    }
+  ],
+  "metrics": {
+    "durationsSeconds": {
+      "count-tests": 0.005,
+      "fetch-mr-meta": 0.534,
+      "summarize": 0.001
+    },
+    "effects": {
+      "phases": [],
+      "realEffectEmissions": 0,
+      "records": 0,
+      "simulatedDispatches": 0
+    },
+    "humanInterventions": 0,
+    "journalProblems": [],
+    "journalRecords": 6,
+    "mode": "shadow-run/sandbox",
+    "nodes": {
+      "blocked": 0,
+      "completed": 3,
+      "failed": 0,
+      "scheduled": 3,
+      "successRate": 1.0,
+      "total": 3
+    },
+    "perNode": {
+      "count-tests": {
+        "attempts": 1,
+        "completedAt": "2026-10-24T10:50:11.576+00:00",
+        "effects": 0,
+        "scheduled": true,
+        "startedAt": "2026-10-24T10:50:11.571+00:00",
+        "status": "completed",
+        "transitions": 2
+      },
+      "fetch-mr-meta": {
+        "attempts": 1,
+        "completedAt": "2026-10-24T10:50:12.110+00:00",
+        "effects": 0,
+        "scheduled": true,
+        "startedAt": "2026-10-24T10:50:11.576+00:00",
+        "status": "completed",
+        "transitions": 2
+      },
+      "summarize": {
+        "attempts": 1,
+        "completedAt": "2026-10-24T10:50:12.113+00:00",
+        "effects": 0,
+        "scheduled": true,
+        "startedAt": "2026-10-24T10:50:12.112+00:00",
+        "status": "completed",
+        "transitions": 2
+      }
+    },
+    "retries": 0,
+    "wallClockSeconds": 0.542
+  },
+  "runId": "run-519ab76c551a",
+  "targetPr": 52
+}

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# pre-commit — Git hook entry point (executed by git via core.hooksPath=scripts/hooks).
+# Chains the secret scanner and the OPSEC metadata gate; a failure of either
+# blocks the commit. The filename MUST be exactly "pre-commit" for git to invoke it.
+set -euo pipefail
+DIR="$(cd "$(dirname "$0")" && pwd)"
+"$DIR/pre-commit-secrets.sh" "$@"
+exec "$DIR/pre-commit-opsec.sh" "$@"

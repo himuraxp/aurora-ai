@@ -1,0 +1,28 @@
+# Semantic release automation (release-please, cowork ai-cowork #4).
+# Every push to main updates (or creates) the Release PR. Merging that PR
+# tags vX.Y.Z and publishes a GitHub Release + semantic CHANGELOG.md.
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # manual re-trigger (e.g. after rotating RELEASE_PLEASE_TOKEN)
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          # Fine-grained PAT (repo himuraxp/aurora-ai, Contents:RW +
+          # Pull requests:RW) — REQUIRED. GITHUB_TOKEN cannot be used: it is
+          # blocked from creating PRs (repo setting) and never triggers CI
+          # workflows on the Release PR it creates. No silent fallback: if the
+          # secret is missing, this fails loudly.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

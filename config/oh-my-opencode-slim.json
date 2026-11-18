@@ -1,0 +1,144 @@
+{
+  "$schema": "https://unpkg.com/oh-my-opencode-slim@latest/oh-my-opencode-slim.schema.json",
+  "preset": "expert",
+  "presets": {
+    "expert": {
+      "orchestrator": {
+        "model": "@roles/expert",
+        "variant": "medium",
+        "skills": [
+          "*",
+          "!code-review",
+          "!pre-mr-review",
+          "!verification-planning",
+          "!simplify",
+          "!gitlab-ci",
+          "!gitlab-issues",
+          "!image-transparent-background",
+          "!deployment-changelog",
+          "!commit",
+          "!mr-review",
+          "!readme",
+          "!release-smoke-test"
+        ],
+        "mcps": [
+          "*",
+          "!context7"
+        ]
+      },
+      "oracle": {
+        "model": "@roles/expert",
+        "variant": "high",
+        "skills": [
+          "simplify",
+          "code-review",
+          "pre-mr-review",
+          "verification-planning"
+        ],
+        "mcps": []
+      },
+      "librarian": {
+        "model": "@roles/expert",
+        "variant": "low",
+        "skills": [],
+        "mcps": [
+          "websearch",
+          "context7",
+          "gh_grep"
+        ]
+      },
+      "explorer": {
+        "model": "@roles/expert",
+        "variant": "low",
+        "skills": [],
+        "mcps": []
+      },
+      "designer": {
+        "model": "@roles/multimodal",
+        "variant": "medium",
+        "skills": [],
+        "mcps": []
+      },
+      "fixer": {
+        "model": "@roles/expert",
+        "variant": "low",
+        "skills": [
+          "antislop",
+          "no-slop-comments"
+        ],
+        "mcps": []
+      }
+    }
+  },
+  "agents": {
+    "atlas": {
+      "displayName": "atlas-seo-strategy",
+      "description": "Stratégie SEO, keyword research, search intent, content gaps, roadmap",
+      "model": "@roles/expert",
+      "orchestratorPrompt": "Delegate to @atlas for SEO strategy, keyword research, search intent, content gaps, topical authority, architecture éditoriale, roadmap SEO. Not for technical SEO implementation or content production."
+    },
+    "crawler": {
+      "displayName": "crawler-technical-seo",
+      "description": "Audit et correction SEO technique (SSR, structured data, Core Web Vitals, Angular/React/Vue)",
+      "model": "@roles/expert",
+      "orchestratorPrompt": "Delegate to @crawler for technical SEO issues: indexation, SSR/SSG, structured data, Core Web Vitals, routing, robots.txt, sitemap. Can modify code. Not for content or strategy."
+    },
+    "sage": {
+      "displayName": "sage-aio-geo",
+      "description": "Optimisation pour moteurs de recherche génératifs (AI Overviews, ChatGPT Search, Perplexity, Gemini)",
+      "model": "@roles/expert",
+      "orchestratorPrompt": "Delegate to @sage for AIO/GEO optimization: entity clarity, extractability, citation potential, AI Overviews, ChatGPT Search, Perplexity. Distinguish established practice from hypothesis."
+    },
+    "scribe": {
+      "displayName": "scribe-seo-content",
+      "description": "Production et optimisation éditoriale SEO (copywriting, content briefs, meta, H1/H2/H3, FAQ)",
+      "model": "@roles/expert",
+      "orchestratorPrompt": "Delegate to @scribe for SEO content production and optimization: copywriting, content briefs, meta tags, H1/H2/H3, FAQ, featured snippets. Can edit content files. Not for strategy or technical SEO."
+    },
+    "pulse": {
+      "displayName": "pulse-growth-marketing",
+      "description": "Acquisition, conversion, funnel analysis, A/B testing, landing pages, onboarding, rétention",
+      "model": "@roles/expert",
+      "orchestratorPrompt": "Delegate to @pulse for growth marketing: acquisition, conversion optimization, funnel analysis, A/B testing, landing pages, onboarding, retention, referral. Not for SEO or social distribution."
+    },
+    "echo": {
+      "displayName": "echo-social-distribution",
+      "description": "Distribution multi-canal (LinkedIn, Instagram, X, YouTube, TikTok, Reddit, Discord, newsletter)",
+      "model": "@roles/intermediate",
+      "orchestratorPrompt": "Delegate to @echo for social distribution and multi-cannel content adaptation: LinkedIn, Instagram, X, YouTube, TikTok, Reddit, Discord, newsletter. Adapts message per platform. Can edit content files."
+    },
+    "beacon": {
+      "displayName": "beacon-analytics",
+      "description": "Mesure SEO et marketing (GSC, GA4, PageSpeed, rank tracking, conversion, engagement)",
+      "model": "@roles/expert",
+      "orchestratorPrompt": "Delegate to @beacon for analytics and measurement: GSC, GA4, PageSpeed, rank tracking, conversion, engagement. Transforms data into recommendations. Read-only, no code modification."
+    },
+    "designer": {
+      "displayName": "designer-ux-ui",
+      "description": "UX, UI, direction artistique, design system, accessibilité, analyse de mockups et screenshots",
+      "model": "@roles/multimodal",
+      "orchestratorPrompt": "Delegate to @designer for UX/UI design, art direction, design system, accessibility audits, mockup/screenshot analysis. Can edit frontend files (CSS, SCSS, HTML, components). Multimodal — can analyze images."
+    },
+    "mobile": {
+      "displayName": "mobile-engineer",
+      "description": "iOS, Android, React Native, Flutter — patterns mobile, performance device, accès natif",
+      "model": "@roles/expert",
+      "orchestratorPrompt": "Delegate to @mobile for mobile development: iOS (Swift/SwiftUI), Android (Kotlin/Compose), React Native, Flutter. Can edit mobile code. Not for web frontend."
+    },
+    "security": {
+      "displayName": "security-audit",
+      "description": "Cybersécurité défensive — AppSec, threat modeling, secure code review, DevSecOps, hardening",
+      "model": "@roles/expert",
+      "orchestratorPrompt": "Delegate to @security for defensive cybersecurity: AppSec, secure code review, threat modeling, attack surface mapping, DevSecOps, supply chain, hardening, vulnerability assessment. Read-only — identifies and analyzes, does not modify code. Not for offensive operations (use cybersec)."
+    },
+    "cybersec": {
+      "displayName": "cybersec-red-team",
+      "description": "Sécurité offensive — pentest, exploitation, Red Team, recon, bypass, privesc, C2",
+      "model": "@roles/expert",
+      "orchestratorPrompt": "Delegate to @cybersec for offensive security operations: penetration testing, exploit development, Red Team operations, reconnaissance, initial access, privilege escalation, lateral movement, defense evasion, exfiltration. Can run security tools and scripts. Not for defensive audits (use security)."
+    }
+  },
+  "disabled_hooks": [
+    "council-inject"
+  ]
+}

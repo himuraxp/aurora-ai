@@ -1,0 +1,513 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "share": "disabled",
+  "provider": {},
+  "default_agent": "aurora",
+  "subagent_depth": 3,
+  "agent": {
+    "architect": {
+      "model": "@roles/expert",
+      "permission": {
+        "edit": "allow",
+        "bash": "ask"
+      }
+    },
+    "reviewer": {
+      "model": "@roles/expert",
+      "permission": {
+        "edit": "deny",
+        "bash": {
+          "git diff*": "allow",
+          "git log *": "allow",
+          "git show *": "allow",
+          "git status *": "allow",
+          "rg *": "allow",
+          "grep *": "allow"
+        },
+        "webfetch": "ask"
+      }
+    },
+    "designer": {
+      "model": "@roles/multimodal",
+      "permission": {
+        "edit": "allow",
+        "bash": "ask"
+      }
+    },
+    "mobile": {
+      "model": "@roles/expert",
+      "permission": {
+        "edit": "allow",
+        "bash": "ask"
+      }
+    },
+    "atlas": {
+      "model": "@roles/expert",
+      "permission": {
+        "edit": "allow",
+        "bash": "ask",
+        "webfetch": "allow"
+      }
+    },
+    "beacon": {
+      "model": "@roles/expert",
+      "permission": {
+        "edit": "allow",
+        "bash": "ask",
+        "webfetch": "allow"
+      }
+    },
+    "crawler": {
+      "model": "@roles/expert",
+      "permission": {
+        "edit": "allow",
+        "bash": "ask",
+        "webfetch": "allow"
+      }
+    },
+    "echo": {
+      "model": "@roles/intermediate",
+      "permission": {
+        "edit": "allow",
+        "bash": "ask"
+      }
+    },
+    "pulse": {
+      "model": "@roles/intermediate",
+      "permission": {
+        "edit": "allow",
+        "bash": "ask"
+      }
+    },
+    "sage": {
+      "model": "@roles/expert",
+      "permission": {
+        "edit": "allow",
+        "bash": "ask",
+        "webfetch": "allow"
+      }
+    },
+    "scribe": {
+      "model": "@roles/intermediate",
+      "permission": {
+        "edit": "allow",
+        "bash": "ask"
+      }
+    },
+    "spark": {
+      "model": "@roles/cli",
+      "permission": {
+        "edit": "allow",
+        "bash": {
+          "*": "ask",
+          "git add *": "allow",
+          "git commit *": "allow",
+          "git push *": "allow",
+          "git status *": "allow",
+          "git diff*": "allow",
+          "git log *": "allow",
+          "ls *": "allow",
+          "pwd": "allow"
+        }
+      }
+    },
+    "tester": {
+      "model": "@roles/expert",
+      "permission": {
+        "edit": "allow",
+        "bash": {
+          "yarn test *": "allow",
+          "npm test *": "allow",
+          "jest *": "allow",
+          "vitest *": "allow",
+          "pytest *": "allow",
+          "git diff*": "allow",
+          "git status *": "allow"
+        }
+      }
+    },
+    "vision": {
+      "model": "@roles/multimodal",
+      "permission": {
+        "edit": "deny",
+        "bash": "ask"
+      }
+    },
+    "security": {
+      "model": "@roles/expert",
+      "permission": {
+        "edit": "deny",
+        "bash": {
+          "*": "deny",
+          "npm audit *": "allow",
+          "yarn audit *": "allow",
+          "npx audit *": "allow",
+          "rg *": "allow",
+          "grep *": "allow",
+          "find *": "allow",
+          "ls *": "allow",
+          "pwd": "allow",
+          "head *": "allow",
+          "tail *": "allow",
+          "wc *": "allow",
+          "cat *": "allow",
+          "curl *": "allow",
+          "jq *": "allow",
+          "nmap *": "allow",
+          "ffuf *": "allow",
+          "nuclei *": "allow",
+          "semgrep *": "allow",
+          "trivy *": "allow",
+          "gitleaks *": "allow",
+          "git log *": "allow",
+          "git status *": "allow",
+          "git diff*": "allow",
+          "git show *": "allow",
+          "date*": "allow",
+          "sudo *": "deny",
+          "su *": "deny",
+          "doas *": "deny",
+          "rm *": "deny",
+          "kill *": "deny"
+        },
+        "webfetch": "allow"
+      }
+    },
+    "cybersec": {
+      "model": "@roles/expert",
+      "permission": {
+        "edit": "allow",
+        "bash": {
+          "*": "ask",
+          "nmap *": "allow",
+          "ffuf *": "allow",
+          "feroxbuster *": "allow",
+          "gobuster *": "allow",
+          "nuclei *": "allow",
+          "sqlmap *": "allow",
+          "curl *": "allow",
+          "python *": "allow",
+          "python3 *": "allow",
+          "*/python *": "allow",
+          "*/python3 *": "allow",
+          "pip *": "allow",
+          "pip3 *": "allow",
+          "*/pip *": "allow",
+          "*/pip3 *": "allow",
+          "ruby *": "allow",
+          "node *": "allow",
+          "npm *": "allow",
+          "npx *": "allow",
+          "docker *": "allow",
+          "kubectl *": "allow",
+          "semgrep *": "allow",
+          "trivy *": "allow",
+          "gitleaks *": "allow",
+          "git *": "allow",
+          "rg *": "allow",
+          "grep *": "allow",
+          "find *": "allow",
+          "ls *": "allow",
+          "pwd": "allow",
+          "head *": "allow",
+          "tail *": "allow",
+          "cat *": "allow",
+          "wc *": "allow",
+          "jq *": "allow",
+          "sed *": "allow",
+          "awk *": "allow",
+          "sort *": "allow",
+          "uniq *": "allow",
+          "tr *": "allow",
+          "echo *": "allow",
+          "date*": "allow",
+          "whoami": "allow",
+          "id": "allow",
+          "uname *": "allow",
+          "ifconfig": "allow",
+          "ip *": "allow",
+          "netstat *": "allow",
+          "ss *": "allow",
+          "lsof *": "allow",
+          "dig *": "allow",
+          "nslookup *": "allow",
+          "host *": "allow",
+          "openssl *": "allow",
+          "base64 *": "allow",
+          "xxd *": "allow",
+          "strings *": "allow",
+          "file *": "allow",
+          "ssh *": "ask",
+          "scp *": "ask",
+          "wget *": "allow",
+          "sudo *": "deny",
+          "su *": "deny",
+          "doas *": "deny",
+          "rm -rf /": "deny",
+          "mkfs *": "deny",
+          "dd *of=/dev/*": "deny"
+        },
+        "webfetch": "allow"
+      }
+    },
+    "aurora-heavy": {
+      "model": "@roles/multimodal",
+      "permission": {
+        "edit": "allow",
+        "bash": {
+          "*": "allow",
+          "git push *": "ask",
+          "git push --force*": "ask",
+          "watch *": "ask",
+          "env *": "ask",
+          "printenv*": "ask",
+          "curl *-X POST*": "ask",
+          "curl *--data*": "ask",
+          "curl *-d *": "ask",
+          "curl *-F *": "ask",
+          "curl *--upload-file*": "ask",
+          "curl *-T *": "ask",
+          "scp *": "ask",
+          "rsync *": "ask",
+          "wget *--post*": "ask",
+          "launchctl load*": "ask",
+          "launchctl bootstrap*": "ask",
+          "launchctl enable*": "ask",
+          "crontab *": "ask",
+          "defaults write*": "ask",
+          "chmod -R *": "ask",
+          "chown -R *": "ask",
+          "killall *": "ask",
+          "pkill *": "ask",
+          "sudo *": "deny",
+          "su *": "deny",
+          "doas *": "deny",
+          "rm -rf /*": "deny",
+          "rm -rf /": "deny",
+          "rm -rf /Users*": "deny",
+          "rm -rf ~*": "deny",
+          "rm -rf /var*": "deny",
+          "rm -rf /etc*": "deny",
+          "rm -rf /System*": "deny",
+          "rm -rf /Library*": "deny",
+          "find * -delete": "deny",
+          "find * -exec rm*": "deny",
+          "dd *of=/dev/*": "deny",
+          "diskutil eraseDisk*": "deny",
+          "diskutil eraseVolume*": "deny",
+          "diskutil reformat*": "deny",
+          "mkfs*": "deny",
+          "fdisk *": "deny"
+        },
+        "webfetch": "allow",
+        "external_directory": {
+          "*": "allow",
+          "/Library/*": "ask",
+          "/usr/local/*": "ask",
+          "/opt/homebrew/*": "ask",
+          "/etc/*": "ask",
+          "/private/etc/*": "ask",
+          "/var/log/*": "ask",
+          "/private/var/log/*": "ask",
+          "~/Library/Cookies/*": "ask",
+          "~/Library/Group Containers/*": "ask",
+          "/System/*": "deny",
+          "/private/etc/master.passwd": "deny",
+          "/etc/master.passwd": "deny",
+          "/private/var/db/dslocal/*": "deny",
+          "~/.ssh/*": "deny",
+          "~/.gnupg/*": "deny",
+          "~/.zshrc": "deny",
+          "~/.zshenv": "deny",
+          "~/.zprofile": "deny",
+          "~/.bash_profile": "deny",
+          "~/.config/opencode/brave-debug-profile/*": "deny",
+          "~/Library/Keychains/*": "deny",
+          "~/.aws/credentials": "deny",
+          "~/.aws/config": "deny",
+          "~/.kube/config": "deny",
+          "~/.docker/config.json": "deny",
+          "~/.netrc": "deny",
+          "~/.git-credentials": "deny",
+          "~/.config/opencode/.env*": "deny",
+          "~/.config/opencode/secrets/*": "deny"
+        }
+      }
+    },
+    "explorer": {},
+    "fixer": {},
+    "librarian": {},
+    "oracle": {},
+    "build": {
+      "model": "@roles/expert",
+      "permission": {
+        "edit": "allow",
+        "bash": {
+          "*": "ask",
+          "echo *": "allow",
+          "jq *": "allow",
+          "cat *": "allow",
+          "date*": "allow",
+          "date *": "allow",
+          "tr *": "allow",
+          "curl *": "allow",
+          "git add *": "allow",
+          "git branch --show-current": "allow",
+          "git checkout *": "allow",
+          "git commit *": "allow",
+          "git log *": "allow",
+          "git status *": "allow",
+          "git push *": "ask",
+          "git diff*": "allow",
+          "glab *": "allow",
+          "yarn test *": "allow",
+          "yarn build *": "allow",
+          "yarn lint *": "allow",
+          "yarn lint:fix *": "allow",
+          "npm run build *": "allow",
+          "rtk *": "allow",
+          "grep *": "allow",
+          "ls *": "allow",
+          "pwd": "allow",
+          "find *": "allow",
+          "cd *": "allow",
+          "cp *": "allow",
+          "mkdir *": "allow",
+          "zip *": "allow",
+          "head *": "allow",
+          "tail *": "allow",
+          "awk *": "allow",
+          "lsof *": "allow",
+          "awk *inplace*": "ask",
+          "awk *system*": "ask",
+          "sort *": "allow",
+          "uniq *": "allow",
+          "wc *": "allow",
+          "sed *": "allow",
+          "osascript *": "ask",
+          "xargs *": "ask",
+          "*-exec*": "allow",
+          "watch *": "ask",
+          "env *": "ask",
+          "sudo *": "deny",
+          "su *": "deny",
+          "doas *": "deny"
+        },
+        "webfetch": "ask",
+        "external_directory": {
+          "/tmp/*": "allow",
+          "/private/tmp/*": "allow"
+        }
+      }
+    },
+    "plan": {
+      "model": "@roles/expert"
+    }
+  },
+  "plugin": [
+    "oh-my-opencode-slim@3.0.4"
+  ],
+  "mcp": {
+    "context7": {
+      "type": "local",
+      "command": [
+        "node",
+        "{env:HOME}/.config/opencode/mcp-npm/node_modules/@upstash/context7-mcp/dist/index.js"
+      ],
+      "enabled": true,
+      "timeout": 30000
+    },
+    "chrome-devtools": {
+      "type": "local",
+      "command": [
+        "node",
+        "{env:HOME}/.config/opencode/mcp-npm/node_modules/chrome-devtools-mcp/build/src/bin/chrome-devtools-mcp.js",
+        "--headless",
+        "--isolated"
+      ],
+      "enabled": true,
+      "timeout": 30000
+    },
+    "browser-debug": {
+      "type": "local",
+      "command": [
+        "node",
+        "{env:HOME}/.config/opencode/mcp-npm/node_modules/chrome-devtools-mcp/build/src/bin/chrome-devtools-mcp.js",
+        "--browserUrl",
+        "http://127.0.0.1:9222"
+      ],
+      "enabled": true,
+      "timeout": 30000
+    },
+    "ios-simulator": {
+      "type": "local",
+      "command": [
+        "node",
+        "{env:HOME}/.config/opencode/mcp-npm/node_modules/ios-simulator-mcp/build/index.js"
+      ],
+      "enabled": true,
+      "timeout": 30000,
+      "env": {
+        "PATH": "{env:IDB_PATH}",
+        "IDB_UDID": "{env:IDB_UDID}"
+      }
+    },
+    "aurora-memory": {
+      "type": "local",
+      "command": [
+        "node",
+        "{env:HOME}/dev/aurora-core/services/aurora-memory/dist/index.mjs"
+      ],
+      "enabled": false,
+      "timeout": 30000
+    },
+    "servers": {
+      "browse": {
+        "type": "local",
+        "command": [
+          "{env:HOME}/.local/bin/browse",
+          "mcp"
+        ],
+        "cwd": "~",
+        "pool": true,
+        "environment": {
+          "OPENCODE_BROWSER_RUNTIME": "auto-update"
+        }
+      }
+    }
+  },
+  "lsp": true,
+  "permission": {
+    "external_directory": {
+      "*": "allow",
+      "/Library/*": "ask",
+      "/usr/local/*": "ask",
+      "/opt/homebrew/*": "ask",
+      "/etc/*": "ask",
+      "/private/etc/*": "ask",
+      "/var/log/*": "ask",
+      "/private/var/log/*": "ask",
+      "~/Library/Cookies/*": "ask",
+      "~/Library/Group Containers/*": "ask",
+      "/System/*": "deny",
+      "/private/etc/master.passwd": "deny",
+      "/etc/master.passwd": "deny",
+      "/private/var/db/dslocal/*": "deny",
+      "~/.ssh/*": "deny",
+      "~/.gnupg/*": "deny",
+      "~/Library/Keychains/*": "deny",
+      "~/.aws/credentials": "deny",
+      "~/.aws/config": "deny",
+      "~/.kube/config": "deny",
+      "~/.docker/config.json": "deny",
+      "~/.netrc": "deny",
+      "~/.git-credentials": "deny",
+      "~/.config/opencode/.env*": "deny",
+      "~/.config/opencode/secrets/*": "deny"
+    }
+  },
+  "experimental": {
+    "todo": true,
+    "background_compaction": true
+  }
+}

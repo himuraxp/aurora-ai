@@ -1,0 +1,36 @@
+# Conventional Commits guard on PR titles.
+# release-please derives the semver bump from commit subjects reaching main:
+# fix → patch, feat → minor, feat!/BREAKING CHANGE → major, while docs/chore/
+# test/refactor do not release. A non-conventional PR title is invisible to
+# that logic (or worse, misclassified), so titles are validated here.
+# Advisory CI check: make it mandatory by adding "Conventional Commits title"
+# to the required status checks of the main branch protection.
+name: Semantic PR title
+
+on:
+  pull_request:
+    types: [opened, edited, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-title:
+    name: Conventional Commits title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          # 100-char subject cap calibrated on this repo's real titles (max 77).
+          pattern='^(feat|fix|docs|chore|refactor|perf|test|build|ci|style|revert|release)(\(([a-z0-9][a-z0-9._/-]*)\))?!?: .{1,100}$'
+          if [[ ! "$TITLE" =~ $pattern ]]; then
+            echo "::error::PR title does not follow Conventional Commits: 'type(scope)?: subject'"
+            echo "  fix → patch release   e.g. fix(create-mr): resolve GitLab host fallback"
+            echo "  feat → minor release  e.g. feat(plugins): add antislop-hook plugin"
+            echo "  breaking → major      e.g. feat!:" 
+            echo "  docs/chore/refactor   no release"
+            exit 1
+          fi
+          echo "OK: $TITLE"

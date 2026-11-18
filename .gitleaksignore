@@ -1,0 +1,9 @@
+# Per-finding gitleaks ignores — each entry must reference the acceptance doc:
+# docs/SECURITY-ACCEPTANCE.md. Do not add entries for real credentials.
+# (Post history-rewrite 2026-11-18: pre-rewrite fingerprint entries removed,
+# the underlying Figma DS file_key historic copies are sanitized in history.)
+
+# design-qa test fixtures — fake Figma fileKey values, no secret
+skills/design-qa/tests/test_contract.py:generic-api-key:26
+skills/design-qa/tests/test_contract.py:generic-api-key:71
+skills/design-qa/tests/test_contract.py:generic-api-key:75

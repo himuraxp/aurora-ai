@@ -1,0 +1,27 @@
+{
+  "name": "aurora-ai",
+  "version": "1.17.0",
+  "description": "Aurora — Reference OpenCode configuration for production AI workflows",
+  "license": "MIT",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/himuraxp/aurora-ai.git"
+  },
+  "scripts": {
+    "setup": "bash scripts/setup.sh",
+    "update": "bash scripts/install.sh",
+    "configure-models": "bash scripts/configure-models.sh",
+    "prune": "bash scripts/install.sh --prune",
+    "dry-run": "bash scripts/install.sh --dry-run",
+    "init-project": "bash scripts/init-project.sh",
+    "sync": "bash scripts/sync-project.sh",
+    "health-check": "bash scripts/health-check.sh",
+    "test:product-authority": "node scripts/test-product-authority.mjs",
+    "test:antislop-hook": "node scripts/test-antislop-hook.mjs",
+    "test:opsec-gate": "node scripts/test-opsec-gate.mjs",
+    "mcp-lock": "python3 scripts/setup-mcp-lock.py",
+    "permissions": "bash scripts/permissions-matrix.sh",
+    "validate-memory": "bash scripts/validate-memory.sh"
+  }
+}

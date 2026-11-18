@@ -494,6 +494,17 @@ else
   if [[ -n "$FRESHNESS_NOTE" ]]; then
     warn "FRESHNESS: NON VÉRIFIÉE ($FRESHNESS_NOTE)"
   fi
+  # @roles resolution (generic-repo contract): repo agents and config are seeded
+  # with role placeholders; a live config left with unresolved seeds makes every
+  # agent invisible to the runtime. Resolve non-interactively after deployment.
+  if [[ "$DRY_RUN" == false && -f "$ROOT_DIR/scripts/configure-models.sh" ]] \
+     && { grep -q '"@roles/' "$TARGET_BASE/opencode.json" 2>/dev/null \
+          || grep -ql 'model: "@roles/' "$TARGET_BASE/agents/"*.md 2>/dev/null; }; then
+    ok "Resolving @roles seeds (configure-models --yes)..."
+    if ! "$ROOT_DIR/scripts/configure-models.sh" --yes --quiet; then
+      warn "configure-models failed — run $ROOT_DIR/scripts/configure-models.sh manually before restarting opencode"
+    fi
+  fi
   echo ""
   echo "  Next steps:"
   if [[ "${_UI_NPM_NEEDED:-false}" == true ]]; then

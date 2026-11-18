@@ -662,6 +662,53 @@ def apply_plan(plan: dict, policy: dict, live_cfg: dict, dry: bool) -> dict:
     return report
 
 
+def _reconcile_agent_seeds(plan: dict, policy: dict, dry: bool, backup_dir=None) -> list:
+    """Resolve `model: "@roles/<role>"` seeds in live agents/*.md for file-only agents.
+
+    File-only agents (council-*, meeting-* mirrors, product-owner) are absent
+    from opencode.json's agent section, so the policy loop never sees them;
+    their frontmatter seed itself declares the role to resolve. Runs on every
+    apply, like _reconcile_slim: install.sh re-seeds agents/*.md on each update.
+    """
+    role_model = {}
+    agents_policy = policy.get("agents") or {}
+    for name, e in (plan.get("agents") or {}).items():
+        role = agents_policy.get(name)
+        if not role:
+            continue
+        for ref in (e.get("new"), e.get("current")):
+            if ref and not ref.startswith("@roles/"):
+                role_model.setdefault(role, ref)
+                break
+    if not role_model or not os.path.isdir(LIVE_AGENTS):
+        return []
+    written = []
+    for fname in sorted(os.listdir(LIVE_AGENTS)):
+        if not fname.endswith(".md"):
+            continue
+        path = os.path.join(LIVE_AGENTS, fname)
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        m = re.search(r'^model:\s*"@roles/([A-Za-z0-9_-]+)"\s*$', text, re.M)
+        if not m:
+            continue
+        new = role_model.get(m.group(1))
+        if not new:
+            print(f"  ! {fname}: @roles/{m.group(1)} has no resolved model", file=sys.stderr)
+            continue
+        if dry:
+            print(f"  ~ {fname}: would resolve @roles/{m.group(1)} -> {new}")
+            continue
+        if backup_dir:
+            shutil.copy2(path, os.path.join(backup_dir, fname))
+        status = write_frontmatter(path, new)
+        if status == "updated":
+            written.append(path)
+        else:
+            print(f"  ! {fname}: {status}", file=sys.stderr)
+    return written
+
+
 def _reconcile_slim(plan: dict, policy: dict, dry: bool, backup_dir=None) -> list:
     """Resolve @roles/* model placeholders in the live oh-my-opencode-slim.json.
 
@@ -893,6 +940,7 @@ def main() -> int:
     if args.dry_run:
         apply_plan(plan, policy, live_cfg, dry=True)
         _reconcile_slim(plan, policy, dry=True)
+        _reconcile_agent_seeds(plan, policy, dry=True)
         return 0
 
     if issues:
@@ -911,6 +959,7 @@ def main() -> int:
     report = apply_plan(plan, policy, live_cfg, dry=False)
     save_state(plan, states, policy, dry=False)
     report["written"] += _reconcile_slim(plan, policy, dry=False, backup_dir=report["backup"])
+    report["written"] += _reconcile_agent_seeds(plan, policy, dry=False, backup_dir=report["backup"])
     print(f"\nBackup: {report['backup']}")
     print(f"Written: {len(report['written'])} file(s)")
     pending = [pid for pid, st in states.items() if st.get("auth") == "none"

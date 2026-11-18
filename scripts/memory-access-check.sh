@@ -102,12 +102,21 @@ if [[ "$CHECK_LIVE" == true ]]; then
         pass "bridge plugin: live identical to repo"
       else fail "bridge plugin: live differs — redeploy (cp config/plugins/aurora-memory.ts ~/.config/opencode/plugins/)"; fi
     else fail "bridge plugin missing in live: $LIVE_PLUGINS/aurora-memory.ts"; fi
+    # Repo agents are seeded with `@roles/*` placeholders (generic-repo contract);
+    # configure-models resolves them to concrete models in the live files. The
+    # model line therefore differs by design — compare everything else, and
+    # enforce that no unresolved seed survives in the live memory surface.
     for f in "$AGENTS_DIR"/*.md; do
       b=$(basename "$f")
+      # install_dir skips README.md (doc only, never deployed) — same contract here
+      [[ "$b" == "README.md" ]] && continue
       [[ -f "$LIVE_AGENTS/$b" ]] || { fail "live agents/$b missing"; continue; }
-      diff -q "$f" "$LIVE_AGENTS/$b" >/dev/null 2>&1 || fail "live agents/$b differs — redeploy"
+      diff <(grep -v '^model:' "$f") <(grep -v '^model:' "$LIVE_AGENTS/$b") >/dev/null 2>&1 \
+        || fail "live agents/$b differs (beyond model resolution) — redeploy"
+      grep -q 'model: "@roles/' "$LIVE_AGENTS/$b" \
+        && fail "live agents/$b has an unresolved @roles seed — run scripts/configure-models.sh"
     done
-    [[ $FAIL -eq 0 ]] && pass "live agent files identical to repo"
+    [[ $FAIL -eq 0 ]] && pass "live agents match repo (model line excluded, no unresolved @roles)"
   fi
 fi
 

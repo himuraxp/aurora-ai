@@ -24,6 +24,12 @@ séquence d'exécution.
 
 - **task-workflow Phase 3** (intégration principale) : au moment du plan,
   avant Phase 4 ;
+- **Feature large à construire** (page(s) complète(s), socle + UI) : le
+  point d'entrée amont est le skill **`feature-plan`** — il questionne la
+  structure des pages, fixe l'ordre de construction en couches (API →
+  modèles → services → store → routing → pages) et fournit le matériau de
+  découpage ; `mr-split` reste le moteur qu'il invoque (cette évaluation
+  inclut alors son rôle) ;
 - **À la demande** : « split en plusieurs MR », « découpe en lots » ;
 - **MR déjà ouverte trop grosse** : arbitrage humain (fermer/recréer en lots
   vs laisser telle quelle) — le skill est surtout **préventif** ; un split
@@ -172,6 +178,7 @@ skills ligne à ligne.
 | Skill | Relation |
 |---|---|
 | `task-workflow` | Integration principale : évaluation en Phase 3, 1 lot = 1 cycle (1 entrée de suivi par lot) |
+| `feature-plan` | Amont : feature-plan structure une feature large (pages, couches, validation de direction) et invoque mr-split pour le découpage ; ce skill reste le moteur (R1-R8, Batch Plan) |
 | `gitlab-feature-planner` | Amont produit (tableau d'estimation → issues) ; mr-split découpe **une tâche en lots de MR**. Si l'issue porte déjà les suggestions mrGroups du planner, elles servent d'**entrée** à l'évaluation (affinées : ordre, dépendances, lot final d'intégration, rythme) — au GO, le plan de lots mr-split prévaut, les mrGroups restent indicatifs |
 | `new-worktree` / `commit` / `pre-mr-review` / `create-mr` | Invariants inchangés, appliqués par lot |
 | Gate PO (tool `question`) | Le périmètre des lots = décision produit → validation humaine batchée, jamais silencieuse |

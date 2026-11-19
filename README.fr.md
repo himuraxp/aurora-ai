@@ -26,7 +26,7 @@ Les agents IA (OpenCode, Cursor, Claude...) ne savent pas quel standard utiliser
 **Ce que vous obtenez :**
 
 - **19 agents spécialisés + 4 agents plugin** — rôles ingénierie (reviewer, tester, security, architect, designer...), équipe Search & Growth et product owner délégué
-- **17 standards universels + 51 skills** — review adversariale, vérification, commits, et la suite accessibilité de 17 sous-skills
+- **17 standards universels + 52 skills** — review adversariale, vérification, commits, et la suite accessibilité de 17 sous-skills
 - **Noyau d'exécution en graphe (nouveau en v1.4.0)** — paquet Python stdlib `skills/graph_core/` : moteur de transitions, journal transactionnel, scheduler clôturé — piloté par RFC, 84 tests, en pilote shadow ; doc complète dans [docs/graph-engineering/](docs/graph-engineering/)
 - **Mémoire projet persistante** — 7 documents `docs/ai/` lus automatiquement en début de session : les agents gardent le contexte entre les sessions
 - **14 modèles avec fallback automatique** — contexte 250k → 1M, assignation des agents par coût
@@ -625,6 +625,7 @@ aurora-ai/
 │   ├── deployment-changelog/  Changelog de déploiement
 │   ├── design-qa/              QA de conformité design (Design Contract, boucle de convergence, gate fail-closed)
 │   ├── domain-language/        Glossaire du langage métier du projet (VALIDATED/CANDIDATE/AMBIGUOUS, extraction = proposition, canonique entre worktrees)
+│   ├── feature-plan/           Structure une feature large AVANT le dev (couches, lots, validation de direction)
 │   ├── gitlab-ci/             Interaction GitLab CI/CD (glab)
 │   ├── gitlab-feature-planner/  Issues GitLab depuis un tableau d'estimation + suggestions de regroupement MR
 │   ├── gitlab-issues/         Gestion des issues GitLab (glab)

@@ -900,6 +900,12 @@ if [[ -f "$ROOT_DIR/skills/feature-plan/SKILL.md" ]]; then
     && grep -q 'client HTTP' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
     && ok "feature-plan granularity documented (independent blocks, ~1 000-line diff ceiling, explicit infrastructure conventions)" \
     || fail "feature-plan must document independent-block granularity, the ~1 000-line diff ceiling and the explicit infrastructure conventions"
+  grep -q 'Contrat du lot socle' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && grep -q 'objet partiel' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && grep -q 'resolver' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && grep -q 'Fusion des concepts métier' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && ok "feature-plan foundation batch contract documented (infrastructure access, store actions, models, resolver init, business-object fusion)" \
+    || fail "feature-plan must document the foundation batch contract (infrastructure access, store actions, models, resolver init, business-object fusion)"
   grep -q 'mr-split' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
     && grep -q "fil de l.eau" "$ROOT_DIR/skills/feature-plan/SKILL.md" \
     && grep -q 'issue de tracking' "$ROOT_DIR/skills/feature-plan/SKILL.md" \

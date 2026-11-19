@@ -1,6 +1,6 @@
 ---
 name: feature-plan
-description: "Structure a LARGE feature BEFORE any development starts — page/layer structuring (never a 1:1 port of legacy pages), construction order by layers (API → models → services → store → routing → pages), independent-block batch decomposition delegated to mr-split (~1 000-line diff ceiling per MR), human direction validation (the team guides the structure — AI prepares, never decides), tracking issue materialization, then hand the first batch to task-workflow. Run before task-workflow when the scope is a complete page, several pages, a full migration, or any feature whose diff will be far above an ordinary review. Use when the user says 'feature-plan', 'planifie la feature', 'structure la feature', 'on part sur une grosse feature', 'nouvelle page complète avec socle', 'page complète', 'avant le task-workflow', 'structurer avant de dev', 'découpage feature', or when a task scope looks too large to execute in one task-workflow cycle."
+description: "Structure a LARGE feature BEFORE any development starts — page/layer structuring (never a 1:1 port of legacy pages; one business object = one model/store entry, view variations never duplicate the model), construction order by layers (API → models → services → store → routing → pages), independent-block batch decomposition delegated to mr-split (~1 000-line diff ceiling per MR), human direction validation (the team guides the structure — AI prepares, never decides), tracking issue materialization, then hand the first batch to task-workflow. Run before task-workflow when the scope is a complete page, several pages, a full migration, or any feature whose diff will be far above an ordinary review. Use when the user says 'feature-plan', 'planifie la feature', 'structure la feature', 'on part sur une grosse feature', 'nouvelle page complète avec socle', 'page complète', 'avant le task-workflow', 'structurer avant de dev', 'découpage feature', or when a task scope looks too large to execute in one task-workflow cycle."
 ---
 
 # Feature Plan — structurer une feature large AVANT de développer
@@ -22,9 +22,18 @@ les appliquer coûte alors très cher. Deux aggravateurs observés :
   évolution du socle entraîne l'UI entière — la mise à jour devient
   difficile et les évolutions nécessaires se figent ;
 - **Conventions de base non appliquées** : retours répétés sur
-  l'infrastructure d'accès (client HTTP, proxy) malgré une documentation du
-  projet à jour — la lecture passive des conventions ne suffit pas, le socle
-  doit les appliquer et les vérifier explicitement.
+  l'infrastructure d'accès (client HTTP, proxy, types de retour des
+  services) malgré une documentation du projet à jour — la lecture passive
+  des conventions ne suffit pas, le socle doit les appliquer et les
+  vérifier explicitement. Ce sont des défauts systématiques que la review
+  humaine attrape mais qu'une lecture automatique laisse passer — et ils
+  se répètent d'une migration à l'autre tant qu'ils ne sont pas dans le
+  contrat du socle ;
+- **Concepts métier dupliqués pour des variations de vue** : deux vues du
+  même objet métier modélisées comme deux modèles, deux ensembles d'actions
+  et deux champs de store distincts — dizaines de threads pour refusionner,
+  logique dupliquée partout ; les vues UI ne décident pas de la structure
+  du modèle.
 
 Cause racine : la structure a été décidée **pendant** le développement au
 lieu d'**avant** — et le guidage de la structure appartient à l'équipe, qui
@@ -75,10 +84,18 @@ d'accès au backend (client HTTP utilisé, proxy, gestion des erreurs) et les
 retours de review passés qui les concernent. Ces conventions entrent dans le
 contrat du lot socle et sont vérifiées item par item au développement — la
 lecture passive d'`AGENTS.md` ne suffit pas (retours répétés observés).
+Chaque retour de review récurrent sur des migrations passées devient une
+**règle du contrat socle** — pas un espoir de vigilance.
+
+**Contrat de l'API — lire avant de structurer** : ce que l'API fait déjà
+(tri, valeurs par défaut, comportement sur ressource manquante) n'est ni
+réimplémenté ni compensé côté front — connaître le contrat évite d'écrire
+de la logique défensive redondante et des vérifications que l'API garantit
+déjà.
 
 Sortie : le matériau de structuration — périmètre fonctionnel, zones de
-page, état du socle existant, conventions critiques, contraintes et
-dépendances.
+page, état du socle existant, conventions critiques, contrat API, contraintes
+et dépendances.
 
 ## Étape 2 — Structuration des pages (jamais un portage 1:1)
 
@@ -91,11 +108,16 @@ le plus coûteux à corriger plus tard :
    souvent des décisions historiques — ne pas les porter telles quelles sans
    raison ; identifier ce qui se réutilise, ce qui se refait proprement, ce
    qui est abandonné ;
-3. Délégation **Architect** si le découpage technique est complexe
+3. **Fusion des concepts métier** : plusieurs vues du même objet métier
+   (formulaire, réglages, mode d'affichage…) = **un** modèle, **une**
+   entrée de store, **un** ensemble d'actions — les vues se partagent
+   l'objet et se différencient au rendu ; dupliquer le modèle ou le store
+   par vue duplique toute la logique et coûte cher à refusionner ;
+4. Délégation **Architect** si le découpage technique est complexe
    (stores, resolvers, modèles partagés entre pages) ;
-4. Référence UI (Figma, capture) → produire le **Design Contract** du skill
+5. Référence UI (Figma, capture) → produire le **Design Contract** du skill
    `design-qa` dès cette étape (la QA de chaque lot le consommera) ;
-5. Questions produit (périmètre, priorités, parcours) → **gate humaine
+6. Questions produit (périmètre, priorités, parcours) → **gate humaine
    batchée** (Contexte / Options / Recommandation / Conséquences).
 
 ## Étape 3 — Ordre de construction en couches
@@ -121,12 +143,45 @@ Règles :
   précoces ; les pages ne s'écrivent pas avant que le socle soit reviewé ;
 - **Le lot final = intégration visible** (menu, routing exposé, retrait de
   l'ancien) — règle R4 de `mr-split`, inchangée ;
+- **Routing : initialisation par resolver, guards fail-closed** — le
+  chargement initial des données se déclenche au **resolver**, pas dans un
+  effect de composant ; les guards réutilisent les **selectors existants**
+  (un id se lit d'un seul endroit dans toute l'app, même clé de param pour
+  le même objet) et **refusent l'accès** quand un paramètre requis manque ;
+  leur fallback de redirection n'est **jamais la page qu'ils gardent**
+  (risque de boucle) ;
 - **Blocs indépendants, un par lot** : la granularité se joue à l'intérieur
   des couches — socle (modèles + services + store avec ses actions de base),
   page de base, puis actions supplémentaires, modales, etc. Chaque bloc est
   livré et reviewé indépendamment : une évolution ultérieure du socle ne
   traîne jamais l'UI entière. C'est `mr-split` qui tranche le découpage
   final.
+
+**Contrat du lot socle** — règles génériques à adapter au projet (extraites
+de retours de review récurrents sur des migrations comparables) :
+
+- *Infrastructure d'accès* : les services métier passent des **routes
+  métier** au client HTTP de l'app, qui gère seul le routage/proxy —
+  jamais de construction d'URL proxy dans un service ; les types de retour
+  respectent les génériques du client (un désaccord de type = signal d'un
+  code non vérifié contre le vrai contrat) ;
+- *Actions du store* : nommage sans ambiguïté (une action d'appel API ≠ un
+  patch d'état local — renommer si le nom prête à confusion) ; une action
+  de mise à jour accepte un **objet partiel** (pas de mise à jour clé par
+  clé) ; les notifications d'erreur/succès se gèrent **dans le store**
+  (une seule fois), pas dans chaque composant appelant ; pas d'état
+  redondant (une valeur déjà stockée n'est pas dupliquée dans un champ
+  séparé) ; l'id d'un objet créé se propage via l'action (objet complet
+  mis à jour), pas via un snapshot de store ;
+- *Modèles* : un concept métier = un modèle (cf. étape 2) ; réutiliser les
+  patterns utilitaires existants du repo plutôt que d'en réinventer des
+  parallèles ; zéro nombre magique — constantes métier nommées, valeurs
+  par défaut explicites ; vérifier l'existence d'un identifiant **avant**
+  de déclencher une action (jamais de valeur par défaut silencieuse) ;
+- *Fonctions* : une fonction appartient au service de son **domaine**, pas
+  au service qui l'utilise en premier ; une sélection sur grande liste
+  paginée est un composant autonome réutilisable, pas un chargement de
+  store.
 
 ## Étape 4 — Découpage en lots (moteur : mr-split)
 
@@ -155,7 +210,10 @@ Présenter **avant toute écriture de code** :
 3. Les **points de review de direction** prévus — au minimum un point après
    le lot socle (API + services + store reviewés avant d'écrire les pages) :
    un retour early sur le socle corrige la direction de tous les lots
-   suivants AVANT qu'ils soient écrits ;
+   suivants AVANT qu'ils soient écrits. Cette review socle se fait
+   **humainement, ligne par ligne**, ciblée sur services, modèles et store —
+   le cœur de la logique métier, et le type de défaut de contrat
+   (infrastructure, typage) qu'une lecture automatique laisse passer ;
 4. Les **chantiers à venir** connus de l'équipe — une structure se choisit
    en fonction de ce qui viendra après (évolutions attendues du socle,
    migrations suivantes) ; ce que l'IA ignore, l'équipe le fournit ici.
@@ -191,6 +249,14 @@ prévu — un retour structurant ne se noie pas dans une MR monolithique.
 - **Générer la structure seul** — l'IA prépare les options, l'équipe guide ;
   elle seule connaît les chantiers à venir qui pèsent sur la structure ;
 - **Porter 1:1 les pages existantes** sans questionner leur structure ;
+- **Dupliquer modèle/store pour des variations de vue** d'un même concept
+  métier — refusionner coûte ensuite des dizaines de threads ;
+- **Construire une URL proxy dans un service métier** — le client HTTP de
+  l'app gère le routage ; un désaccord de types de retour avec le client =
+  signal d'un socle non vérifié contre le vrai contrat ;
+- **Initialiser les données dans un effect de composant** — c'est le rôle
+  du resolver ; et un guard qui autorise l'accès sans son paramètre requis
+  ou qui redirige vers la page qu'il garde ;
 - **Écrire les pages avant que le socle soit reviewé** — les retours
   structurels arrivent alors trop tard ;
 - Découper par dossiers/fichiers au lieu de couches/unités fonctionnelles ;

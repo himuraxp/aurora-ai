@@ -906,6 +906,13 @@ if [[ -f "$ROOT_DIR/skills/feature-plan/SKILL.md" ]]; then
     && grep -q 'Fusion des concepts métier' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
     && ok "feature-plan foundation batch contract documented (infrastructure access, store actions, models, resolver init, business-object fusion)" \
     || fail "feature-plan must document the foundation batch contract (infrastructure access, store actions, models, resolver init, business-object fusion)"
+  grep -q 'cohérence fonctionnelle' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && grep -q 'unité de découpage' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && grep -q 'Découper/empiler par dossiers' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && grep -q 'Mode re-structuration' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && grep -q 'diff réel' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && ok "feature-plan block granularity documented (functional-coherence grouping, no folder bundles, real-diff re-structuring mode)" \
+    || fail "feature-plan must document functional-coherence block grouping and the real-diff re-structuring mode"
   grep -q 'mr-split' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
     && grep -q "fil de l.eau" "$ROOT_DIR/skills/feature-plan/SKILL.md" \
     && grep -q 'issue de tracking' "$ROOT_DIR/skills/feature-plan/SKILL.md" \

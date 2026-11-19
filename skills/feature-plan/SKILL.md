@@ -1,6 +1,6 @@
 ---
 name: feature-plan
-description: "Structure a LARGE feature BEFORE any development starts — page/layer structuring (never a 1:1 port of legacy pages; one business object = one model/store entry, view variations never duplicate the model), construction order by layers (API → models → services → store → routing → pages), independent-block batch decomposition delegated to mr-split (~1 000-line diff ceiling per MR), human direction validation (the team guides the structure — AI prepares, never decides), tracking issue materialization, then hand the first batch to task-workflow. Run before task-workflow when the scope is a complete page, several pages, a full migration, or any feature whose diff will be far above an ordinary review. Use when the user says 'feature-plan', 'planifie la feature', 'structure la feature', 'on part sur une grosse feature', 'nouvelle page complète avec socle', 'page complète', 'avant le task-workflow', 'structurer avant de dev', 'découpage feature', or when a task scope looks too large to execute in one task-workflow cycle."
+description: "Structure a LARGE feature BEFORE any development starts — page/layer structuring (never a 1:1 port of legacy pages; one business object = one model/store entry, view variations never duplicate the model), construction order by layers (API → models → services → store → routing → pages), independent-block batch decomposition delegated to mr-split (batches grouped by functional coherence, never by folder; ~1 000-line diff ceiling per MR), human direction validation (the team guides the structure — AI prepares, never decides), tracking issue materialization, then hand the first batch to task-workflow. Also re-structures an already-built oversized batch from its real diff (per-component stats, review feedback reintegrated per zone). Run before task-workflow when the scope is a complete page, several pages, a full migration, or any feature whose diff will be far above an ordinary review. Use when the user says 'feature-plan', 'planifie la feature', 'structure la feature', 'on part sur une grosse feature', 'nouvelle page complète avec socle', 'page complète', 'avant le task-workflow', 'structurer avant de dev', 'découpage feature', or when a task scope looks too large to execute in one task-workflow cycle."
 ---
 
 # Feature Plan — structurer une feature large AVANT de développer
@@ -49,7 +49,10 @@ des reviews régulières pour corriger la direction avant de diverger.
   lignes de diff par MR au maximum** (retour reviewer) ; au-delà, isoler des
   blocs indépendants ;
 - L'utilisateur demande explicitement : « planifie la feature », « structure
-  avant de dev », « avant le task-workflow ».
+  avant de dev », « avant le task-workflow » ;
+- Un **lot déjà développé** doit être re-découpé (MR ouverte, souvent déjà
+  reviewée) → mode re-structuration (étape 1 : diff réel, retours de review
+  réintégrés par zone).
 
 Petites tâches, pages simples, corrections localisées : **pas de
 feature-plan** — mono-MR par défaut (évaluation `mr-split` au besoin, en
@@ -92,6 +95,16 @@ Chaque retour de review récurrent sur des migrations passées devient une
 réimplémenté ni compensé côté front — connaître le contrat évite d'écrire
 de la logique défensive redondante et des vérifications que l'API garantit
 déjà.
+
+**Mode re-structuration — le lot existe déjà** : quand la structuration
+arrive APRÈS le développement (MR ouverte, souvent déjà reviewée),
+acquérir le **diff réel** de la MR existante — stats par zone/composant
+(tailles réelles par fichier, pas les estimations de la carte) et
+découpage calibré sur ces zones. Confronter carte/issue ↔ contenu réel :
+tout écart (bloc annoncé, absent du diff) est une **open question** portée
+à la gate, jamais une hypothèse. Les retours de review passés se
+réintègrent dans **le sous-lot de leur zone** — chaque sous-MR embarque
+les correctifs de son périmètre, le reviewer ne revoit pas tout.
 
 Sortie : le matériau de structuration — périmètre fonctionnel, zones de
 page, état du socle existant, conventions critiques, contrat API, contraintes
@@ -152,10 +165,24 @@ Règles :
   (risque de boucle) ;
 - **Blocs indépendants, un par lot** : la granularité se joue à l'intérieur
   des couches — socle (modèles + services + store avec ses actions de base),
-  page de base, puis actions supplémentaires, modales, etc. Chaque bloc est
-  livré et reviewé indépendamment : une évolution ultérieure du socle ne
-  traîne jamais l'UI entière. C'est `mr-split` qui tranche le découpage
-  final.
+  puis les blocs de la page, puis la page elle-même. Règles de granularité :
+  - chaque **bloc/composant d'une page est une unité de découpage
+    candidate** — il a sa valeur propre : testable isolément, réutilisable
+    par une autre MR ;
+  - le regroupement se fait **par cohérence fonctionnelle, jamais par
+    dossier** — un lot porte un thème de valeur (le cadre de page, la
+    chaîne vignette, les réglages du partage), jamais « les fichiers du
+    dossier X » ; un paquet de composants dans une seule MR est la MR
+    monolithique en petit ;
+  - la page finale ne fait qu'**assembler** des blocs déjà reviewés — sa
+    review porte sur le parcours, pas sur les composants ;
+  - garde-fou anti-micro (esprit R7 — pas de découpage excessif) : pas de
+    sous-lot isolé sous ~300 lignes quand il peut fusionner avec un
+    sous-lot voisin de même cohérence fonctionnelle.
+
+  Chaque bloc est livré et reviewé indépendamment : une évolution ultérieure
+  du socle ne traîne jamais l'UI entière. C'est `mr-split` qui tranche le
+  découpage final.
 
 **Contrat du lot socle** — règles génériques à adapter au projet (extraites
 de retours de review récurrents sur des migrations comparables) :
@@ -190,7 +217,7 @@ couches, zones de page, dépendances inter-couches. Les règles R1-R8, le
 format du Batch Plan, le rythme au fil de l'eau et le contrat d'issue de
 tracking restent la responsabilité de `mr-split` — ne pas les réécrire ici.
 
-Sortie : un **Batch Plan** (typiquement 4-6 lots au total — bornes R7 de
+Sortie : un **Batch Plan** (typiquement 3-6 lots au total — bornes R7 de
 `mr-split` — répartis en socle, routing, pages et intégration) + les points
 de review de direction.
 
@@ -203,7 +230,8 @@ venir et l'historique des décisions qui pèsent sur les choix structurants.
 Sur ce scope, la génération de code de bout en bout est interdite même quand
 le skill encadre : on structure ensemble, puis on développe lot par lot.
 
-Présenter **avant toute écriture de code** :
+Présenter **avant toute écriture de code** — ou, en mode re-structuration,
+avant le re-découpage en sous-MRs :
 
 1. La structure retenue (zones, réutilisations, refontes, portages refusés) ;
 2. L'ordre des couches et le plan de lots (Batch Plan) ;
@@ -248,6 +276,12 @@ prévu — un retour structurant ne se noie pas dans une MR monolithique.
   socle entraîne alors l'UI entière (inertie) ;
 - **Générer la structure seul** — l'IA prépare les options, l'équipe guide ;
   elle seule connaît les chantiers à venir qui pèsent sur la structure ;
+- **Découper/empiler par dossiers** — choisir les lots par fichiers/dossiers
+  (« les fichiers du dossier X ») ou empiler les blocs indépendants d'une
+  page dans une seule MR parce qu'ils vivent au même endroit ; les lots se
+  choisissent par **cohérence fonctionnelle** (couches et unités
+  fonctionnelles, un thème de valeur par lot) et la page finale n'assemble
+  que des blocs déjà reviewés ;
 - **Porter 1:1 les pages existantes** sans questionner leur structure ;
 - **Dupliquer modèle/store pour des variations de vue** d'un même concept
   métier — refusionner coûte ensuite des dizaines de threads ;
@@ -259,7 +293,6 @@ prévu — un retour structurant ne se noie pas dans une MR monolithique.
   ou qui redirige vers la page qu'il garde ;
 - **Écrire les pages avant que le socle soit reviewé** — les retours
   structurels arrivent alors trop tard ;
-- Découper par dossiers/fichiers au lieu de couches/unités fonctionnelles ;
 - Réécrire les règles de découpage au lieu d'invoquer `mr-split` ;
 - Ouvrir toutes les MRs en fin de course (voir rythme `mr-split`) ;
 - Imposer l'ordre des couches canonique sans l'ajuster aux conventions du

@@ -29,6 +29,7 @@ Objectif → [Aurora travaille] → artefact → brief → ChatGPT (navigateur r
 ## Prérequis (one-shot, avant la boucle)
 
 1. **MCP `browse`** : vérifier `browse_status` — relay connecté et navigateur pairé. browse pilote le **navigateur réel de l'utilisateur** : la session ChatGPT existante est directement disponible (pas de profil dédié, pas de double login).
+   - Tools `browse_*` inexistants (MCP non installé — binaire `~/.local/bin/browse` absent, ex. utilisateur frais du repo) → **repli `browser-debug` direct** (commande ci-dessous), sans demander l'installation de browse.
    - Relay non connecté → demander à l'utilisateur d'ouvrir/parer l'extension browse (suivre le `nextStep` de `browse_status`), puis re-vérifier une fois.
    - Extension toujours absente → **repli `browser-debug`** : lancer Brave en mode debug (commande ci-dessous), attendre ~5 s, re-vérifier `browser-debug_list_pages` ; travailler ensuite avec les tools `browser-debug_`. Seulement si ça échoue encore : donner la commande à l'utilisateur et attendre sa confirmation (c'est la seule interaction légitime pré-boucle).
 

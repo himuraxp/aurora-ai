@@ -70,9 +70,12 @@ branches/MR référencées, critères d'acceptation.
 repository, relatedUrls, attachments, discussions, requirements,
 acceptanceCriteria, constraints, openQuestions) enregistré dans l'état.
 
-Si l'extension browse n'est pas connectée (vérifier `browse_status`) :
-demander à l'utilisateur de connecter le relay browse, puis re-tenter une
-fois ; repli `browser-debug` (lancement Brave
+Si les tools `browse_*` sont inexistants (MCP non installé — binaire
+`~/.local/bin/browse` absent, ex. utilisateur frais du repo) → repli
+`browser-debug` direct, sans demander l'installation. Si l'extension browse
+n'est pas connectée (`browse_status`) : demander à l'utilisateur de connecter
+le relay browse, puis re-tenter une fois ; repli `browser-debug` (lancement
+Brave
 `--remote-debugging-port=9222 --user-data-dir=~/.config/opencode/brave-debug-profile`) ;
 échec → phase `BLOCKED` avec la cause, jamais de contenu inventé.
 

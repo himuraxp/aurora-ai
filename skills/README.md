@@ -77,7 +77,7 @@ Reusable skills for OpenCode. Each skill is a folder containing at least a `SKIL
 
 | Skill | Description |
 |-------|-------------|
-| `ai-cowork` | Aurora ↔ ChatGPT co-working: autonomous work loop via the `browser-debug` MCP (debug browser :9222) — ChatGPT briefs and validates (`VERDICT: ITERATE\|APPROVED`), Aurora works; negotiated veto on AGENTS.md rules, final report with conversation link |
+| `ai-cowork` | Aurora ↔ ChatGPT co-working: autonomous work loop via the `browse` MCP (real browser via browse extension; fallback `browser-debug` :9222) — ChatGPT briefs and validates (`VERDICT: ITERATE\|APPROVED`), Aurora works; negotiated veto on AGENTS.md rules, final report with conversation link |
 
 ### Configuration
 

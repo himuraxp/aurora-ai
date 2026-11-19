@@ -26,7 +26,7 @@ AI agents (OpenCode, Cursor, Claude...) don't know which standard to follow unle
 **What you get:**
 
 - **26 agent definitions + 4 plugin agents** — 19 core roles (reviewer, tester, security, architect, designer...), 4 Technical Council seats, 3 read-only meeting mirrors, a Search & Growth team and a delegated product owner; plus plugin agents (explorer, fixer, librarian, oracle)
-- **18 universal standards + 51 skills** — adversarial review, verification, commits, plus the 17-skill accessibility suite
+- **18 universal standards + 52 skills** — adversarial review, verification, commits, plus the 17-skill accessibility suite
 - **Execution graph core (new in v1.4.0)** — stdlib Python package `skills/graph_core/`: transition engine, transactional journal, fenced scheduler — spec-first (RFC), 84 tests, running as a shadow pilot; full docs in [docs/graph-engineering/](docs/graph-engineering/)
 - **Persistent project memory** — 7 `docs/ai/` documents auto-read at session start: agents keep context across sessions
 - **13-model catalogue (16 declared) with automatic fallback chains** — 80k → 256k context, cost-based agent assignment
@@ -626,6 +626,7 @@ aurora-ai/
 │   ├── deployment-changelog/  Deployment changelog
 │   ├── design-qa/              Design conformance QA (Design Contract, convergence loop, fail-closed gate)
 │   ├── domain-language/        Project ubiquitous-language glossary (VALIDATED/CANDIDATE/AMBIGUOUS, extraction = proposal, canonical across worktrees)
+│   ├── feature-plan/           Structure a large feature BEFORE dev (layers, batches, direction validation)
 │   ├── gitlab-ci/             GitLab CI/CD interaction (glab)
 │   ├── gitlab-feature-planner/  GitLab issues from an estimation table + MR grouping suggestions
 │   ├── gitlab-issues/         GitLab issue management (glab)

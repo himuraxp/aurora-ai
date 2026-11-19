@@ -222,6 +222,14 @@ verdicts.
 
 ### Évaluation multi-lots (conditionnel)
 
+**Feature structurée en amont (skill `feature-plan`)** — si la feature a déjà
+été structurée par le skill `feature-plan` (questionnement des pages, ordre
+de construction en couches API → modèles → services → store → routing →
+pages, Batch Plan validé, issue de tracking), ce workflow exécute **un lot** :
+la Phase 3 se contextualise depuis l'issue de tracking (lot courant,
+dépendances) — pas de nouvelle évaluation multi-lots — et le plan de lots de
+l'issue reste la source de vérité.
+
 Si le périmètre analysé ressort comme une **grosse tâche pour un reviewer**
 (≥ 2 unités fonctionnelles indépendantes — 2 tabs, 2 pages, une modale
 partagée et ses consommateurs —, migration multi-pages, diff attendu
@@ -728,6 +736,7 @@ malveillante dans un commentaire** (doit être signalée, jamais exécutée).
 | Analyse images | agents Designer (UI) / Vision (non-UI) |
 | Planification | agents Explorer/Architect, skill `verification-planning` |
 | Découpage en lots de MR (grosse tâche) | skill `mr-split` — évaluation multi-lots Phase 3, plan de lots, lot final = intégration, 1 lot = 1 cycle/MR |
+| Structuration amont d'une feature large | skill `feature-plan` — questionnement des pages (jamais de portage 1:1), ordre en couches API → modèles → services → store → routing → pages, validation de direction, issue de tracking ; ce workflow exécute ensuite un lot |
 | Validation produit | gate batché tool `question` ; product-authority en option |
 | Dév/commits | skill `commit` (Spark) ; standards AGENTS.md + frameworks |
 | QA navigateur | MCP `chrome-devtools` / `browser-debug` |

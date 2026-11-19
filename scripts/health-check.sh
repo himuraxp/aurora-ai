@@ -874,6 +874,51 @@ else
   fail "skills/mr-split/SKILL.md missing"
 fi
 
+# ─── Skill feature-plan (pre-workflow feature structuring) ───────────────────
+# Structuration d'une feature large AVANT le développement : questionnement
+# des pages (jamais de portage 1:1 des pages existantes), ordre de
+# construction en couches (API → modèles → services → store → routing →
+# pages — socle reviewé avant d'écrire les pages), découpage délégué au
+# moteur mr-split (aucune règle réimplémentée), validation de direction
+# humaine avant toute écriture de code, issue de tracking comme source de
+# vérité du plan, puis handoff du lot 1 à task-workflow.
+if [[ -f "$ROOT_DIR/skills/feature-plan/SKILL.md" ]]; then
+  grep -q '^name: feature-plan' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && ok "feature-plan skill present" \
+    || fail "feature-plan skill frontmatter invalid (name: feature-plan missing)"
+  ruby -ryaml -e "YAML.safe_load(File.read('$ROOT_DIR/skills/feature-plan/SKILL.md').split(/^---\n/)[1], permitted_classes: [], aliases: false)" \
+    && ok "feature-plan skill frontmatter valid YAML" \
+    || fail "feature-plan skill frontmatter invalid YAML"
+  grep -q 'API → modèles → services → store → routing → pages' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && grep -q 'portage 1:1' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && grep -q 'Le socle avant les pages' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && grep -q 'GO explicite requis' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && ok "feature-plan invariants documented (layer order, no 1:1 porting, foundation before pages, human direction gate)" \
+    || fail "feature-plan must document the layer order, the no-1:1-porting rule, the foundation-before-pages rule and the human direction gate"
+  grep -q 'blocs indépendants' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && grep -q '1 000' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && grep -q 'client HTTP' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && ok "feature-plan granularity documented (independent blocks, ~1 000-line diff ceiling, explicit infrastructure conventions)" \
+    || fail "feature-plan must document independent-block granularity, the ~1 000-line diff ceiling and the explicit infrastructure conventions"
+  grep -q 'Contrat du lot socle' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && grep -q 'objet partiel' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && grep -q 'resolver' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && grep -q 'Fusion des concepts métier' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && ok "feature-plan foundation batch contract documented (infrastructure access, store actions, models, resolver init, business-object fusion)" \
+    || fail "feature-plan must document the foundation batch contract (infrastructure access, store actions, models, resolver init, business-object fusion)"
+  grep -q 'mr-split' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && grep -q "fil de l.eau" "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && grep -q 'issue de tracking' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && ok "feature-plan delegates batch decomposition to mr-split (engine reused, tracking issue, incremental rhythm)" \
+    || fail "feature-plan must delegate batch decomposition to mr-split and reference the tracking issue and the incremental rhythm"
+  grep -q 'feature-plan' "$ROOT_DIR/skills/task-workflow/SKILL.md" \
+    && grep -q 'feature-plan' "$ROOT_DIR/skills/mr-split/SKILL.md" \
+    && ok "task-workflow and mr-split reference feature-plan (upstream structuring)" \
+    || fail "task-workflow and mr-split must document the feature-plan upstream relationship"
+else
+  fail "skills/feature-plan/SKILL.md missing"
+fi
+
 # ─── Skill create-staging (UI-driven staging provisioning) ───────────────────
 # Provisionnement piloté UI : config privée hors repo (zéro donnée interne
 # versionnée), réconciliation des variables pré-remplies par diff (jamais une

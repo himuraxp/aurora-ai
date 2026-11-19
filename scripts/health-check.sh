@@ -895,6 +895,11 @@ if [[ -f "$ROOT_DIR/skills/feature-plan/SKILL.md" ]]; then
     && grep -q 'GO explicite requis' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
     && ok "feature-plan invariants documented (layer order, no 1:1 porting, foundation before pages, human direction gate)" \
     || fail "feature-plan must document the layer order, the no-1:1-porting rule, the foundation-before-pages rule and the human direction gate"
+  grep -q 'blocs indépendants' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && grep -q '1 000' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && grep -q 'client HTTP' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
+    && ok "feature-plan granularity documented (independent blocks, ~1 000-line diff ceiling, explicit infrastructure conventions)" \
+    || fail "feature-plan must document independent-block granularity, the ~1 000-line diff ceiling and the explicit infrastructure conventions"
   grep -q 'mr-split' "$ROOT_DIR/skills/feature-plan/SKILL.md" \
     && grep -q "fil de l.eau" "$ROOT_DIR/skills/feature-plan/SKILL.md" \
     && grep -q 'issue de tracking' "$ROOT_DIR/skills/feature-plan/SKILL.md" \

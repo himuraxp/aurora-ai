@@ -1,6 +1,6 @@
 ---
 name: feature-plan
-description: "Structure a LARGE feature BEFORE any development starts — page/layer structuring (never a 1:1 port of legacy pages), construction order by layers (API → models → services → store → routing → pages), batch decomposition delegated to mr-split, human direction validation, tracking issue materialization, then hand the first batch to task-workflow. Run before task-workflow when the scope is a complete page, several pages, a full migration, or any feature whose diff will be far above an ordinary review. Use when the user says 'feature-plan', 'planifie la feature', 'structure la feature', 'on part sur une grosse feature', 'nouvelle page complète avec socle', 'page complète', 'avant le task-workflow', 'structurer avant de dev', 'découpage feature', or when a task scope looks too large to execute in one task-workflow cycle."
+description: "Structure a LARGE feature BEFORE any development starts — page/layer structuring (never a 1:1 port of legacy pages), construction order by layers (API → models → services → store → routing → pages), independent-block batch decomposition delegated to mr-split (~1 000-line diff ceiling per MR), human direction validation (the team guides the structure — AI prepares, never decides), tracking issue materialization, then hand the first batch to task-workflow. Run before task-workflow when the scope is a complete page, several pages, a full migration, or any feature whose diff will be far above an ordinary review. Use when the user says 'feature-plan', 'planifie la feature', 'structure la feature', 'on part sur une grosse feature', 'nouvelle page complète avec socle', 'page complète', 'avant le task-workflow', 'structurer avant de dev', 'découpage feature', or when a task scope looks too large to execute in one task-workflow cycle."
 ---
 
 # Feature Plan — structurer une feature large AVANT de développer
@@ -15,17 +15,30 @@ Leçon terrain (page complète d'une app admin livrée en une seule MR —
 modèles + services + store + routing + toutes les sections de page, ~6 000
 lignes, dizaines de threads de review) : la MR est inreviewable, et les
 retours structurels sur la logique métier arrivent quand tout est écrit —
-les appliquer coûte alors très cher. Cause racine : la structure a été
-décidée **pendant** le développement au lieu d'**avant**. Une feature large
-se traite comme une feature : le socle d'abord, les pages ensuite, et des
-reviews régulières pour corriger la direction avant de diverger.
+les appliquer coûte alors très cher. Deux aggravateurs observés :
+
+- **Inertie du socle livré avec l'UI** : quand le store, les modèles et les
+  services arrivent en même temps que tous les composants UI, chaque
+  évolution du socle entraîne l'UI entière — la mise à jour devient
+  difficile et les évolutions nécessaires se figent ;
+- **Conventions de base non appliquées** : retours répétés sur
+  l'infrastructure d'accès (client HTTP, proxy) malgré une documentation du
+  projet à jour — la lecture passive des conventions ne suffit pas, le socle
+  doit les appliquer et les vérifier explicitement.
+
+Cause racine : la structure a été décidée **pendant** le développement au
+lieu d'**avant** — et le guidage de la structure appartient à l'équipe, qui
+seule connaît les chantiers à venir. Une feature large se traite comme une
+feature : le socle d'abord, les pages ensuite, des blocs indépendants, et
+des reviews régulières pour corriger la direction avant de diverger.
 
 ## Quand déclencher
 
 - La tâche porte une **page complète à construire** (socle technique +
   UI), plusieurs pages, ou une migration d'app ;
-- Le diff attendu est nettement au-dessus d'une review ordinaire
-  (indicateur : feature dont l'ordre de grandeur dépasse ~600-1 000 lignes) ;
+- Le diff attendu dépasse la taille d'une review digeste — cible **~1 000
+  lignes de diff par MR au maximum** (retour reviewer) ; au-delà, isoler des
+  blocs indépendants ;
 - L'utilisateur demande explicitement : « planifie la feature », « structure
   avant de dev », « avant le task-workflow ».
 
@@ -57,8 +70,15 @@ existantes proches, ce qui existe déjà côté API/services/store
 (réutilisable ?), conventions du projet (`AGENTS.md`, framework applicable).
 Recherche codebase → délégation **Explorer**.
 
+**Conventions critiques du socle — relever explicitement** : l'infrastructure
+d'accès au backend (client HTTP utilisé, proxy, gestion des erreurs) et les
+retours de review passés qui les concernent. Ces conventions entrent dans le
+contrat du lot socle et sont vérifiées item par item au développement — la
+lecture passive d'`AGENTS.md` ne suffit pas (retours répétés observés).
+
 Sortie : le matériau de structuration — périmètre fonctionnel, zones de
-page, état du socle existant, contraintes et dépendances.
+page, état du socle existant, conventions critiques, contraintes et
+dépendances.
 
 ## Étape 2 — Structuration des pages (jamais un portage 1:1)
 
@@ -101,8 +121,12 @@ Règles :
   précoces ; les pages ne s'écrivent pas avant que le socle soit reviewé ;
 - **Le lot final = intégration visible** (menu, routing exposé, retrait de
   l'ancien) — règle R4 de `mr-split`, inchangée ;
-- Une couche peut devenir plusieurs lots (ex. une page à 4 sections = 4 lots
-  de pages après un lot socle commun) — c'est `mr-split` qui tranche.
+- **Blocs indépendants, un par lot** : la granularité se joue à l'intérieur
+  des couches — socle (modèles + services + store avec ses actions de base),
+  page de base, puis actions supplémentaires, modales, etc. Chaque bloc est
+  livré et reviewé indépendamment : une évolution ultérieure du socle ne
+  traîne jamais l'UI entière. C'est `mr-split` qui tranche le découpage
+  final.
 
 ## Étape 4 — Découpage en lots (moteur : mr-split)
 
@@ -117,6 +141,13 @@ de review de direction.
 
 ## Étape 5 — Validation de direction (gate humaine)
 
+**La structuration d'une feature large est un travail conjoint.** L'IA
+prépare la matière (options de structure, impacts, matériau de découpage) ;
+la **direction appartient à l'équipe** — elle seule connaît les chantiers à
+venir et l'historique des décisions qui pèsent sur les choix structurants.
+Sur ce scope, la génération de code de bout en bout est interdite même quand
+le skill encadre : on structure ensemble, puis on développe lot par lot.
+
 Présenter **avant toute écriture de code** :
 
 1. La structure retenue (zones, réutilisations, refontes, portages refusés) ;
@@ -124,7 +155,10 @@ Présenter **avant toute écriture de code** :
 3. Les **points de review de direction** prévus — au minimum un point après
    le lot socle (API + services + store reviewés avant d'écrire les pages) :
    un retour early sur le socle corrige la direction de tous les lots
-   suivants AVANT qu'ils soient écrits.
+   suivants AVANT qu'ils soient écrits ;
+4. Les **chantiers à venir** connus de l'équipe — une structure se choisit
+   en fonction de ce qui viendra après (évolutions attendues du socle,
+   migrations suivantes) ; ce que l'IA ignore, l'équipe le fournit ici.
 
 GO explicite requis. Périmètre ou ordre modifiés en cours de route → re-passe
 la gate (jamais de dérive silencieuse — contrat Batch Plan de `mr-split`).
@@ -151,7 +185,11 @@ prévu — un retour structurant ne se noie pas dans une MR monolithique.
 
 - **Tout développer d'un coup** — modèles + services + store + routing +
   toutes les sections d'une page dans une seule MR : l'anti-pattern central
-  que ce skill existe pour éviter ;
+  que ce skill existe pour éviter ; variante fréquente : livrer le socle
+  (store, modèles) avec TOUTE l'UI dans la même MR — chaque évolution du
+  socle entraîne alors l'UI entière (inertie) ;
+- **Générer la structure seul** — l'IA prépare les options, l'équipe guide ;
+  elle seule connaît les chantiers à venir qui pèsent sur la structure ;
 - **Porter 1:1 les pages existantes** sans questionner leur structure ;
 - **Écrire les pages avant que le socle soit reviewé** — les retours
   structurels arrivent alors trop tard ;

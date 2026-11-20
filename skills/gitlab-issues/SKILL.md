@@ -108,6 +108,59 @@ Additional information, links to related issues, or screenshots.
 (optional) Suggested approach if you have one.
 ```
 
+The template is a skeleton, not a license for walls of text — every section must pass the [Readability Rules](#readability-rules-write-for-humans) below. For multi-page or migration work, use the [Feature / Migration Issue](#feature--migration-issue) pattern instead of the Summary/Details skeleton.
+
+## Readability Rules (write for humans)
+
+Issues are read by humans scanning a page, not reading every word. The **30-second test**: a reader must capture scope, delivery plan and risks without reading the full body. If a section requires full reading, restructure it.
+
+1. **One bullet = one idea, max 2 rendered lines.** A bullet that packs several endpoints, guards, or problems into one flowing sentence is a wall of text — split it into sub-bullets or a table. A tight enumeration of closely related facets (an MR title listing its deliverables) is fine; a sentence is not.
+2. **Never put tabular data in prose.** Route mappings (source → target), API endpoints, config flags, UI columns, before/after paths → Markdown table. Prose hides structure; tables expose it.
+3. **Sub-sections (`###`) when a section covers 3+ distinct axes** (e.g. routing, API, store, UI are four axes — four sub-sections, not four giant bullets).
+4. **Checklists (`- [ ]`) for anything actionable** — GitLab renders native progress ("3 of 8"), which is the point of a scope section. Plain bullets for informative content only. Validation conditions (acceptance criteria) also stay plain bullets — progress belongs to work items, not validation conditions. Suggestions (e.g. optional MR groupings) are never checkboxes.
+5. **`<details><summary>` for exhaustive content** — full route dumps, code excerpts, diagnostics. The body stays scannable; the noise is collapsed but still there.
+6. **Bold as an anchor, at the start**: `**Guard behavior**: redirect when …` — one anchor per bullet, never bold sprinkled through flowing sentences.
+7. **Inverted pyramid**: each section states what and why in its first line, details after. The reader who stops at line 1 of each section still gets the picture.
+
+### Before / After
+
+❌ Before — the anti-pattern: one bullet hiding a table (five endpoints invisible), a bug buried mid-sentence (the simulated delete), and an unrelated concern mixed in (the upload):
+
+```markdown
+2. **Service layer** (`HttpService` + params): `GET items/{id}` (details), `GET collections/{id}/views`, `GET/POST/DELETE items/{id}/shares` (bulk DELETE with body `{shares: ids}`), `GET/PUT/DELETE shares/{shareId}`; thumbnail upload (`POST items/{id}`) — and the bulk delete only simulates removal with a 5s timeout, needs backend confirmation.
+```
+
+✅ After — table for the endpoints, one idea per line:
+
+```markdown
+### Service layer
+
+Proxy endpoints:
+
+| Endpoint | Usage |
+|----------|-------|
+| `GET items/{id}` | Item details |
+| `GET collections/{id}/views` | Available views |
+| `GET/POST/DELETE items/{id}/shares` | Shares (bulk DELETE, body `{shares: ids}`) |
+| `GET/PUT/DELETE shares/{shareId}` | Single share |
+| `POST items/{id}` | Thumbnail upload |
+
+Points of attention:
+- Bulk delete simulates removal with a 5s timeout — needs backend confirmation
+```
+
+### Pre-creation checklist
+
+Run before `glab issue create` / `glab issue update`:
+
+- [ ] Every bullet ≤ 2 rendered lines, one idea each
+- [ ] All structured data (endpoints, routes, flags, columns) in tables
+- [ ] Sections spanning 3+ axes split into `###` sub-sections
+- [ ] Actionable scope as checklist; informative notes as plain bullets
+- [ ] Exhaustive dumps wrapped in `<details>`
+- [ ] Bold anchors at bullet start only, never mid-sentence
+- [ ] First line of each section carries the message
+
 ## Updating Issues
 
 ```bash
@@ -180,6 +233,7 @@ glab issue update 124 --label "in-progress"
 
 ## Guidelines
 
+- **Write for scanning**: short bullets, tables for structured data, sub-sections for multi-axis sections, checklists for actionable work (see Readability Rules)
 - **Use descriptive titles**: Clear titles help with search and scanning
 - **Label consistently**: Use established labels for categorization
 - **Reference related work**: Link to MRs, other issues, and documentation
@@ -236,4 +290,69 @@ EOF
 )" \
   --label "enhancement" \
   --label "frontend"
+```
+
+### Feature / Migration Issue
+
+Multi-page or migration work: routes in a table, delivery as checklists, risks as one-idea bullets. This shape is for **hand-authored** issues — issues produced by `gitlab-feature-planner` keep the planner draft format. Match the project's issue language (headings below are English; many projects write their issues in French).
+
+```bash
+glab issue create \
+  --title "feat(shop): Migrate product and catalog pages from the legacy app" \
+  --description "$(cat <<'EOF'
+## Context
+
+Migration of the catalog pages from the legacy manager: 3 pages share most of
+their components and will be rebuilt around one **reusable** component.
+
+| Route (source) | Route (target) |
+|----------------|----------------|
+| `/legacy/catalog/list` | `/catalog/list` |
+| `/legacy/catalog/product[/{id}]` | `/catalog/product[/{id}]` |
+| `/legacy/catalog/share[/{id}]` | `/catalog/share[/{id}]` |
+
+## Scope
+
+What this issue covers, by axis:
+
+### Routing & guards
+- [ ] Routes under `catalog/` + guard redirecting to the catalog when the product is missing
+- [ ] Breadcrumbs: catalog → product → page
+
+### Service API
+- [ ] Proxy endpoints:
+
+| Endpoint | Usage |
+|----------|-------|
+| `GET items/{id}` | Item details |
+| `GET/POST/DELETE items/{id}/shares` | Shares (bulk DELETE, body `{shares: ids}`) |
+| `GET/PUT/DELETE shares/{shareId}` | Single share |
+
+- [ ] Thumbnail upload
+
+### Pages
+- [ ] List page: modern table with server-side pagination
+- [ ] List page: bulk selection and actions
+- [ ] Edit page: reusable component, mode driven by share type
+
+## Delivery plan
+
+Shipped as stacked MR batches, merged in order 1 → 2:
+
+- [ ] **MR 1 — Scaffolding + list page**: routing, guards, service, models
+- [ ] **MR 2 — Edit page**: reusable component + dialogs
+
+## Watch-outs
+
+- Legacy endpoints have no v3 equivalent yet — keep the proxy
+- Entity named `album` in legacy URLs, `gallery` in the target app — same ID
+- The dashboard still points to the legacy pages — coordinate the switch at release
+
+## References
+
+- Legacy sources: `apps/legacy/src/modules/gallery/`
+- Reference MR of a similar migration: !123
+EOF
+)" \
+  --label "enhancement"
 ```

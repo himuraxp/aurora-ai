@@ -390,7 +390,7 @@ Traitement des retours :
 
 ### Step 9 — Création des issues (seulement)
 
-Dans l'ordre des dépendances (composants/infra d'abord, puis pages). Le **corps du draft prime** : le skill `gitlab-issues` fournit uniquement les conventions CLI (flags, labels, cross-références) — ne pas lui emprunter son format de description (Summary/Details) au risque de mixer les styles.
+Dans l'ordre des dépendances (composants/infra d'abord, puis pages). Le **corps du draft prime** : le skill `gitlab-issues` fournit uniquement les conventions CLI (flags, labels, cross-références) — ne pas lui emprunter ses formats de description (Summary/Details ni le pattern Feature/Migration) au risque de mixer les styles. Divergence assumée : les regroupements MR du planner sont des **suggestions** (puces simples, jamais de checkbox), la checklist de livraison d'une issue hand-authored est du **travail plané** (checkboxes, progression GitLab native).
 
 **API** : préférer `glab api` avec l'**ID numérique** du project registry (`glab api "projects/1001/issues" -f title=... -f description=... -f labels=feature::podcast`) — voir *Project resolution* pour les pièges d'encodage des paths.
 

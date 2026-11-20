@@ -292,9 +292,10 @@ jamais inventé) :
 1. le diff modifie des fichiers UI ;
 2. une URL capturable est identifiable (fournie dans le prompt, la carte
    Trello/l'issue, ou un dev server local en cours) ;
-3. un navigateur est capturable : MCP `browser-debug` (navigateur réel,
-   port 9222, sessions/auth disponibles) en priorité, sinon MCP
-   `chrome-devtools` (navigateur headless isolé).
+3. un navigateur est capturable : MCP `browse` (navigateur réel de
+   l'utilisateur via extension — sessions/auth disponibles) en priorité,
+   sinon MCP `browser-debug` (port 9222), sinon MCP `chrome-devtools`
+   (navigateur headless isolé).
 
 **Captures** :
 
@@ -370,7 +371,7 @@ retomber silencieusement sur le template brut.
 **Règle anti-image (orchestrateur text-only)** : l'orchestrateur ne lit
 JAMAIS un fichier image — pas de `read` sur une capture (erreur
 `this model does not support image input`, observée en conditions réelles).
-Les captures sont produites par les MCP navigateur (browser-debug /
+Les captures sont produites par les MCP navigateur (browse / browser-debug /
 chrome-devtools), uploadées via `upload_media.sh` sans être ouvertes, et
 toute vérification visuelle d'une capture est déléguée à un agent
 multimodal (Designer / Vision).

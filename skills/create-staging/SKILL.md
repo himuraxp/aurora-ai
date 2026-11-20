@@ -61,7 +61,7 @@ l'état, les preuves par niveau et le digest des variables.
 
 ## Procédure
 
-1. **Config** — lire la config privée ; résoudre l'adapter (navigateur debug).
+1. **Config** — lire la config privée ; résoudre l'adapter (navigateur piloté — browse, repli browser-debug).
 2. **Résolution de l'entrée** — branche seule = repo courant ; URL MR = API
    GitLab (`source_branch`, `target_branch`, état opened) via preflight token.
    Vérifier : MR non ambiguë, branche source exacte, repo identifié.
@@ -127,7 +127,7 @@ l'état, les preuves par niveau et le digest des variables.
 ## Patterns de pilotage UI (fragiles, éprouvés)
 
 - Dropdowns/menus : le clic DOM émulé déclenche le listener click-outside et
-  referme instantanément → **clic natif** (tool browser-debug) uniquement.
+  referme instantanément → **clic natif** (tool browse) uniquement.
 - Options des dialogs de sélection de branche : absentes du snapshot
   d'accessibilité → localiser par texte dans le dialog puis clic DOM natif sur
   l'élément option.

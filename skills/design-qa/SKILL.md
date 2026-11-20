@@ -80,8 +80,8 @@ du code exacte — ne trouve plus rien de bloquant.
 
 Ordre : 1) API Figma (`FIGMA_TOKEN` déjà configuré — pas de MCP Figma dans
 l'environnement), 2) image/ressource déjà acquise, 3) en cas de **quota
-Figma bloquant (429 + Retry-After long)** → repli `browser-debug` avec
-session authentifiée (procédure ci-dessous), 4) à défaut seulement :
+Figma bloquant (429 + Retry-After long)** → repli navigateur authentifié
+(`browse` en priorité, repli `browser-debug`) (procédure ci-dessous), 4) à défaut seulement :
 valeurs `estimated` par Designer — jamais d'invention.
 
 **URL Figma** → parser avec `dq_contract.py parse-figma-url <url>`
@@ -97,13 +97,14 @@ Puis deux lectures API :
   à télécharger dans le dossier de preuves (endpoint standard non wrappé par
   l'outil de l'overlay → appel REST direct, même pattern de résilience 429).
 
-**Repli quota → browser-debug** : un gating Figma n'est pas une fin de
+**Repli quota → navigateur authentifié** : un gating Figma n'est pas une fin de
 course — la maquette reste lisible dans le navigateur. Un 429 avec
 Retry-After long (quota plan, pas un burst) déclenche la bascule :
 
-1. `browser-debug` (profil Brave debug :9222 — même prérequis que Trello),
+1. `browse` (navigateur réel de l'utilisateur via extension ; repli
+   `browser-debug`, profil Brave debug :9222 — même prérequis que Trello),
    navigation vers `https://figma.com/file/<fileKey>?node-id=<nodeId>`.
-2. Session Figma absente du profil → demander la connexion à l'utilisateur
+2. Session Figma absente → demander la connexion à l'utilisateur
    (une fois, même pattern que Trello/ChatGPT), puis reprendre.
 3. Capturer la frame dans le dossier de preuves : canvas zoom 100 % (+ zones
    clés) et panneau Inspect. Ces captures **remplacent le PNG API** comme
@@ -117,7 +118,7 @@ Retry-After long (quota plan, pas un burst) déclenche la bascule :
    d'invention (règle 2 ci-dessus).
 5. Traçabilité : le repli est une **limitation externe** (section rapport) ;
    en mode intégré task-workflow, l'incident est journalisé (429, repli
-   browser-debug). Navigateur indisponible et assistance refusée → rester
+   navigateur). Navigateur indisponible et assistance refusée → rester
    en `estimated` (dégradation assumée, jamais un `PASSED` sur des valeurs
    inventées).
 
@@ -170,8 +171,8 @@ développement ; il vit à côté de l'état
 
 ## Étape 3 — Capture de l'interface réelle
 
-MCP `chrome-devtools` (headless isolé) ; `browser-debug` si auth/session
-requise. Conditions **reproductibles et identiques entre itérations** :
+MCP `chrome-devtools` (headless isolé) ; `browse` si auth/session
+requise (repli : `browser-debug` port 9222). Conditions **reproductibles et identiques entre itérations** :
 `resize_page` au viewport du contrat, même thème/langue/zoom, même DPR,
 polices et images chargées, animations stabilisées, données cohérentes
 (`emulate` pour device/thème si utile), même état fonctionnel.
@@ -500,7 +501,7 @@ limitation externe visible dans le rapport, waived en décisions PO, CLI
 (loop e2e : history-append → reconcile → gate), compatibilité task-workflow
 (v1 states valides, runId `tw-*` accepté).
 Comportementaux (pilotage réel documenté) : frame Figma accessible, capture
-Trello en référence, fallback browser-debug, structure HTML incorrecte,
+Trello en référence, fallback navigateur (browse puis browser-debug), structure HTML incorrecte,
 état responsive, boucle de convergence réelle sur une page, reprise après
 interruption, migration d'état task-workflow.
 
@@ -511,7 +512,7 @@ interruption, migration d'état task-workflow.
 | Valeurs Figma exactes + image de référence | API Figma REST (`FIGMA_TOKEN`), pattern et résilience de l'outil de capture (overlay privé) |
 | DS privé (mapping, tokens, composants) | outil de sync de l'overlay (snapshots + mapping.json) + MCP `angular-elements` |
 | Analyse sémantique d'images UI | agent **Designer** (mode DS privé si applicable) ; **Vision** si référence non-UI |
-| Capture + métriques DOM | MCP `chrome-devtools` / `browser-debug` |
+| Capture + métriques DOM | MCP `chrome-devtools` / `browse` / `browser-debug` |
 | Diff visuel | ImageMagick `compare` (installé — **aucune nouvelle dépendance**) |
 | Gate, état, reprise (mode intégré) | `task-workflow` + `dq_contract.py` |
 | Correction de code | agents Fixer/standard workflow (mode Fix) |
@@ -520,7 +521,7 @@ interruption, migration d'état task-workflow.
 
 - Sans quota API Figma **et** repli browser indisponible (Étape 1, point 5)
   → valeurs estimées par Designer uniquement, `confidence: estimated`
-  (dégradation tracée — le repli browser-debug est à tenter d'abord).
+  (dégradation tracée — le repli navigateur est à tenter d'abord).
 - Une image seule ne donne pas de mesures exactes — la comparaison
   technique est alors limitée aux ratios et à la sémantique.
 - Le diff pixel suppose même rendu navigateur/zoom/DPR — conditions de
